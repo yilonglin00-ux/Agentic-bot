@@ -8,7 +8,8 @@
 >
 > Kurvennamen aus [04](04-bewegungssprache.md), Kanalnamen und Grenzen aus
 > [03](03-rig-und-animation.md), Prioritätsstufen aus [06](06-interaktion-und-verhalten.md).
-> Ein **✚** markiert Animationen, die einen der acht noch fehlenden Rig-Kanäle brauchen.
+> Ein **▶** markiert Animationen, die in `noki.html` bereits laufen (Stufe 1).
+> Ein **✚** markiert Animationen, die einen noch fehlenden Rig-Kanal brauchen.
 
 ---
 
@@ -16,25 +17,25 @@
 
 Immer genau einer davon aktiv. Sie laufen unter allem anderen weiter.
 
-**A1 · Atem-Idle**
+**A1 · Atem-Idle** ▶
 Der Normalzustand im Stehen. Körper hebt und senkt sich, die Stauchung läuft gegenphasig, die
 Arme schwingen seitenverkehrt mit. Darüber liegen Blinzeln, Blickwandern und Gewichtsverlagerung.
 *Auslöser:* dauerhaft, sobald Noki steht — *Gefühl:* Anwesenheit, Ruhe
 `Zyklus 5.5 s · weich · koerper.y ±0.0062, koerper.stauchung ±0.013, arme ±0.016 gegenläufig · Prio 0 · läuft immer`
 
-**A2 · Sitz-Idle** ✚
+**A2 · Sitz-Idle** ▶
 Noki sitzt, Beine nach vorn, Arme stützen locker seitlich. Deutlich ruhiger als A1 — man muss
 den Unterschied hören können, ohne die Pose zu sehen.
 *Auslöser:* nach 90 s ohne Interaktion, oder wenn eine Aufgabe länger als 30 s läuft — *Gefühl:* Gelassenheit
 `Zyklus 7.4 s · weich · wie A1 mit halber Amplitude, knie 0.85 rad, kopf.nicken −0.06 · Prio 0 · läuft immer`
 
-**A3 · Dösen**
+**A3 · Dösen** ▶
 Die Lider sinken, der Glimm dimmt, alles verlangsamt sich. Kein Umschalten — die Ermüdungsregel
 lässt die Werte gleiten.
 *Auslöser:* 4 min ohne Interaktion — *Gefühl:* Müdigkeit, Geborgenheit
 `Übergang 2.0 s · träge · lid 0.60, glimm 0.55, atem 0.55, kopf.nicken +0.12 · Prio 0 · läuft immer`
 
-**A4 · Schlaf**
+**A4 · Schlaf** ▶
 Die Augen sind zu einem waagerechten Strich gestaucht, der Glimm pulsiert langsam weiter. Noki
 ist nicht ausgeschaltet — er schläft.
 *Auslöser:* 15 min ohne Interaktion — *Gefühl:* Zufriedenheit, Vertrauen
@@ -47,31 +48,31 @@ ist nicht ausgeschaltet — er schläft.
 Bewegungen mit Anfang und Ende, alle 20–40 s gezogen. Die Anti-Wiederholungsregel aus
 [06](06-interaktion-und-verhalten.md) merkt sich die letzten drei.
 
-**B1 · Umsehen**
+**B1 · Umsehen** ▶
 Der Kopf dreht sich langsam zur Seite, der Blick läuft voraus, der Körper folgt minimal
 gegenläufig. Die häufigste Einlage.
 *Auslöser:* Idle-Ziehung — *Gefühl:* Wachheit, Interesse an der Umgebung
 `2.4 s · weich · kopf.drehen ±0.28, blick führt 90 %, koerper Gegenbewegung 15 % · Prio 1 · ja`
 
-**B2 · Gewicht verlagern** ✚
+**B2 · Gewicht verlagern** ▶
 Verlagerung von einem Bein aufs andere, mit leichtem Rollen des Rumpfs. Winzig, aber die
 wirksamste Einzelbewegung gegen den Eindruck einer aufgestellten Figur.
 *Auslöser:* alle 8–14 s automatisch, nicht Teil der Ziehung — *Gefühl:* Körperlichkeit
 `1.8 s · weich · koerper.x ±0.012, koerper.rollen ±0.03, knie wechselseitig 0.12 · Prio 1 · ja`
 
-**B3 · Antenne schütteln**
+**B3 · Antenne schütteln** ▶
 Ein kurzes, schnelles Kopfschütteln, nur damit die Antenne ausschwingt — als wolle er sie
 zurechtrücken. Sein persönlichster Tick.
 *Auslöser:* Idle-Ziehung, erhöhte Wahrscheinlichkeit bei guter Stimmung — *Gefühl:* Eigenart, Verspieltheit
 `1.1 s · pendelnd · kopf.drehen ±0.14 in 3 Schwingungen, Antennenfeder folgt frei · Prio 1 · ja`
 
-**B4 · Strecken** ✚
+**B4 · Strecken**
 Beide Arme nach oben-außen, der Körper hebt sich kurz, der Kopf legt sich zurück. Danach
 sackt alles wohlig zusammen.
 *Auslöser:* Idle-Ziehung, nur ab Ermüdungsstufe 2 — *Gefühl:* Behaglichkeit
 `2.6 s · federnd · arme auf 1.85, koerper.sprung +0.020, kopf.nicken −0.16, dann zurück · Prio 1 · ja`
 
-**B5 · Etwas entdecken** ✚
+**B5 · Etwas entdecken**
 Der Kopf fährt herum, die Augen weiten sich, der Körper geht ein Stück nach vorn — als hätte
 er am Rand etwas bemerkt. Löst sich nach kurzem Schauen wieder auf.
 *Auslöser:* Idle-Ziehung, erhöhte Wahrscheinlichkeit nach 90 s ohne Interaktion — *Gefühl:* Neugier
@@ -93,19 +94,19 @@ deutlichsten sagt: *er beschäftigt sich selbst.*
 
 ## C · Begrüßung und Abschied
 
-**C1 · Winken**
+**C1 · Winken** ▶
 Der rechte Arm schwenkt nach außen-oben und pendelt. Nach außen, nicht gerade hoch — sonst
 verschwindet die Hand hinter dem Kopf.
 *Auslöser:* erste Begrüßung, Ende von C2/C3, oder Rückkehr nach kurzer Abwesenheit — *Gefühl:* Zuwendung, Freundlichkeit
 `2.8 s · pendelnd · arm_r 2.00 ±0.28 @ 6.4, kopf.neigen +0.10, bogen 0.85, mund +0.85 · Prio 4 · nein`
 
-**C2 · Aufwachen und Erkennen** ✚
+**C2 · Aufwachen und Erkennen**
 Schreck, dann Fokus, dann Aufrichten. Der beste Einzelmoment der Figur — der einzige erlaubte
 direkte Übergang von Schlaf zu Überraschung.
 *Auslöser:* Eingabe nach 5 min bis 3 h Abwesenheit — *Gefühl:* Überraschung, die in Freude kippt
 `1.4 s · schnell-an → weich · Überraschung 0.4 s → Fokus 0.5 s → Aufrichten 0.5 s · Prio 5 · nein`
 
-**C3 · Wiedersehen** ✚
+**C3 · Wiedersehen**
 Wie C2, danach lehnt er sich heran und **hält den Blick 2.5 s** statt der üblichen 0.8 s. Der
 lange Blick erzählt „ich hab dich vermisst", ohne es zu behaupten — und ohne Vorwurf.
 *Auslöser:* Eingabe nach über einem Tag Abwesenheit — *Gefühl:* Wiedersehensfreude
@@ -124,12 +125,12 @@ Bitte zu bleiben.
 Vollständig beschrieben in [05 · Gesicht und Emotionen](05-gesicht-und-emotionen.md); hier
 nur Auslöser und Zeitverhalten.
 
-**D1 · Freude**
+**D1 · Freude** ▶
 Die Augen kippen in die ⌒-Form — Noki sieht in diesem Moment nicht, er ist ganz bei seinem Gefühl.
 *Auslöser:* `lob`, `aufgabe_fertig`, gelungene Interaktion — *Gefühl:* warme, ruhige Freude
 `Einsatz 0.25 s · federnd · halten 1.5–3.0 s · Abklingen 1.2 s, spätestens nach 6 s zurück · Prio 2 · ja`
 
-**D2 · Neugier**
+**D2 · Neugier** ▶
 Kopf zur Seite, Augen weit offen, Körper minimal vorgeschoben. Nokis wiedererkennbarste Pose.
 *Auslöser:* Nachfrage, unbekannte Eingabe, B5 — *Gefühl:* Interesse
 `Einsatz 0.30 s · federnd · hält offen · Abklingen 0.8 s · Prio 2 · ja`
@@ -140,7 +141,7 @@ die Staffelung aus Leitsatz 1 entfällt: alles setzt gemeinsam ein.
 *Auslöser:* unerwartetes Ereignis, E6, C2 — *Gefühl:* Schreck
 `Einsatz 0.09 s · schnell-an · halten 0.4 s · Abklingen 0.8 s, nie länger als 1.3 s gesamt · Prio 5 · nein`
 
-**D4 · Nachdenklichkeit**
+**D4 · Nachdenklichkeit** ▶
 Kleinster Augenring, Blick nach unten links und wandernd, Glimm-Puls auf 0.5 Hz. Ersetzt den
 Ladebalken vollständig.
 *Auslöser:* `denkt_nach`, F2 — *Gefühl:* Konzentration
@@ -155,7 +156,7 @@ Der einzige Kaltton der Figur. Klingt sehr langsam ab — Traurigkeit lässt sic
 Weit aufgerissene Augen, springender Blick, schnellster Glimm-Puls, kleine Hüpfer. Das
 Gegenstück zu D1: Freude geht nach innen, Aufregung nach außen.
 *Auslöser:* `aufgabe_fertig` mit gutem Ergebnis, überraschend Positives — *Gefühl:* ungerichtete Begeisterung
-`Einsatz 0.18 s · federnd · halten 1.0–2.5 s · Abklingen 1.5 s · Prio 2 · ja` ✚
+`Einsatz 0.18 s · federnd · halten 1.0–2.5 s · Abklingen 1.5 s · Prio 2 · ja`
 
 **D7 · Zufriedenheit**
 Bogen nur angeschnitten, Puls gleichmäßig. Nokis zweite Ruhestellung — er bleibt hier
@@ -167,7 +168,7 @@ minutenlang, bevor er nach Neutral zurückfällt.
 
 ## E · Reaktionen
 
-**E1 · Zuhören**
+**E1 · Zuhören** ▶
 Kopf leicht geneigt, Blick auf dem Nutzer, Atem gedrosselt — und **sonst nichts**. Eine Figur,
 die während des Zuhörens gestikuliert, wirkt, als warte sie darauf, dranzukommen.
 *Auslöser:* `angesprochen` — *Gefühl:* Aufmerksamkeit
@@ -200,7 +201,7 @@ Blick bleibt auf dir stehen und wartet.
 Körper zuckt zurück und hoch, Arme fahren aus, Antenne schlägt voll aus. Höchste Priorität —
 unterbricht ausnahmslos alles.
 *Auslöser:* plötzliches lautes Ereignis, abrupte Rückkehr aus dem Schlaf — *Gefühl:* Schreck
-`0.7 s · schnell-an · koerper.z −0.020, koerper.sprung +0.015, arme 0.52, augen 0.080, antenne voll · Prio 5 · nein` ✚
+`0.7 s · schnell-an · koerper.z −0.020, koerper.sprung +0.015, arme 0.52, augen 0.080, antenne voll · Prio 5 · nein`
 
 ---
 
@@ -238,25 +239,25 @@ zurück zu dir mit geneigtem Kopf: *soll ich's nochmal versuchen?*
 Kopf hoch, Brust vor, Augenbogen nur angeschnitten. Zufrieden, aber nicht überschwänglich —
 derselbe Parameter wie bei Freude, nur halb so weit.
 *Auslöser:* nach mehreren Erfolgen hintereinander, oder bei Stimmung über `+0.6` — *Gefühl:* leiser Stolz
-`2.0 s · federnd · kopf.nicken −0.17, bogen 0.55, koerper.z +0.03, arme 0.15, glimm 1.22 · Prio 2 · ja` ✚
+`2.0 s · federnd · kopf.nicken −0.17, bogen 0.55, koerper.z +0.03, arme 0.15, glimm 1.22 · Prio 2 · ja`
 
 **G2 · Verlegen**
 Kopf senkt und dreht sich weg, ein Arm geht Richtung Kopf, der Rumpf rollt leicht. Der Teil,
 der Lob erst sympathisch macht — er weiß nicht recht, wohin damit.
 *Auslöser:* Bestandteil der Lob-Reaktion, oder nach einem eigenen Missgeschick — *Gefühl:* Verlegenheit
-`1.8 s · weich · kopf.nicken +0.10 und drehen 0.20 weg, arm_r 0.90, koerper.rollen 0.04, glimm 1.15 · Prio 2 · ja` ✚
+`1.8 s · weich · kopf.nicken +0.10 und drehen 0.20 weg, arm_r 0.90, koerper.rollen 0.04, glimm 1.15 · Prio 2 · ja`
 
 **G3 · Heranlehnen**
 Der ganze Körper geht nach vorn, der Kopf neigt sich, der Blick bleibt lange. Nokis Art, Nähe
 zu zeigen, ohne den Platz zu verlassen.
 *Auslöser:* Bestandteil von C3; bei sehr guter Stimmung auch als Idle-Einlage — *Gefühl:* Zugewandtheit
-`1.5 s · weich · koerper.z +0.05, kopf.neigen +0.18, augen 0.068, Blick 2.5 s halten · Prio 2 · ja` ✚
+`1.5 s · weich · koerper.z +0.05, kopf.neigen +0.18, augen 0.068, Blick 2.5 s halten · Prio 2 · ja`
 
 **G4 · Träumen**
 Im Schlaf schlägt der Glimm gelegentlich stärker aus und die Antenne zuckt minimal. Der
 Beweis, dass da drin jemand ist.
 *Auslöser:* läuft in A4, unregelmäßig alle 8–20 s — *Gefühl:* Lebendigkeit im Ruhezustand
-`Schleife · träge · glimm 0.25 → 0.45 kurz, antenne ±0.01, kopf.nicken ±0.02 · Prio 0 · nur in A4` ✚
+`Schleife · träge · glimm 0.25 → 0.45 kurz, antenne ±0.01, kopf.nicken ±0.02 · Prio 0 · nur in A4`
 
 ---
 
@@ -288,14 +289,17 @@ Beweis, dass da drin jemand ist.
 
 Nicht alle 36 müssen gleichzeitig entstehen. Drei Stufen, jede für sich schon vorzeigbar:
 
-**Stufe 1 — Noki lebt** (11 Animationen)
-A1, A3, A4, B1, B2, B3, D1, D2, D4, E1, C1
+**Stufe 1 — Noki lebt** ▶ **umgesetzt** (12 Animationen)
+A1, **A2**, A3, A4, B1, B2, B3, D1, D2, D4, E1, C1
 
-Damit hat er ein Ruheverhalten, kann zuhören, sich freuen, nachdenken und winken. Das ist
-bereits ein Begleiter, mit dem sich sinnvoll interagieren lässt.
+Damit hat er ein Ruheverhalten, kann sitzen, einschlafen, zuhören, sich freuen, nachdenken
+und winken. Das ist bereits ein Begleiter, mit dem sich sinnvoll interagieren lässt.
 
-**Stufe 2 — Noki reagiert** (14 weitere)
-A2, B5, B6, B7, C2, D3, D6, D7, E2, E4, E5, F1, F2, F3
+*A2 · Sitz-Idle rückte aus Stufe 2 vor: A4 · Schlaf setzt die Sitzhaltung voraus, sonst
+schliefe Noki im Stehen.*
+
+**Stufe 2 — Noki reagiert** (13 weitere)
+B5, B6, B7, C2, D3, D6, D7, E2, E4, E5, F1, F2, F3
 
 Sitzen, Aufwachen, die vollständige Aufgabenschleife und alle Gefühle bis auf Traurigkeit.
 
@@ -309,26 +313,42 @@ Wochen noch lebendig wirkt.
 
 ## Rig-Bedarf im Überblick
 
-Von den 36 Animationen brauchen **12** einen der acht noch fehlenden Kanäle aus der
-Lückenliste in [04 · Bewegungssprache](04-bewegungssprache.md):
+Von den acht Kanälen aus der Lückenliste in [04 · Bewegungssprache](04-bewegungssprache.md)
+sind **sechs umgesetzt**. Damit stehen alle Kanäle bereit, die die Stufen 1 und 2 brauchen.
 
-| Fehlender Kanal | Betrifft |
-|---|---|
-| Körper seitlich (x) | B2 |
-| Körper Tiefe (z) | B5, E5, E6, G1, G3, C3 |
-| `koerper.sprung` | B4, D6, E6 |
-| Körper Rollen (z) | B2, G2 |
-| Kniebeuge | A2, B2, C2 |
-| Kopf-Nicken erweitert | A4 |
-| Glimm eigenständig | A4, G4 |
-| Lidwert je Auge | — (nur optionales Zwinkern) |
+| Kanal | Betrifft | Stand |
+|---|---|---|
+| `koerper` seitlich (x) | B2 | **umgesetzt** |
+| `koerper` Tiefe (z) | B5, E5, E6, G1, G3, C3 | **umgesetzt** |
+| `koerper.sprung` | B4, D6, E6 | **umgesetzt** |
+| `koerper` Rollen (z) | B2, G2 | **umgesetzt** |
+| Sitzstellung der Beine | A2, B2, C2 | **umgesetzt** |
+| `glimm` eigenständig | A4, G4 | **umgesetzt** |
+| Kopf-Nicken bis `+0.34` | tieferer Schlaf | offen, nur Feinschliff |
+| Lidwert je Auge | Zwinkern | offen, nur Feinschliff |
 
 Keiner davon verändert die Geometrie — alle sind Transformationen bestehender Bauteile.
 
 ---
 
+## Prüfbarkeit
+
+Die umgesetzten Animationen lassen sich einzeln ansteuern:
+
+```
+noki.html#still=1&ui=0&pose=sitzen          Grundhaltung einfrieren
+noki.html#still=1&ui=0&clip=B1&cu=0.5       Einlage an einem Zeitpunkt
+noki.html#still=1&ui=0&achtung=1            Zuhör-Haltung
+noki.html#selftest=1                        Selbsttest über 1200 simulierte Sekunden
+```
+
+Der Selbsttest prüft alle 16 Rig-Kanäle gegen die Grenzen aus
+[03](03-rig-und-animation.md), die Reihenfolge der Zeitkaskade, die Anti-Wiederholung,
+die Sprungfreiheit jedes Kanals und den Verlauf der Stimmung.
+
+---
+
 ## Weiter
 
-Damit ist das Animations- und Verhaltenskonzept vollständig. Der nächste Schritt wäre die
-Umsetzung: die fünf fehlenden Rig-Kanäle ergänzen und Stufe 1 der Produktionsreihenfolge in
-`noki.html` bauen — das ist ausdrücklich **nicht** Teil dieses Konzepts.
+Stufe 1 läuft. Der nächste Schritt wären die 13 Animationen der Stufe 2 — die Rig-Kanäle
+dafür stehen bereits, es fehlen nur noch die Bewegungen selbst.

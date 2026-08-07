@@ -137,8 +137,8 @@
     width: min(760px, calc(100% - 20px));
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 14px;
+    gap: 6px;
+    padding: 10px 12px;
     border-radius: 16px;
     background: var(--panel);
     border: 1px solid var(--panel-edge);
@@ -147,7 +147,8 @@
     -webkit-backdrop-filter: blur(16px) saturate(1.3);
   }
 
-  .row { display: flex; align-items: center; gap: 8px; }
+  .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  #controls { max-height: 42vh; overflow-y: auto; overflow-x: hidden; }
 
   .row .label {
     flex: 0 0 auto;
@@ -161,6 +162,7 @@
 
   .chips {
     flex: 1 1 auto;
+    min-width: 0;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -185,12 +187,14 @@
     background: var(--chip-on);
     color: var(--chip-on-ink);
   }
+  /* Ereignisse, deren eigene Animation erst in Stufe 2 oder 3 kommt */
+  button.chip.vorlaeufig { opacity: .62; border-style: dashed; border-color: var(--panel-edge); }
 
   #hint {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    bottom: calc(clamp(12px, 2.4vh, 26px) + 108px);
+    bottom: calc(clamp(12px, 2.4vh, 26px) + 186px);
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     font-size: 10.5px;
     letter-spacing: 0.1em;
@@ -215,12 +219,12 @@
     line-height: 1.6;
   }
 
-  @media (max-width: 520px) {
-    .row { align-items: flex-start; }
-    .row .label { width: 100%; padding-bottom: 2px; }
-    .row { flex-direction: column; gap: 4px; }
+  @media (max-width: 560px) {
+    .row .label { width: 46px; font-size: 8.5px; letter-spacing: .08em; }
     #hint { display: none; }
-    button.chip { font-size: 12px; padding: 7px 10px; }
+    button.chip { font-size: 11.5px; padding: 6px 9px; border-radius: 8px; }
+    .chips { gap: 5px; }
+    #readout { font-size: 9.5px; line-height: 1.6; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -239,7 +243,10 @@
   <div id="readout">
     <div>DREHUNG <span id="ro-yaw">0&deg;</span></div>
     <div>NEIGUNG <span id="ro-pitch">0&deg;</span></div>
-    <div>ZUSTAND <span id="ro-emo">neutral</span></div>
+    <div>HALTUNG <span id="ro-hal">stehen</span></div>
+    <div>AUSDRUCK <span id="ro-emo">neutral</span></div>
+    <div>STIMMUNG <span id="ro-mood">+0.15</span></div>
+    <div>L&Auml;UFT <span id="ro-clip">&mdash;</span></div>
   </div>
 
   <div id="hint">ziehen &middot; horizontal scrollen = drehen &middot; vertikal scrollen = neigen</div>
@@ -250,8 +257,19 @@
       <div class="chips" id="views"></div>
     </div>
     <div class="row">
+      <div class="label">Ereignis</div>
+      <div class="chips" id="events"></div>
+    </div>
+    <div class="row">
       <div class="label">Ausdruck</div>
       <div class="chips" id="emos"></div>
+    </div>
+    <div class="row">
+      <div class="label">Zeit</div>
+      <div class="chips">
+        <button class="chip" type="button" id="raffer" aria-pressed="false">Zeitraffer &times;10</button>
+        <button class="chip" type="button" id="wecken">Zur&uuml;cksetzen</button>
+      </div>
     </div>
   </div>
 
@@ -304,6 +322,9 @@
 "uniform float u_glow;",
 "uniform vec2  u_look;",
 "uniform float u_mouth;",
+"uniform vec4  u_body;       // seitlich, sprung, tiefe, rollen",
+"uniform vec3  u_pose;       // rumpfneigung, sitzen 0..1, reserviert",
+"uniform float u_glimm;      // Glimm-Helligkeit, unabhaengig von den Augen",
 "uniform vec3  u_envTop;",
 "uniform vec3  u_envBot;",
 "uniform vec3  u_bgTop;",
@@ -337,9 +358,22 @@
 "vec3 rotY(vec3 p, float a){ float c=cos(a), s=sin(a); return vec3(c*p.x - s*p.z, p.y, s*p.x + c*p.z); }",
 "vec3 rotZ(vec3 p, float a){ float c=cos(a), s=sin(a); return vec3(c*p.x - s*p.y, s*p.x + c*p.y, p.z); }",
 "",
+"// Punkt in den Rumpf-Raum überführen. Alles, was am Körper hängt — Kopf,",
+"// Arme, Hals — geht hierdurch, sonst bliebe der Kopf stehen, während sich",
+"// der Rumpf verlagert.",
+"vec3 toBody(vec3 p){",
+"  vec3 q = p - vec3(u_body.x, u_bob + u_body.y, u_body.z);",
+"  vec3 hueft = vec3(0.0, 0.160, 0.0);          // Rollen und Neigen um die Hüfte",
+"  q -= hueft;",
+"  q = rotZ(q, -u_body.w);",
+"  q = rotX(q, -u_pose.x);",
+"  q += hueft;",
+"  return q;",
+"}",
+"",
 "// Punkt in den Kopf-Raum überführen (identisch zur Rig-Hierarchie)",
 "vec3 toHead(vec3 p){",
-"  vec3 h = p; h.y -= u_bob; h -= vec3(0.0, 0.500, 0.0);",
+"  vec3 h = toBody(p) - vec3(0.0, 0.500, 0.0);",
 "  h = rotY(h, -u_headRot.y);",
 "  h = rotX(h, -u_headRot.x);",
 "  h = rotZ(h, -u_headRot.z);",
@@ -365,7 +399,7 @@
 "vec2 mapChar(vec3 p){",
 "  vec2 res = vec2(1e9, 0.0);",
 "",
-"  vec3 pb = p; pb.y -= u_bob;",
+"  vec3 pb = toBody(p);",
 "",
 "  // Körper (atmet: Stauchung volumenerhaltend gegengerechnet)",
 "  float sy  = 1.0 + u_squash;",
@@ -414,10 +448,18 @@
 "  res = opU(res, armPart(pb,  1.0, u_armR));",
 "  res = opU(res, armPart(pb, -1.0, u_armL));",
 "",
-"  // ---- Beine, stehen fest auf dem Boden ----",
+"  // ---- Beine ----",
+"  // Sie hängen nicht am Rumpf: beim Atmen bewegt sich der Körper, die Füße",
+"  // bleiben stehen. Das Sitzen entsteht durch Verschieben der Stützpunkte",
+"  // zwischen Steh- und Sitzstellung — robuster als eine Gelenkkette und im",
+"  // Ergebnis nicht zu unterscheiden.",
+"  float st = u_pose.y;",
 "  vec3 lp = vec3(abs(p.x), p.y, p.z);",
-"  res = opU(res, vec2(sdCapsule(lp, vec3(0.085,0.158,0.0), vec3(0.098,0.076,0.0), 0.044), M_DARK));",
-"  res = opU(res, vec2(sdRoundBox(lp - vec3(0.105,0.047,0.020), vec3(0.032,0.004,0.050), 0.042), M_WHITE));",
+"  vec3 hueftP  = mix(vec3(0.085,0.158,0.000), vec3(0.088,0.075,0.020), st);",
+"  vec3 knoechP = mix(vec3(0.098,0.076,0.000), vec3(0.100,0.048,0.178), st);",
+"  vec3 fussP   = mix(vec3(0.105,0.047,0.020), vec3(0.105,0.042,0.286), st);",
+"  res = opU(res, vec2(sdCapsule(lp, hueftP, knoechP, 0.044), M_DARK));",
+"  res = opU(res, vec2(sdRoundBox(lp - fussP, vec3(0.032,0.004,0.050), 0.042), M_WHITE));",
 "",
 "  return res;",
 "}",
@@ -515,7 +557,8 @@
 "",
 "void paintWhite(vec3 p, inout vec3 alb, inout vec3 emis){",
 "  // --- Rumpf: Brustscheibe + Mundlinie ---",
-"  vec3 bl = p; bl.y -= u_bob; bl -= vec3(0.0, 0.315, 0.0);",
+"  vec3 pbody = toBody(p);",
+"  vec3 bl = pbody - vec3(0.0, 0.315, 0.0);",
 "  float front = smoothstep(0.02, 0.11, bl.z);",
 "",
 "  float dch    = length(vec2(bl.x, bl.y - 0.052));",
@@ -548,7 +591,7 @@
 "  alb = mix(alb, vec3(0.34, 0.36, 0.41), tick * back);",
 "",
 "  // --- Gebrauchsspur auf der rechten Schulterplatte ---",
-"  float ds = length((p - vec3(0.232, 0.352, 0.040)) * vec3(1.0, 1.6, 1.0));",
+"  float ds = length((pbody - vec3(0.232, 0.352, 0.040)) * vec3(1.0, 1.6, 1.0));",
 "  float scuff = 1.0 - smoothstep(0.014, 0.030, ds);",
 "  alb = mix(alb, vec3(0.70, 0.71, 0.74), scuff * 0.65);",
 "  float scratch = (1.0 - smoothstep(0.0, 0.0022, abs(fract((p.x - p.y) * 190.0) - 0.5) * 0.010)) * scuff;",
@@ -563,7 +606,7 @@
 "  vec2 uv = (2.0 * gl_FragCoord.xy - u_res) / u_res.y;",
 "",
 "  float cy = cos(u_cam.y);",
-"  vec3 target = vec3(0.0, 0.565, 0.0);",
+"  vec3 target = vec3(0.0, 0.500, 0.0);",
 "  vec3 ro = target + vec3(sin(u_cam.x) * cy, sin(u_cam.y), cos(u_cam.x) * cy) * u_cam.z;",
 "  vec3 ww = normalize(target - ro);",
 "  vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));",
@@ -622,7 +665,7 @@
 "        paintGlass(p, alb, emis);",
 "      } else {",
 "        alb = vec3(0.42, 0.31, 0.17); rough = 0.32; metal = 0.0;",
-"        emis = u_eyeCol * 1.35 * u_glow;",
+"        emis = u_eyeCol * 1.35 * u_glimm;",
 "      }",
 "",
 "      float ao  = calcAO(p, n);",
@@ -681,7 +724,7 @@
       hPitch: 0.0, hYaw: 0.0, hRoll: 0.0,
       look: [0, 0], mouth: 0.0,
       armL: 0.07, armR: 0.07, armFwd: 0.17,
-      breath: 1.0, wave: 0.0, lid: 1.0
+      breath: 1.0, wave: 0.0, lid: 1.0, puls: 1.0
     };
     for (var k in o) { if (o.hasOwnProperty(k)) d[k] = o[k]; }
     return d;
@@ -690,29 +733,42 @@
   var EMO = {
     neutral:    E({}),
     neugierig:  E({ eyeR: 0.067, eyeW: 0.0100, hRoll: 0.22, hPitch: -0.06,
-                    look: [0.30, 0.12], mouth: 0.22, glow: 1.12, armL: 0.11, armR: 0.03 }),
+                    look: [0.30, 0.12], mouth: 0.22, glow: 1.12, armL: 0.11, armR: 0.03 , puls: 1.2}),
     gluecklich: E({ eyeR: 0.070, eyeW: 0.0120, arc: 1.0, hPitch: -0.09, mouth: 1.0,
-                    glow: 1.30, armL: 0.34, armR: 0.34, breath: 1.9 }),
+                    glow: 1.30, armL: 0.34, armR: 0.34, breath: 1.9 , puls: 1.6}),
     ueberrascht:E({ eyeR: 0.080, eyeW: 0.0132, hPitch: -0.13, mouth: -0.45,
                     glow: 1.55, col: [1.0, 0.82, 0.55], armL: 0.52, armR: 0.52,
-                    armFwd: 0.18, breath: 2.4 }),
+                    armFwd: 0.18, breath: 2.4 , puls: 2.0}),
     denkend:    E({ eyeR: 0.055, eyeW: 0.0084, hRoll: -0.21, hPitch: 0.08,
-                    look: [-0.38, -0.22], glow: 0.82, mouth: 0.06, breath: 0.55 }),
+                    look: [-0.38, -0.22], glow: 0.82, mouth: 0.06, breath: 0.55 , puls: 0.5}),
     muede:      E({ lid: 0.42, eyeR: 0.059, glow: 0.55, hPitch: 0.17, mouth: -0.20,
-                    col: [0.95, 0.62, 0.31], armL: 0.02, armR: 0.02, breath: 0.45 }),
+                    col: [0.95, 0.62, 0.31], armL: 0.02, armR: 0.02, breath: 0.45 , puls: 0.6}),
     traurig:    E({ eyeR: 0.058, eyeW: 0.0088, hPitch: 0.21, look: [0.0, -0.38],
                     mouth: -1.0, glow: 0.62, col: [0.58, 0.72, 0.92],
-                    armL: -0.02, armR: -0.02, breath: 0.5 }),
+                    armL: -0.02, armR: -0.02, breath: 0.5 , puls: 0.6}),
     stolz:      E({ eyeR: 0.061, arc: 0.55, hPitch: -0.17, mouth: 0.65, glow: 1.22,
-                    armL: 0.15, armR: 0.15, breath: 0.8 }),
+                    armL: 0.15, armR: 0.15, breath: 0.8 , puls: 1.1}),
     winken:     E({ eyeR: 0.069, eyeW: 0.0116, arc: 0.85, hPitch: -0.07, hRoll: 0.10,
-                    mouth: 0.85, glow: 1.28, armL: 0.16, wave: 1.0, breath: 1.6 })
+                    mouth: 0.85, glow: 1.28, armL: 0.16, wave: 1.0, breath: 1.6 , puls: 1.6})
   };
 
   var EMO_LABEL = {
     neutral: "Neutral", neugierig: "Neugierig", gluecklich: "Glücklich",
     ueberrascht: "Überrascht", denkend: "Denkend", muede: "Müde",
     traurig: "Traurig", stolz: "Stolz", winken: "Winken"
+  };
+
+  // Die acht Ereignisse. Die Agentenseite meldet nur diese — was Noki
+  // daraus macht, entscheidet er selbst (Dokument 06).
+  var EREIGNIS = {
+    angesprochen:   { label:"angesprochen",   voll:true },
+    denkt_nach:     { label:"denkt nach",     voll:true },
+    antwortet:      { label:"antwortet",      voll:true },
+    lob:            { label:"Lob",            voll:true },
+    aufgabe_start:  { label:"Aufgabe",        voll:false },
+    aufgabe_fertig: { label:"fertig",         voll:false },
+    fehler:         { label:"Fehler",         voll:false },
+    nutzer_weg:     { label:"weg",            voll:true }
   };
 
   var VIEWS = [
@@ -778,6 +834,7 @@
     U = {};
     ["u_res", "u_cam", "u_bob", "u_squash", "u_headRot", "u_antLag", "u_armL", "u_armR",
      "u_eye", "u_eyeCol", "u_glow", "u_look", "u_mouth",
+     "u_body", "u_pose", "u_glimm",
      "u_envTop", "u_envBot", "u_bgTop", "u_bgBot", "u_ground"].forEach(function (n) {
       U[n] = gl.getUniformLocation(prog, n);
     });
@@ -831,7 +888,7 @@
   var cam = {
     yaw:   num(hash.yaw,   -24.0) * Math.PI / 180,
     pitch: clamp(num(hash.pitch, 9.0) * Math.PI / 180, -PITCH_MAX, PITCH_MAX),
-    dist:  clamp(num(hash.dist, 2.05), DIST_MIN, DIST_MAX)
+    dist:  clamp(num(hash.dist, 2.20), DIST_MIN, DIST_MAX)
   };
   var camT = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist };
   var vel = { yaw: 0, pitch: 0 };
@@ -845,13 +902,26 @@
     head: [0, 0, 0],
     ant: [0, 0], antV: [0, 0],
     armL: [0, 0], armR: [0, 0],
-    eyeOpen: 1, look: [0, 0]
+    eyeOpen: 1, look: [0, 0],
+    body: [0, 0, 0, 0],   // seitlich, sprung, tiefe, rollen
+    pose: [0, 0, 0],      // rumpfneigung, sitzen, haltungshöhe
+    glimm: 1, arc: 0, mouth: 0
   };
 
   var blinkAt = 1.6, blinkPhase = -1, blinkDouble = false;
   var lastInput = -99;
   var time = still ? (parseFloat(hash.t) || 0) : 0;
   var prevHeadYaw = 0;
+  var phAtem = 0, phGlimm = 0;   // fortgeschriebene Phasen, siehe updateRig
+
+  // ---- Verhaltenszustand (Dokument 06) ----
+  var ruhe      = 0;        // Sekunden ohne Interaktion — treibt die Zeitkaskade
+  var stimmung  = 0.15;     // −1 … +1, Grundstimmung +0.15
+  var achtung   = 0;        // 0 = schaut sich um, 1 = schaut dich an
+  var achtungZ  = 0;        // Zielwert
+  var zeitraffer = hash.raffer === "1" ? 10 : 1;
+  var einlageAt = 24, gewichtAt = 9, gewichtSeite = 1;
+  var zuletzt   = [];       // Anti-Wiederholung: die letzten gezogenen Einlagen
 
   // =================================================================
   //  6 · EINGABE — Ziehen, Scrollen, Pinch
@@ -860,6 +930,7 @@
 
   function touched() {
     lastInput = time;
+    ruhe = 0;                 // jede Eingabe setzt die Zeitkaskade zurück
     var h = document.getElementById("hint");
     if (h && !h.classList.contains("gone")) h.classList.add("gone");
   }
@@ -938,25 +1009,59 @@
 
   var emoBox = document.getElementById("emos");
   var emoButtons = {};
+
+  function setAusdruck(key) {
+    if (!EMO[key]) return;
+    emoKey = key;
+    tgt = EMO[key];
+    Object.keys(emoButtons).forEach(function (k) {
+      emoButtons[k].setAttribute("aria-pressed", String(k === key));
+    });
+    var el = document.getElementById("ro-emo");
+    if (el) el.textContent = EMO_LABEL[key].toLowerCase();
+  }
+
   Object.keys(EMO).forEach(function (key) {
     var b = document.createElement("button");
     b.className = "chip";
     b.type = "button";
     b.textContent = EMO_LABEL[key];
     b.setAttribute("aria-pressed", String(key === emoKey));
-    b.addEventListener("click", function () {
-      emoKey = key;
-      tgt = EMO[key];
-      Object.keys(emoButtons).forEach(function (k) {
-        emoButtons[k].setAttribute("aria-pressed", String(k === key));
-      });
-      document.getElementById("ro-emo").textContent = EMO_LABEL[key].toLowerCase();
-      touched();
-    });
+    b.addEventListener("click", function () { setAusdruck(key); touched(); });
     emoButtons[key] = b;
     emoBox.appendChild(b);
   });
-  document.getElementById("ro-emo").textContent = EMO_LABEL[emoKey].toLowerCase();
+  setAusdruck(emoKey);
+
+  // ---- Ereignisse: genau die Schnittstelle, die später die KI-Seite bedient ----
+  var evBox = document.getElementById("events");
+  if (evBox) {
+    Object.keys(EREIGNIS).forEach(function (key) {
+      var b = document.createElement("button");
+      b.className = "chip" + (EREIGNIS[key].voll ? "" : " vorlaeufig");
+      b.type = "button";
+      b.textContent = EREIGNIS[key].label;
+      if (!EREIGNIS[key].voll) b.title = "Die zugehörige Animation kommt erst in Stufe 2 oder 3 — vorläufig läuft die nächstliegende vorhandene Reaktion.";
+      b.addEventListener("click", function () { touched(); ereignis(key); });
+      evBox.appendChild(b);
+    });
+  }
+
+  var rafferBtn = document.getElementById("raffer");
+  if (rafferBtn) {
+    rafferBtn.setAttribute("aria-pressed", String(zeitraffer > 1));
+    rafferBtn.addEventListener("click", function () {
+      zeitraffer = zeitraffer > 1 ? 1 : 10;
+      rafferBtn.setAttribute("aria-pressed", String(zeitraffer > 1));
+    });
+  }
+  var weckBtn = document.getElementById("wecken");
+  if (weckBtn) {
+    weckBtn.addEventListener("click", function () {
+      touched(); achtungZ = 1; setHaltung("stehen"); setAusdruck("neutral");
+      stimmung = 0.15;
+    });
+  }
 
   // =================================================================
   //  8 · THEME
@@ -979,26 +1084,238 @@
 
   function lerp(a, b, k) { return a + (b - a) * k; }
 
+  // ---------------------------------------------------------------
+  //  Kurvenvokabular (Dokument 04) — alles Weitere nutzt nur diese fünf
+  // ---------------------------------------------------------------
+  function cWeich(u)     { return 0.5 - 0.5 * Math.cos(Math.PI * clamp(u, 0, 1)); }
+  function cTraege(u)    { u = clamp(u, 0, 1); return u*u*u*(u*(u*6 - 15) + 10); }
+  function cSchnellAn(u) { u = clamp(u, 0, 1); return 1 - Math.pow(1 - u, 3.2); }
+  function cFedernd(u) {
+    // Ein Überschwinger von rund 10 %, eine Korrektur — Leitsatz 3.
+    u = clamp(u, 0, 1);
+    var f = function (x) { return 1 - Math.exp(-4.0 * x) * Math.cos(5.4 * x); };
+    return f(u) + (1 - f(1)) * u;      // Restfehler herausrechnen, endet exakt bei 1
+  }
+  function cPendelnd(u, n) {
+    u = clamp(u, 0, 1);
+    return Math.sin(u * Math.PI * 2 * n) * (1 - u) * (1 - u);
+  }
+  function huelle(u, ein, aus) {
+    return cFedernd(clamp(u / ein, 0, 1)) * (1 - cWeich(clamp((u - (1 - aus)) / aus, 0, 1)));
+  }
+
+  // ---------------------------------------------------------------
+  //  Grundhaltungen (Dokument 07, Gruppe A)
+  //  `dauer` ist die Überblendzeit IN diese Haltung hinein.
+  // ---------------------------------------------------------------
+  var HALTUNG = {
+    stehen: { sit:0, posY: 0.000, pitch: 0.000, breath:1.00, lid:1.00, glimm:1.00,
+              armSw:0.07, armFw: 0.17, hP: 0.00, pulsMul:1.00, dauer:0.6 },
+    sitzen: { sit:1, posY:-0.150, pitch:-0.060, breath:0.74, lid:1.00, glimm:1.00,
+              armSw:0.26, armFw:-0.10, hP:-0.02, pulsMul:0.85, dauer:1.6 },
+    doesen: { sit:1, posY:-0.150, pitch:-0.040, breath:0.48, lid:0.60, glimm:0.55,
+              armSw:0.16, armFw:-0.06, hP: 0.12, pulsMul:0.60, dauer:2.0 },
+    schlaf: { sit:1, posY:-0.150, pitch:-0.020, breath:0.39, lid:0.00, glimm:0.25,
+              armSw:0.10, armFw:-0.04, hP: 0.30, pulsMul:0.35, dauer:3.5 }
+  };
+  var HALTUNG_LABEL = { stehen:"stehen", sitzen:"sitzen", doesen:"dösen", schlaf:"schlaf" };
+
+  var haltung = "stehen";
+  var hal = {};
+  for (var hf in HALTUNG.stehen) { hal[hf] = HALTUNG.stehen[hf]; }
+
+  function setHaltung(k) { if (HALTUNG[k]) haltung = k; }
+
+  // ---------------------------------------------------------------
+  //  Einlagen — additive Versätze, nie absolute Werte.
+  //  Dadurch lassen sie sich über jede Haltung und jeden Ausdruck legen.
+  // ---------------------------------------------------------------
+  function neuOff() {
+    return { hP:0, hY:0, hR:0, aL:0, aR:0, aF:0,
+             bx:0, by:0, bz:0, br:0, lx:0, ly:0, gl:0, arc:0, mouth:0 };
+  }
+
+  var EINLAGE = {
+    B1: { label:"B1 Umsehen", dur:2.4, prio:1, f:function (u, o, v) {
+            var s = Math.sin(cWeich(u) * Math.PI);        // hin und zurück
+            o.hY += 0.28 * v.amp * v.seite * s;
+            o.lx += 0.25 * v.seite * s;                   // Blick läuft voraus
+            o.br -= 0.28 * 0.15 * v.seite * s;            // Rumpf gegenläufig, Leitsatz 4
+          } },
+    B3: { label:"B3 Antenne schütteln", dur:1.1, prio:1, f:function (u, o, v) {
+            o.hY += cPendelnd(u, 3) * 0.14 * v.amp * v.seite;
+          } },
+    C1: { label:"C1 Winken", dur:2.8, prio:4, f:function (u, o, v) {
+            var e = huelle(u, 0.22, 0.26);
+            o.aR    += (1.93 + Math.sin(u * v.dur * 6.4) * 0.28) * e * v.amp;
+            o.aF    += 0.09 * e;
+            o.hR    += 0.10 * e;
+            o.arc   += 0.85 * e;
+            o.mouth += 0.85 * e;
+            o.gl    += 0.28 * e;
+          } },
+    F4k:{ label:"F4 Fehler (reduziert)", dur:2.6, prio:3, f:function (u, o) {
+            // Vorläufig: F4 kommt vollständig erst in Stufe 3.
+            var e = huelle(u, 0.10, 0.40);
+            o.hP    += 0.14 * e;
+            o.gl    -= 0.30 * e;
+            o.mouth -= 0.35 * e;
+            o.hR    += 0.16 * e * cTraege(clamp((u - 0.7) / 0.3, 0, 1));
+          } }
+  };
+
+  var clip = null, letzteOff = null, fadeOff = null, fadeT = 0;
+
+  function starte(key) {
+    var e = EINLAGE[key];
+    if (!e) return;
+    if (clip) {
+      if (EINLAGE[clip.key].prio > e.prio) return;   // laufende Einlage hat Vorrang
+      fadeOff = letzteOff; fadeT = 0;                // unterbrechen heißt nie abbrechen
+    }
+    clip = { key: key, t: 0,
+             dur:   e.dur * (0.88 + Math.random() * 0.24),
+             seite: Math.random() < 0.5 ? -1 : 1,
+             amp:   0.92 + Math.random() * 0.16 };
+  }
+
+  function erlaubt() {
+    if (haltung === "schlaf") return [];
+    if (haltung === "doesen") return ["B1"];
+    return ["B1", "B3"];
+  }
+
+  function ziehe() {
+    var pool = erlaubt();
+    if (!pool.length) return;
+    var sperre = Math.min(3, pool.length - 1);
+    var letzte = zuletzt.slice(-sperre);
+    var frei = pool.filter(function (k) { return letzte.indexOf(k) < 0; });
+    var aus = frei.length ? frei : pool;
+    var key = aus[Math.floor(Math.random() * aus.length)];
+    starte(key);
+    zuletzt.push(key);
+    if (zuletzt.length > 6) zuletzt.shift();
+    return { key: key, pool: pool.length };
+  }
+
+  // ---------------------------------------------------------------
+  //  Die acht Ereignisse (Dokument 06). Die Agentenseite meldet nur
+  //  diese — was Noki daraus macht, entscheidet er hier selbst.
+  // ---------------------------------------------------------------
+  function stimme(d) { stimmung = clamp(stimmung + d, -1, 1); }
+
+  function ereignis(name) {
+    if (name !== "nutzer_weg") { ruhe = 0; setHaltung("stehen"); }
+    switch (name) {
+      case "angesprochen":                                  // E1 Zuhören
+        achtungZ = 1; setAusdruck("neutral"); break;
+      case "denkt_nach":                                    // D4
+        achtungZ = 0.25; setAusdruck("denkend"); break;
+      case "antwortet":
+        achtungZ = 1; setAusdruck("neutral"); break;
+      case "lob":                                           // D1 + Stimmung
+        achtungZ = 1; setAusdruck("gluecklich"); stimme(0.35); break;
+      case "aufgabe_start":                                 // vorläufig D4 statt F1
+        achtungZ = 0.25; setAusdruck("denkend"); break;
+      case "aufgabe_fertig":                                // vorläufig D1 statt F3
+        achtungZ = 1; setAusdruck("gluecklich"); stimme(0.25); break;
+      case "fehler":                                        // F4 reduziert
+        achtungZ = 1; setAusdruck("neutral"); starte("F4k"); stimme(-0.15); break;
+      case "nutzer_weg":
+        achtungZ = 0; ruhe = Math.max(ruhe, 21); break;
+    }
+  }
+
+  var gewichtIst = 0;
+
+  function einlageIntervall() {
+    // Zwischen 90 s und 4 min beschäftigt Noki sich selbst — die Einlagen
+    // werden häufiger, nicht seltener (Dokument 06, Fall 3). Erst im Dösen
+    // wird es ruhiger.
+    var f = ruhe < 90 ? 1.0 : ruhe < 240 ? 0.6 : 2.0;
+    return (20 + Math.random() * 20) * f;
+  }
+
+  function treiber(dt) {
+    var dz = dt * zeitraffer;
+    ruhe += dz;
+
+    // Stimmung kehrt träge zur Grundstimmung zurück, Halbwertszeit 4 min
+    stimmung = 0.15 + (stimmung - 0.15) * Math.pow(0.5, dz / 240);
+
+    // Aufmerksamkeit lässt nach 20 s nach
+    if (ruhe > 20) achtungZ = 0;
+    achtung = lerp(achtung, achtungZ, 1 - Math.pow(0.02, dt / 0.6));
+
+    // Zeitkaskade — 20 s · 90 s · 4 min · 15 min
+    setHaltung(ruhe < 90 ? "stehen" : ruhe < 240 ? "sitzen" : ruhe < 900 ? "doesen" : "schlaf");
+
+    // Ebene 4 · Gewicht verlagern (B2) — im Sitzen ausgesetzt
+    gewichtAt -= dz;
+    if (gewichtAt <= 0) { gewichtSeite = -gewichtSeite; gewichtAt = 8 + Math.random() * 6; }
+
+    // Ebene 5 · Einlage ziehen
+    einlageAt -= dz;
+    if (einlageAt <= 0) { ziehe(); einlageAt = einlageIntervall(); }
+  }
+
   function updateRig(dt) {
-    // --- Ausdruck weich überblenden ---
+    var t = time;
+    var frei = still ? 0 : 1;          // im Standbild ruht alles Zufällige
+
+    // --- 1 · Ausdruck weich überblenden ---
     var k = 1 - Math.pow(0.001, dt);   // ~0.35 s Übergang
     ["eyeR", "eyeW", "arc", "glow", "hPitch", "hYaw", "hRoll", "mouth",
-     "armL", "armR", "armFwd", "breath", "wave", "lid"].forEach(function (f) {
+     "armL", "armR", "armFwd", "breath", "wave", "lid", "puls"].forEach(function (f) {
       cur[f] = lerp(cur[f], tgt[f], k);
     });
     cur.col = [lerp(cur.col[0], tgt.col[0], k), lerp(cur.col[1], tgt.col[1], k), lerp(cur.col[2], tgt.col[2], k)];
     cur.look = [lerp(cur.look[0], tgt.look[0], k), lerp(cur.look[1], tgt.look[1], k)];
 
-    var t = time;
+    // --- 2 · Grundhaltung überblenden ---
+    var ziel = HALTUNG[haltung];
+    var hk = still ? 1 : 1 - Math.pow(0.02, dt / ziel.dauer);
+    for (var f2 in ziel) { hal[f2] = lerp(hal[f2], ziel[f2], hk); }
 
-    // --- Atmen: Heben/Senken plus gegenläufige Stauchung ---
-    var br = cur.breath;
-    rig.bob    = Math.sin(t * 1.15 * br) * 0.0062 * br;
-    rig.squash = Math.sin(t * 1.15 * br + Math.PI) * 0.013 * br;
+    // --- 3 · Verhaltenstreiber ---
+    if (!still) treiber(dt);
+    var muede = clamp(ruhe / 90, 0, 1);
 
-    // --- Blinzeln in unregelmäßigem Rhythmus ---
+    // --- 4 · Aktive Einlage, plus Ausblendung einer unterbrochenen ---
+    var o = neuOff();
+    if (clip) {
+      if (!still) clip.t += dt;
+      var u = clip.t / clip.dur;
+      if (u >= 1) { clip = null; letzteOff = null; }
+      else { EINLAGE[clip.key].f(u, o, clip); letzteOff = o; }
+    }
+    if (fadeOff) {
+      fadeT += dt;
+      var fw = 1 - clamp(fadeT / 0.35, 0, 1);
+      if (fw <= 0) fadeOff = null;
+      else for (var fk in fadeOff) { o[fk] += fadeOff[fk] * fw; }
+    }
+
+    // --- 5 · Ebenen zusammensetzen ---
+    // Atem: Grundfrequenz aller Bewegung. Amplitude gedeckelt, damit der
+    // Kanal auch bei schnellem Atem in seinen Grenzen bleibt.
+    var br = cur.breath * hal.breath * (1 + stimmung * 0.15)
+           * (1 - 0.10 * muede) * (1 - 0.05 * achtung);
+    // Deckel so gewaehlt, dass beide Atemkanaele in ihren Grenzen bleiben:
+    // 0.013 * 1.53 = 0.0199 (Stauchung), 0.0062 * 1.53 = 0.0095 (Hoehe).
+    var brA = Math.min(br, 1.53);
+    // Die Phase wird fortgeschrieben, nicht aus der absoluten Zeit berechnet:
+    // sonst springt sie, sobald sich die Atemfrequenz ändert — bei jedem
+    // Haltungs- und Ausdruckswechsel.
+    if (still) phAtem = t * 1.15 * br; else phAtem += dt * 1.15 * br;
+    rig.bob    = Math.sin(phAtem) * 0.0062 * brA;
+    rig.squash = Math.sin(phAtem + Math.PI) * 0.013 * brA;
+
+    // Blinzeln — unregelmäßig, mit der Müdigkeit seltener
+    var lidBasis = cur.lid * hal.lid;
     if (still) {
-      rig.eyeOpen = cur.lid;
+      rig.eyeOpen = lidBasis;
     } else {
       if (blinkPhase < 0 && t > blinkAt) { blinkPhase = 0; blinkDouble = Math.random() < 0.28; }
       if (blinkPhase >= 0) {
@@ -1006,31 +1323,32 @@
         var dur = blinkDouble ? 0.34 : 0.15;
         if (blinkPhase > dur) {
           blinkPhase = -1;
-          blinkAt = t + 1.9 + Math.random() * 3.6;
+          blinkAt = t + (1.9 + Math.random() * 3.6) * (1 + 0.5 * muede);
         }
       }
       var closed = 0;
       if (blinkPhase >= 0) {
         var x = blinkPhase / (blinkDouble ? 0.34 : 0.15);
-        closed = blinkDouble
-          ? Math.max(Math.sin(x * Math.PI * 2), 0)
-          : Math.sin(x * Math.PI);
+        closed = blinkDouble ? Math.max(Math.sin(x * Math.PI * 2), 0) : Math.sin(x * Math.PI);
       }
-      rig.eyeOpen = cur.lid * (1 - 0.97 * closed);
+      rig.eyeOpen = lidBasis * (1 - 0.97 * closed);
     }
 
-    // --- Kopf: leichte Eigenbewegung, Umsehen ---
-    var idle = still ? 0 : 1;
-    var look = 0.22 * drift(t * 0.5) * idle;
-    rig.head[0] = cur.hPitch + Math.sin(t * 0.83 + 2.0) * 0.020 * idle;
-    rig.head[1] = cur.hYaw   + look;
-    rig.head[2] = cur.hRoll  + Math.sin(t * 0.47) * 0.018 * idle;
-    rig.look    = [cur.look[0] + look * 0.9, cur.look[1]];
+    // Kopf — Eigenbewegung nur, solange er dich nicht ansieht (Leitsatz 7)
+    var driftW = (1 - achtung) * frei;
+    var look = 0.22 * drift(t * 0.5) * driftW;
+    var camY = Math.atan2(Math.sin(cam.yaw), Math.cos(cam.yaw));
+    var zuDir = achtung * clamp(-camY, -0.55, 0.55);   // er dreht sich zu dir
+    rig.head[0] = clamp(cur.hPitch + hal.hP + Math.sin(t * 0.83 + 2.0) * 0.020 * driftW + o.hP, -0.25, 0.30);
+    rig.head[1] = clamp(cur.hYaw + look + zuDir + o.hY, -0.55, 0.55);
+    rig.head[2] = clamp(cur.hRoll + achtung * 0.08 + Math.sin(t * 0.47) * 0.018 * driftW + o.hR, -0.30, 0.30);
+    rig.look    = [clamp(cur.look[0] + look * 0.9 + o.lx, -1, 1),
+                   clamp(cur.look[1] + o.ly, -1, 1)];
 
-    // --- Antenne läuft der Kopfbewegung nach (Overlap) ---
+    // Antenne läuft der Kopfbewegung nach (Overlap) — nie keyframen
     var yawVel = (rig.head[1] - prevHeadYaw) / Math.max(dt, 1e-4);
     prevHeadYaw = rig.head[1];
-    var drive = [-yawVel * 0.020, Math.sin(t * 0.9) * 0.004 * idle];
+    var drive = [-yawVel * 0.020, Math.sin(t * 0.9) * 0.004 * frei];
     for (var i = 0; i < 2; i++) {
       var acc = (drive[i] - rig.ant[i]) * 190 - rig.antV[i] * 15;
       rig.antV[i] += acc * dt;
@@ -1038,15 +1356,159 @@
       rig.ant[i]   = clamp(rig.ant[i], -0.06, 0.06);
     }
 
-    // --- Arme ---
-    var sway = Math.sin(t * 1.15 * br) * 0.016 * idle;
-    rig.armL = [cur.armL + sway, cur.armFwd];
-    rig.armR = [cur.armR - sway, cur.armFwd];
-    // Winken: der Arm muss am großen Kopf vorbei, also nach außen statt gerade hoch
-    if (cur.wave > 0.01) {
+    // Arme — Haltung verschiebt die Ruhelage, Einlagen legen sich additiv darauf
+    var sway = Math.sin(phAtem) * 0.016 * frei;
+    var swBas = hal.armSw - HALTUNG.stehen.armSw;
+    var fwBas = hal.armFw - HALTUNG.stehen.armFw;
+    var armFw = clamp(cur.armFwd + fwBas + o.aF, -0.20, 0.60);
+    rig.armL = [clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40), armFw];
+    rig.armR = [clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40), armFw];
+    if (cur.wave > 0.01) {   // Ausdruck „Winken" aus der Bibliothek
       var w = 2.00 + Math.sin(t * 6.4) * 0.28;
-      rig.armR = [lerp(rig.armR[0], w, cur.wave), lerp(rig.armR[1], 0.16, cur.wave)];
+      rig.armR = [clamp(lerp(rig.armR[0], w, cur.wave), -0.10, 2.40),
+                  clamp(lerp(rig.armR[1], 0.16, cur.wave), -0.20, 0.60)];
     }
+
+    // Rumpf — Ebene 4 (Gewicht) plus Einlagenversätze
+    var gz = still ? 0 : gewichtSeite * (1 - hal.sit);
+    gewichtIst = lerp(gewichtIst, gz, 1 - Math.pow(0.02, dt / 1.8));
+    rig.body[0] = clamp(gewichtIst * 0.012 + o.bx, -0.015, 0.015);
+    rig.body[1] = clamp(o.by, 0.0, 0.050);
+    rig.body[2] = clamp(o.bz, -0.020, 0.050);
+    rig.body[3] = clamp(gewichtIst * 0.030 + o.br, -0.050, 0.050);
+    rig.pose[0] = hal.pitch;
+    rig.pose[1] = hal.sit;
+    rig.pose[2] = hal.posY;
+
+    // Glimm — eigener Kanal, pulst auch bei geschlossenen Augen weiter
+    var pf = cur.puls * hal.pulsMul;
+    if (still) phGlimm = t * 2 * Math.PI * pf; else phGlimm += dt * 2 * Math.PI * pf;
+    var puls = 0.5 + 0.5 * Math.sin(phGlimm);
+    rig.glimm = clamp(hal.glimm * cur.glow * (1 + stimmung * 0.15) * (0.86 + 0.14 * puls) + o.gl, 0, 2.0);
+
+    rig.arc   = clamp(cur.arc + o.arc, 0, 1);
+    rig.mouth = clamp(cur.mouth + o.mouth, -1, 1);
+  }
+
+  // =================================================================
+  //  9b · SELBSTTEST  (nur mit #selftest=1)
+  //  Fährt das Rig ohne Darstellung über 1200 simulierte Sekunden und
+  //  prüft Kanalgrenzen, Zeitkaskade, Anti-Wiederholung, Sprungfreiheit
+  //  und die Stimmung. Kostet im Normalbetrieb nichts.
+  // =================================================================
+  function selbsttest() {
+    // Kanal: [Untergrenze, Obergrenze, größte erlaubte Änderung je Bild]
+    var KANAL = {
+      "kopf.nicken":       [-0.250, 0.300, 0.060],
+      "kopf.drehen":       [-0.550, 0.550, 0.100],
+      "kopf.neigen":       [-0.300, 0.300, 0.060],
+      "arm_l":             [-0.100, 2.400, 0.160],
+      "arm_r":             [-0.100, 2.400, 0.160],
+      "arm_vor":           [-0.200, 0.600, 0.080],
+      "antenne_x":         [-0.060, 0.060, 0.030],
+      "antenne_z":         [-0.060, 0.060, 0.030],
+      "koerper.y":         [-0.010, 0.010, 0.004],
+      "koerper.stauchung": [-0.020, 0.020, 0.008],
+      "koerper.x":         [-0.015, 0.015, 0.005],
+      "koerper.sprung":    [ 0.000, 0.050, 0.012],
+      "koerper.z":         [-0.020, 0.050, 0.012],
+      "koerper.rollen":    [-0.050, 0.050, 0.012],
+      "glimm":             [ 0.000, 2.000, 0.200],
+      "augen.offen":       [ 0.000, 1.000, 0.350]
+    };
+    function werte() {
+      return {
+        "kopf.nicken": rig.head[0], "kopf.drehen": rig.head[1], "kopf.neigen": rig.head[2],
+        "arm_l": rig.armL[0], "arm_r": rig.armR[0], "arm_vor": rig.armL[1],
+        "antenne_x": rig.ant[0], "antenne_z": rig.ant[1],
+        "koerper.y": rig.bob, "koerper.stauchung": rig.squash,
+        "koerper.x": rig.body[0], "koerper.sprung": rig.body[1],
+        "koerper.z": rig.body[2], "koerper.rollen": rig.body[3],
+        "glimm": rig.glimm, "augen.offen": rig.eyeOpen
+      };
+    }
+
+    // Fehler werden nach Art zusammengefasst, damit eine Ursache nicht
+    // die Ausgabe flutet und die späteren Prüfungen nie laufen.
+    var arten = {}, dt = 1 / 60, schritte = Math.round(1200 / dt);
+    function melde(art, text) {
+      if (!arten[art]) arten[art] = { n: 0, erst: text };
+      arten[art].n++;
+    }
+    var vorher = null, kaskade = {}, gezogen = [], moodMax = -9, moodNach = null;
+    var origZiehe = ziehe;
+    ziehe = function () { var r = origZiehe(); if (r) gezogen.push(r); return r; };
+
+    for (var i = 0; i < schritte; i++) {
+      time += dt;
+      if (i === Math.round(1000 / dt)) ereignis("angesprochen");
+      if (i === Math.round(1010 / dt)) ereignis("lob");
+      if (i === Math.round(1015 / dt)) ereignis("fehler");
+      updateRig(dt);
+
+      if (kaskade[haltung] === undefined) kaskade[haltung] = i * dt;
+      if (i > Math.round(1010 / dt)) moodMax = Math.max(moodMax, stimmung);
+      if (i === schritte - 1) moodNach = stimmung;
+      if (stimmung < -1.0001 || stimmung > 1.0001)
+        melde("stimmung-bereich", "Stimmung ausserhalb [-1,1]: " + stimmung.toFixed(3));
+
+      var w = werte();
+      for (var k in KANAL) {
+        var g = KANAL[k];
+        if (w[k] < g[0] - 1e-6 || w[k] > g[1] + 1e-6) {
+          melde("grenze:" + k, "Grenze " + k + " = " + w[k].toFixed(4)
+            + " nicht in [" + g[0] + ", " + g[1] + "], zuerst bei t=" + (i * dt).toFixed(1));
+        }
+        if (vorher && i > 12 && Math.abs(w[k] - vorher[k]) > g[2]) {
+          melde("sprung:" + k, "Sprung " + k + " um " + (w[k] - vorher[k]).toFixed(4)
+            + " je Bild, zuerst bei t=" + (i * dt).toFixed(1));
+        }
+      }
+      vorher = w;
+    }
+    ziehe = origZiehe;
+
+    // Zeitkaskade: alle vier Haltungen erreicht, in der richtigen Reihenfolge
+    ["stehen", "sitzen", "doesen", "schlaf"].forEach(function (h) {
+      if (kaskade[h] === undefined) melde("kaskade:" + h, "Zeitkaskade: " + h + " nie erreicht");
+    });
+    if (kaskade.sitzen !== undefined && kaskade.doesen !== undefined && kaskade.sitzen > kaskade.doesen)
+      melde("kaskade:reihe1", "Zeitkaskade: sitzen kam nach doesen");
+    if (kaskade.doesen !== undefined && kaskade.schlaf !== undefined && kaskade.doesen > kaskade.schlaf)
+      melde("kaskade:reihe2", "Zeitkaskade: doesen kam nach schlaf");
+
+    // Anti-Wiederholung — nur dort prüfbar, wo es überhaupt eine Wahl gab
+    for (var g2 = 1; g2 < gezogen.length; g2++) {
+      if (gezogen[g2].key === gezogen[g2 - 1].key && gezogen[g2].pool > 1)
+        melde("wiederholung", "Anti-Wiederholung verletzt: " + gezogen[g2].key
+          + " zweimal hintereinander bei " + gezogen[g2].pool + " Auswahlmoeglichkeiten");
+    }
+
+    // Stimmung: steigt nach dem Lob und kehrt danach zur Grundstimmung zurück
+    if (moodMax < 0.4) melde("stimmung-anstieg",
+      "Stimmung stieg nach dem Lob nicht an (max " + moodMax.toFixed(2) + ")");
+    if (moodNach !== null && Math.abs(moodNach - 0.15) > 0.12) melde("stimmung-rueckkehr",
+      "Stimmung kehrte nicht zur Grundstimmung zurueck (" + moodNach.toFixed(3) + ")");
+
+    var schl = Object.keys(arten);
+    var ok = schl.length === 0;
+    var kask = Object.keys(kaskade).map(function (h) {
+      return h + " ab " + kaskade[h].toFixed(0) + " s";
+    }).join(", ");
+    var text = (ok ? "SELBSTTEST BESTANDEN" : "SELBSTTEST FEHLGESCHLAGEN (" + schl.length + " Fehlerarten)")
+      + "\n1200 s simuliert, 16 Kanaele geprueft"
+      + "\nEinlagen gezogen: " + gezogen.length
+      + "\nZeitkaskade: " + kask
+      + "\nStimmung max " + moodMax.toFixed(2) + ", zuletzt " + (moodNach === null ? "-" : moodNach.toFixed(3))
+      + (ok ? "" : "\n\n" + schl.map(function (a) {
+          return "[" + arten[a].n + "x] " + arten[a].erst;
+        }).join("\n"));
+    document.title = ok ? "SELBSTTEST BESTANDEN" : "SELBSTTEST FEHLGESCHLAGEN";
+    var pre = document.createElement("pre");
+    pre.id = "testout";
+    pre.style.cssText = "position:fixed;inset:0;z-index:99;background:#fff;color:#111;padding:20px;font:12px ui-monospace,monospace;white-space:pre-wrap;overflow:auto";
+    pre.textContent = text;
+    document.body.appendChild(pre);
   }
 
   // =================================================================
@@ -1074,6 +1536,9 @@
 
   var yawEl = document.getElementById("ro-yaw");
   var pitchEl = document.getElementById("ro-pitch");
+  var halEl = document.getElementById("ro-hal");
+  var moodEl = document.getElementById("ro-mood");
+  var clipEl = document.getElementById("ro-clip");
   var prev = 0, uiTick = 0;
 
   function frame(ms) {
@@ -1114,11 +1579,14 @@
     gl.uniform2f(U.u_antLag, rig.ant[0], rig.ant[1]);
     gl.uniform2f(U.u_armL, rig.armL[0], rig.armL[1]);
     gl.uniform2f(U.u_armR, rig.armR[0], rig.armR[1]);
-    gl.uniform4f(U.u_eye, rig.eyeOpen, cur.eyeR, cur.eyeW, cur.arc);
+    gl.uniform4f(U.u_eye, rig.eyeOpen, cur.eyeR, cur.eyeW, rig.arc);
     gl.uniform3f(U.u_eyeCol, cur.col[0], cur.col[1], cur.col[2]);
     gl.uniform1f(U.u_glow, cur.glow);
     gl.uniform2f(U.u_look, rig.look[0], rig.look[1]);
-    gl.uniform1f(U.u_mouth, cur.mouth);
+    gl.uniform1f(U.u_mouth, rig.mouth);
+    gl.uniform4f(U.u_body, rig.body[0], rig.body[1], rig.body[2], rig.body[3]);
+    gl.uniform3f(U.u_pose, rig.pose[0], rig.pose[1], rig.pose[2]);
+    gl.uniform1f(U.u_glimm, rig.glimm);
     gl.uniform3f(U.u_envTop, envTop[0], envTop[1], envTop[2]);
     gl.uniform3f(U.u_envBot, envBot[0], envBot[1], envBot[2]);
     gl.uniform3f(U.u_bgTop, bgTop[0], bgTop[1], bgTop[2]);
@@ -1129,13 +1597,40 @@
     window.__nokiReady = true;
 
     uiTick += dt;
-    if (uiTick > 0.1) {
+    if (uiTick > 0.12) {
       uiTick = 0;
       var deg = function (r) { return Math.round(((r * 180 / Math.PI) % 360 + 360) % 360); };
       yawEl.textContent = deg(cam.yaw) + "°";
       pitchEl.textContent = Math.round(cam.pitch * 180 / Math.PI) + "°";
+      if (halEl)  halEl.textContent = HALTUNG_LABEL[haltung];
+      if (moodEl) moodEl.textContent = (stimmung >= 0 ? "+" : "") + stimmung.toFixed(2);
+      if (clipEl) clipEl.textContent = clip ? EINLAGE[clip.key].label : "—";
     }
   }
+
+  // Für reproduzierbare Standbilder: Haltung und Einlage direkt setzen.
+  if (hash.pose && HALTUNG[hash.pose]) {
+    haltung = hash.pose;
+    for (var ph in HALTUNG[hash.pose]) { hal[ph] = HALTUNG[hash.pose][ph]; }
+  }
+  if (hash.clip && EINLAGE[hash.clip]) {
+    clip = { key: hash.clip, t: num(hash.cu, 0.5) * EINLAGE[hash.clip].dur,
+             dur: EINLAGE[hash.clip].dur, seite: 1, amp: 1 };
+  }
+  if (hash.sitv !== undefined) {
+    // Zwischenstellung als echte Haltung, sonst zieht sie der Blend sofort zurück
+    var sv = clamp(num(hash.sitv, 0), 0, 1);
+    HALTUNG.__test = {};
+    for (var tf in HALTUNG.stehen) {
+      HALTUNG.__test[tf] = lerp(HALTUNG.stehen[tf], HALTUNG.sitzen[tf], sv);
+    }
+    HALTUNG_LABEL.__test = "übergang";
+    haltung = "__test";
+    for (var tg in HALTUNG.__test) { hal[tg] = HALTUNG.__test[tg]; }
+  }
+  if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
+
+  if (hash.selftest === "1") { selbsttest(); return; }
 
   requestAnimationFrame(frame);
 })();

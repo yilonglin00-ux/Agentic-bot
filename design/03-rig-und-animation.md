@@ -50,6 +50,17 @@ Füße bleiben stehen. Das ist der Unterschied zwischen „schwebt" und „steht
 | `arm_*` | Vorschwingen (x) | 0.17 | −0.20 … +0.60 | positiv = nach vorn |
 | `koerper` | Heben (y) | 0 | ±0.010 | Atembewegung |
 | `koerper` | Stauchen | 0 | ±0.020 | volumenerhaltend gegengerechnet |
+| `koerper` | Seitlich (x) | 0 | ±0.015 | Gewicht verlagern, seitliches Lehnen |
+| `koerper` | Tiefe (z) | 0 | −0.020 … +0.050 | Heranlehnen, Zurückweichen |
+| `koerper.sprung` | Heben (y) | 0 | 0 … +0.050 | Hüpfen — **eigener Kanal**, addiert sich auf den Atemkanal |
+| `koerper` | Rollen (z) | 0 | ±0.050 | Gewichtsverlagerung, Verlegenheit |
+| `koerper` | Rumpfneigung (x) | 0 | −0.10 … +0.10 | Sitzhaltung |
+| `bein_*` | Sitzstellung | 0 | 0 … 1 | blendet die Bein-Stützpunkte von Stehen nach Sitzen |
+| `glimm` | Helligkeit | 1.0 | 0 … 2.0 | **eigener Kanal**, unabhängig von der Augenhelligkeit |
+
+Alle Kanäle dieser Tabelle sind in `noki.html` umgesetzt und werden vom eingebauten
+Selbsttest (`noki.html#selftest=1`) über 1200 simulierte Sekunden gegen genau diese Grenzen
+geprüft.
 
 **Die harte Grenze:** Kein Wert darf die Silhouettenregel aus
 [02](02-formensprache-material.md) verletzen. Ein über 2.4 rad ausgeschwenkter Arm

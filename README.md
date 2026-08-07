@@ -24,10 +24,21 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | **Vertikal scrollen** | neigen (bis ±80°) |
 | Zwei-Finger-Pinch, Strg+Scroll | zoomen |
 | Ansichts-Schaltflächen | Vorne · Rechts · Hinten · Links · Oben · 3/4 |
+| Ereignis-Schaltflächen | die acht Ereignisse, die später die KI-Seite meldet |
 | Ausdrucks-Schaltflächen | neun Gefühlszustände und die Winkgeste |
+| Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
 
 Noki steht dabei nie still: Er atmet, blinzelt in unregelmäßigem Rhythmus, sieht sich um, und
 seine Stimmungsantenne schwingt jeder Kopfbewegung nach.
+
+**Er verhält sich auch, wenn du nichts tust.** Nach 20 s lässt seine Aufmerksamkeit nach, nach
+90 s setzt er sich hin und beschäftigt sich selbst, nach 4 Minuten döst er, nach 15 Minuten
+schläft er — und der Glimm pulsiert dabei weiter. Sprichst du ihn an, dreht er dir den Kopf zu.
+Lobst du ihn, hebt das seine Stimmung für Minuten, nicht für Sekunden.
+
+Die Ereignis-Schaltflächen sind bewusst genau die Schnittstelle, die später ein KI-Agent
+bedient: Sie melden **was passiert ist**, nicht **welche Animation laufen soll**. Was Noki
+daraus macht, entscheidet er selbst.
 
 ---
 
@@ -66,7 +77,12 @@ noki.html#yaw=90&pitch=20&dist=2.0&e=denkend&still=1&t=0&ui=0
 
 `yaw`/`pitch` in Grad, `dist` Kameraabstand, `e` Ausdruckszustand, `still=1` friert jede
 Bewegung ein, `ui=0` blendet die Bedienoberfläche aus, `theme` erzwingt `dark` oder `light`.
-Die vollständige Liste steht in [03 · Rig und Animation](design/03-rig-und-animation.md).
+Dazu `pose=` (stehen · sitzen · doesen · schlaf), `clip=` mit `cu=` für eine Einlage an einem
+bestimmten Zeitpunkt und `achtung=1` für die Zuhör-Haltung.
+
+**Selbsttest:** `noki.html#selftest=1` fährt das Rig über 1200 simulierte Sekunden und prüft
+alle 16 Kanäle gegen ihre Grenzen, die Reihenfolge der Zeitkaskade, die Anti-Wiederholung der
+Idle-Einlagen, die Sprungfreiheit jedes Kanals und den Verlauf der Stimmung.
 
 ---
 
@@ -77,11 +93,10 @@ Die vollständige Liste steht in [03 · Rig und Animation](design/03-rig-und-ani
 - [x] Frei drehbares 3D-Modell, aus allen Winkeln geprüft
 - [x] Rig, Gefühlssystem, Idle-Animation
 - [x] Animations- und Verhaltenskonzept
-- [ ] Umsetzung: die fünf fehlenden Rig-Kanäle und Stufe 1 der Produktionsreihenfolge
+- [x] **Stufe 1 umgesetzt** — 12 Animationen, Verhaltensmodell, Zeitkaskade, Stimmung
+- [ ] Stufe 2: 13 weitere Animationen (die Rig-Kanäle dafür stehen bereits)
+- [ ] Stufe 3: die seltenen Momente
 - [ ] Anbindung als interaktiver Begleiter
 
-Was im Viewer heute schon läuft, ist die Grundlage; das Konzept in
-[04](design/04-bewegungssprache.md)–[07](design/07-animationsliste.md) beschreibt den
-vollständigen Ausbau. [07 · Animationsliste](design/07-animationsliste.md) markiert mit ✚,
-welche Animationen noch fehlende Rig-Kanäle brauchen, und schlägt eine Produktionsreihenfolge
-in drei Stufen vor.
+[07 · Animationsliste](design/07-animationsliste.md) markiert mit ▶, was bereits läuft, und
+schlägt die Produktionsreihenfolge in drei Stufen vor.

@@ -132,7 +132,7 @@ zueinander passen, wiederholt sich das Gesamtbild praktisch nie.
 | **4 · Gewicht verlagern** | Verlagerung von einem Bein aufs andere | alle `8–14 s` | seitlich `±0.012`, Rollen `±0.03` |
 | **5 · Idle-Einlage** | eine Bewegung mit Anfang und Ende | alle `20–40 s` | siehe [07](07-animationsliste.md), Gruppe B |
 
-Ebene 4 und 5 sind neu gegenüber dem heutigen Rig; Ebenen 1–3 laufen bereits.
+Alle fünf Ebenen laufen in `noki.html`.
 
 ### Die Ermüdungsregel
 
@@ -143,9 +143,13 @@ Umschalten, ein Verlauf:
 |---|---|---|---|
 | 0–20 s | `1.00` | normal | normal |
 | 20–90 s | `0.90` | ×1.2 | normal |
-| 90 s – 4 min | `0.75` | ×1.5 | seltener, ruhigere Auswahl |
+| 90 s – 4 min | `0.75` | ×1.5 | **häufiger** — er beschäftigt sich selbst |
 | 4–15 min | `0.55` | ×2.0, Lider auf `0.6` | nur noch Gähnen und Umsehen |
 | ab 15 min | `0.45` | geschlossen | Schlaf |
+
+Dass die Einlagen zwischen 90 s und 4 min *häufiger* werden, ist kein Widerspruch zur
+Ermüdung: Noki wird langsamer, aber nicht teilnahmslos. Erst im Dösen wird es ruhiger.
+Siehe die Haltungsregel in [06](06-interaktion-und-verhalten.md).
 
 Weil die Werte gleiten, gibt es keinen sichtbaren Moment, in dem Noki „in den Standby geht".
 Er wird einfach müde.
@@ -157,7 +161,7 @@ Er wird einfach müde.
 Für lange Wartezeiten, ruhige Gespräche und als Ausgangspunkt zum Einschlafen.
 
 Noki geht in die Knie und setzt sich auf den Boden, die Beine nach vorn. Der Kopf sitzt
-dadurch etwa `0.22` tiefer. Der Körper lehnt sich leicht zurück (`−0.06` Nicken), die Arme
+dadurch `0.150` tiefer — mehr ginge nicht, ohne dass der Rumpf im Boden versinkt. Der Körper lehnt sich leicht zurück (`−0.06` Nicken), die Arme
 stützen locker seitlich.
 
 **Eigener Atemtakt:** `0.85` statt `1.15` — Sitzen ist ruhiger als Stehen, und das muss man
@@ -187,24 +191,21 @@ Animationsregeln:
 
 ---
 
-## Was das Rig dafür noch braucht
+## Rig-Kanäle
 
-Ehrliche Lückenliste. `noki.html` kann heute Ebenen 1–3 des Ruheverhaltens und die neun
-Ausdruckszustände. Für das vollständige Konzept fehlen acht Kanäle:
+Acht Kanäle über das ursprüngliche Rig hinaus. **Fünf davon sind umgesetzt**, drei sind
+Feinschliff. Keiner verändert die Geometrie — alles sind Transformationen bestehender Bauteile.
 
-| # | Kanal | Bereich | Wofür |
+| Kanal | Bereich | Wofür | Stand |
 |---|---|---|---|
-| 1 | Körper seitlich (x) | `±0.015` | Gewicht verlagern, seitliches Lehnen |
-| 2 | Körper Tiefe (z) | `−0.020 … +0.050` | Heranlehnen, Zurückweichen bei Schreck |
-| 3 | `koerper.sprung` | `0 … +0.050` | Hüpfen und Landen — **eigener Kanal**, addiert sich auf den Atemkanal `koerper.y` und ersetzt ihn nie |
-| 4 | Körper Rollen (z) | `±0.050` | Gewichtsverlagerung, Verlegenheit |
-| 5 | Kniebeuge je Bein | `0 … 0.90 rad` | Sitzen, Hüpfen, Landen, In-die-Hocke-gehen |
-| 6 | Kopf Nicken erweitern | bis `+0.34` statt `+0.30` | nur für den Schlafzustand |
-| 7 | Glimm-Helligkeit eigenständig | `0 … 1.6` | heute teilt sich der Glimm `u_glow` mit den Augen; für Pulsieren bei geschlossenen Augen (Träumen) muss er getrennt sein |
-| 8 | Lidwert je Auge getrennt | `0 … 1` | Zwinkern — optional, aber ein starker Charaktermoment |
-
-Kanäle 1–5 sind für das Konzept nötig, 6–8 sind Feinschliff. Nichts davon verändert die
-Geometrie — alles sind Transformationen bestehender Bauteile.
+| `koerper` seitlich (x) | `±0.015` | Gewicht verlagern, seitliches Lehnen | **umgesetzt** |
+| `koerper` Tiefe (z) | `−0.020 … +0.050` | Heranlehnen, Zurückweichen bei Schreck | **umgesetzt** |
+| `koerper.sprung` (y) | `0 … +0.050` | Hüpfen und Landen — addiert sich auf den Atemkanal `koerper.y` und ersetzt ihn nie | **umgesetzt** |
+| `koerper` Rollen (z) | `±0.050` | Gewichtsverlagerung, Verlegenheit | **umgesetzt** |
+| Sitzstellung der Beine | `0 … 1` | Sitzen — blendet die Bein-Stützpunkte, statt eine Gelenkkette zu bauen | **umgesetzt** |
+| `glimm` eigenständig | `0 … 2.0` | Pulsieren bei geschlossenen Augen (Schlaf, Träumen) | **umgesetzt** |
+| Kopf-Nicken bis `+0.34` | statt `+0.30` | nur für einen noch tieferen Schlafzustand | offen |
+| Lidwert je Auge getrennt | `0 … 1` | Zwinkern | offen |
 
 ---
 
