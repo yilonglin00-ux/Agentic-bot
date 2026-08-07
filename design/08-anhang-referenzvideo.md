@@ -1,18 +1,23 @@
-# 04 · Animationsreferenz — Analyseraster
+# 08 · Anhang — Analyseraster für ein Referenzvideo
 
-> **Status: vorbereitet, noch nicht gefüllt.**
+> **Status: optional, nicht benötigt.**
 >
-> Schritt 3 der Aufgabenstellung beginnt, sobald das Referenzvideo vorliegt. Dieses Dokument
-> ist das Raster, nach dem die Analyse dann abläuft — damit sie strukturiert passiert und
-> nicht in „sieht nett aus" endet.
+> Dieses Raster war für den Fall vorbereitet, dass ein Referenzvideo als Vorlage dient. Das
+> Animationskonzept wurde stattdessen **eigenständig** aus Nokis Körperbau und Charakter
+> entwickelt und liegt vollständig in [04](04-bewegungssprache.md) bis
+> [07](07-animationsliste.md) vor.
+>
+> Das Dokument bleibt erhalten, falls später doch ein Video kommt, dessen Bewegungsstil
+> einfließen soll. Dann dient es dazu, die Übernahme strukturiert zu halten — und vor allem,
+> den bestehenden eigenen Stil nicht versehentlich zu überschreiben.
 
 ---
 
-## Wie die Übertragung ablaufen wird
+## Wie eine spätere Übertragung ablaufen würde
 
-Die Vorgabe lautet ausdrücklich: **den Bewegungs*stil* übernehmen, aber einen eigenen
-entwickeln.** Deshalb ist die Analyse zweistufig — erst beschreiben, was das Referenzvideo
-tut, dann entscheiden, was davon zu Noki passt.
+Der Grundsatz bliebe derselbe: **den Bewegungs*stil* verstehen, aber den eigenen behalten.**
+Die Analyse wäre zweistufig — erst beschreiben, was das Video tut, dann entscheiden, was
+davon zu Noki passt.
 
 ```
 1  Beobachten      →  Was macht die Referenz? Wertfrei protokollieren.
@@ -104,18 +109,21 @@ abgeleitet. Sie sind der Rahmen, in den die Analyse hineinpassen muss:
 
 ---
 
-## Vorhandene Bausteine
+## Was bereits eigenständig entwickelt wurde
 
-Was für die Analyse schon bereitsteht und nicht neu gebaut werden muss:
+Ein späteres Video träfe nicht auf ein leeres Blatt. Diese Entscheidungen sind bereits
+getroffen und haben Vorrang vor allem, was aus einer Referenz käme:
 
-| Baustein | Wo | Zustand |
-|---|---|---|
-| Neun Ausdruckszustände | `noki.html`, `EMO` | läuft |
-| Blinzelautomatik | `updateRig()` | läuft |
-| Atem- und Armschwingung | `updateRig()` | läuft |
-| Antennenfeder | `updateRig()` | läuft |
-| Winken als Geste | `EMO.winken` | läuft |
-| Drehgrenzen aller Knochen | [03 · Rig](03-rig-und-animation.md) | dokumentiert |
+| Baustein | Wo |
+|---|---|
+| Sieben Leitsätze des Bewegungsstils | [04 · Bewegungssprache](04-bewegungssprache.md) |
+| Geschichtetes Ruheverhalten mit Ermüdungsregel | [04](04-bewegungssprache.md) |
+| Sieben Gefühle mit vollständigen Werten | [05 · Gesicht und Emotionen](05-gesicht-und-emotionen.md) |
+| Fünf Interaktionsfälle als Ablaufpartituren | [06 · Interaktion und Verhalten](06-interaktion-und-verhalten.md) |
+| Verhaltensmodell und Agenten-Schnittstelle | [06](06-interaktion-und-verhalten.md) |
+| 36 Animationen mit Spezifikation | [07 · Animationsliste](07-animationsliste.md) |
+| Drehgrenzen aller Knochen | [03 · Rig](03-rig-und-animation.md) |
 
-Noch nicht vorhanden und vermutlich aus der Referenz abzuleiten: **Laufen**, **Drehen im
-Stand**, **Erschrecken**, **Zeigen**, **Nicken/Kopfschütteln**, **Einschlafen und Aufwachen**.
+**Bewusst nicht vorgesehen:** Laufzyklen und Ortswechsel. Noki bleibt an seinem Platz — das
+ist eine Gestaltungsentscheidung, keine Lücke. Ein Referenzvideo mit laufender Figur wäre
+also gerade **kein** Grund, das zu ändern.

@@ -120,6 +120,5 @@ Falls Noki später spricht — hier ist die Tonlage, die zur Figur passt:
 
 - [02 · Formensprache und Material](02-formensprache-material.md) — wie diese Identität in
   Maße, Formen und Oberflächen übersetzt wird
-- [03 · Rig und Animation](03-rig-und-animation.md) — wie sie sich bewegt
-- [04 · Animationsreferenz](04-animationsreferenz.md) — vorbereitetes Raster für die Analyse
-  des Referenzvideos
+- [03 · Rig und Animation](03-rig-und-animation.md) — die Bewegungsgrundlage
+- [04 · Bewegungssprache](04-bewegungssprache.md) — wie diese Persönlichkeit sich bewegt

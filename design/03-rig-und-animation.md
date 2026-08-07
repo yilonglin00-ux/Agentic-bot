@@ -196,5 +196,6 @@ noki.html#yaw=90&pitch=20&dist=2.0&e=denkend&still=1&t=0&ui=0&theme=dark
 
 ## Nächster Schritt
 
-[04 · Animationsreferenz](04-animationsreferenz.md) — das vorbereitete Raster für die Analyse
-des Referenzvideos.
+[04 · Bewegungssprache](04-bewegungssprache.md) — der Animationsstil, der auf dieser
+Grundlage aufsetzt: Leitsätze, Ruheverhalten und die acht Kanäle, die dem Rig dafür noch
+fehlen.

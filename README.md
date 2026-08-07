@@ -33,12 +33,23 @@ seine Stimmungsantenne schwingt jeder Kopfbewegung nach.
 
 ## Dokumentation
 
+**Wer Noki ist und wie er gebaut ist**
+
 | Dokument | Inhalt |
 |---|---|
-| [01 · Charakter-Konzept](design/01-charakter-konzept.md) | Wer Noki ist: Name, Herkunft, Persönlichkeit, Ausstrahlung, Wiedererkennbarkeit |
+| [01 · Charakter-Konzept](design/01-charakter-konzept.md) | Name, Herkunft, Persönlichkeit, Ausstrahlung, Wiedererkennbarkeit |
 | [02 · Formensprache und Material](design/02-formensprache-material.md) | Der verbindliche Maßkanon: jedes Bauteil mit Position, Maß und Material |
 | [03 · Rig und Animation](design/03-rig-und-animation.md) | Hierarchie, Drehpunkte, Grenzen, Bewegungsprinzipien, Gefühlssystem |
-| [04 · Animationsreferenz](design/04-animationsreferenz.md) | Vorbereitetes Analyseraster — wartet auf das Referenzvideo |
+
+**Wie er sich bewegt und verhält**
+
+| Dokument | Inhalt |
+|---|---|
+| [04 · Bewegungssprache](design/04-bewegungssprache.md) | Die sieben Leitsätze des Animationsstils, das geschichtete Ruheverhalten, Stehen und Sitzen |
+| [05 · Gesicht und Emotionen](design/05-gesicht-und-emotionen.md) | Sieben Gefühle mit Augen, Mund, Kopf, Körpersprache und Glimm |
+| [06 · Interaktion und Verhalten](design/06-interaktion-und-verhalten.md) | Die fünf Interaktionsfälle, das Verhaltensmodell und die Schnittstelle zur späteren KI-Seite |
+| [07 · Animationsliste](design/07-animationsliste.md) | 36 Animationen mit Auslöser, Gefühl und Spezifikation |
+| [08 · Anhang](design/08-anhang-referenzvideo.md) | Analyseraster, falls später ein Referenzvideo einfließen soll |
 
 Die Maße in [02](design/02-formensprache-material.md) stimmen exakt mit `noki.html` überein.
 Das Distanzfeld im Viewer ist nicht die Illustration der Dokumentation — es *ist* das Modell.
@@ -65,5 +76,12 @@ Die vollständige Liste steht in [03 · Rig und Animation](design/03-rig-und-ani
 - [x] Formensprache, Maßkanon, Materialien
 - [x] Frei drehbares 3D-Modell, aus allen Winkeln geprüft
 - [x] Rig, Gefühlssystem, Idle-Animation
-- [ ] Analyse des Referenzvideos und Übertragung des Bewegungsstils
-- [ ] Entscheidung über die weitere Umsetzung (Mesh in Blender oder Echtzeit-Renderer)
+- [x] Animations- und Verhaltenskonzept
+- [ ] Umsetzung: die fünf fehlenden Rig-Kanäle und Stufe 1 der Produktionsreihenfolge
+- [ ] Anbindung als interaktiver Begleiter
+
+Was im Viewer heute schon läuft, ist die Grundlage; das Konzept in
+[04](design/04-bewegungssprache.md)–[07](design/07-animationsliste.md) beschreibt den
+vollständigen Ausbau. [07 · Animationsliste](design/07-animationsliste.md) markiert mit ✚,
+welche Animationen noch fehlende Rig-Kanäle brauchen, und schlägt eine Produktionsreihenfolge
+in drei Stufen vor.
