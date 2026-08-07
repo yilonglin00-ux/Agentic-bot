@@ -52,11 +52,13 @@ Füße bleiben stehen. Das ist der Unterschied zwischen „schwebt" und „steht
 | `koerper` | Stauchen | 0 | ±0.020 | volumenerhaltend gegengerechnet |
 | `koerper` | Seitlich (x) | 0 | ±0.015 | Gewicht verlagern, seitliches Lehnen |
 | `koerper` | Tiefe (z) | 0 | −0.020 … +0.050 | Heranlehnen, Zurückweichen |
-| `koerper.sprung` | Heben (y) | 0 | 0 … +0.050 | Hüpfen — **eigener Kanal**, addiert sich auf den Atemkanal |
+| `koerper.sprung` | Heben (y) | 0 | −0.020 … +0.050 | Hüpfen und das Absenken beim Gehen — **eigener Kanal**, addiert sich auf den Atemkanal |
 | `koerper` | Rollen (z) | 0 | ±0.050 | Gewichtsverlagerung, Verlegenheit |
 | `koerper` | Rumpfneigung (x) | 0 | −0.10 … +0.10 | Sitzhaltung |
 | `bein_*` | Beinwinkel (x) | 0 | 0 … −π/2 | Sitzstellung. **Dreht das Bein bei fester Länge `0.083`** — Stützpunkte einzeln zu interpolieren würde es dehnen. Die Hüfte wandert dabei nach vorn, sonst verschwindet das Bein im Rumpf |
+| `bein_*` | Schrittschwung (x) | 0 | ±0.42 | **je Bein getrennt**, gegenphasig — addiert sich auf den Beinwinkel |
 | `glimm` | Helligkeit | 1.0 | 0 … 2.0 | **eigener Kanal**, unabhängig von der Augenhelligkeit |
+| `boden` | Versatz (z) | 0 | frei laufend | Bodenbänder ziehen beim Gehen durch |
 
 Alle Kanäle dieser Tabelle sind in `noki.html` umgesetzt und werden vom eingebauten
 Selbsttest (`noki.html#selftest=1`) über 1200 simulierte Sekunden gegen genau diese Grenzen

@@ -129,11 +129,38 @@
   #readout span { color: var(--ink-soft); }
 
   /* ---- Bedienleiste ------------------------------------------------------ */
+  #griff {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(12px, 2.4vh, 26px);
+    transform: translateX(-50%);
+    z-index: 3;
+    appearance: none;
+    border: 1px solid var(--panel-edge);
+    background: var(--panel);
+    color: var(--ink-soft);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 9px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(16px) saturate(1.3);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3);
+    transition: opacity .3s ease, transform .3s ease;
+  }
+  #griff::after { content: " \25B4"; }
+  #griff[aria-expanded="true"]::after { content: " \25BE"; }
+  #griff:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  #griff.weg { opacity: 0; pointer-events: none; }
+
   #controls {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    bottom: clamp(12px, 2.4vh, 26px);
+    bottom: calc(clamp(12px, 2.4vh, 26px) + 46px);
     width: min(760px, calc(100% - 20px));
     display: flex;
     flex-direction: column;
@@ -145,6 +172,14 @@
     box-shadow: var(--shadow);
     backdrop-filter: blur(16px) saturate(1.3);
     -webkit-backdrop-filter: blur(16px) saturate(1.3);
+    transition: transform .32s cubic-bezier(.22,.7,.3,1), opacity .32s ease;
+    z-index: 2;
+  }
+  /* Zugeklappt gibt die Leiste die ganze Buehne frei */
+  #controls.zu {
+    transform: translate(-50%, calc(100% + clamp(12px, 2.4vh, 26px)));
+    opacity: 0;
+    pointer-events: none;
   }
 
   .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -228,7 +263,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    button.chip { transition: none; }
+    button.chip, #controls, #griff { transition: none; }
   }
 </style>
 
@@ -251,7 +286,10 @@
 
   <div id="hint">ziehen &middot; horizontal scrollen = drehen &middot; vertikal scrollen = neigen</div>
 
-  <div id="controls">
+  <button id="griff" type="button" aria-expanded="false" aria-controls="controls"
+          title="Bedienung ein- und ausblenden">Bedienung</button>
+
+  <div id="controls" class="zu">
     <div class="row">
       <div class="label">Ansicht</div>
       <div class="chips" id="views"></div>
@@ -265,8 +303,9 @@
       <div class="chips" id="emos"></div>
     </div>
     <div class="row">
-      <div class="label">Zeit</div>
+      <div class="label">Bewegung</div>
       <div class="chips">
+        <button class="chip" type="button" id="gehen" aria-pressed="false">Gehen</button>
         <button class="chip" type="button" id="raffer" aria-pressed="false">Zeitraffer &times;10</button>
         <button class="chip" type="button" id="wecken">Zur&uuml;cksetzen</button>
       </div>
@@ -325,6 +364,8 @@
 "uniform vec4  u_body;       // seitlich, sprung, tiefe, rollen",
 "uniform vec3  u_pose;       // rumpfneigung, sitzen 0..1, reserviert",
 "uniform float u_glimm;      // Glimm-Helligkeit, unabhaengig von den Augen",
+"uniform vec3  u_leg;        // Schwung links, Schwung rechts, Hueftabsenkung",
+"uniform float u_boden;      // Bodenversatz, zieht beim Gehen unter Noki durch",
 "uniform vec3  u_envTop;",
 "uniform vec3  u_envBot;",
 "uniform vec3  u_bgTop;",
@@ -458,7 +499,12 @@
 "  // Fußansatz auf das Dreifache. Fester Betrag mal Drehung hält jede Strecke",
 "  // konstant, in jeder Zwischenstellung.",
 "  float st = u_pose.y;",
-"  float thB = -1.5708 * st;                      // Beinwinkel um die Seitenachse",
+"  // Beide Beine sind spiegelgleich gebaut, schwingen beim Gehen aber",
+"  // gegenphasig. Der Schwung wird deshalb nach der Seite des Abtastpunktes",
+"  // gewaehlt — das bleibt eine gueltige Distanz, weil das eigene Bein immer",
+"  // das naehere ist.",
+"  float schwung = (p.x < 0.0) ? u_leg.x : u_leg.y;",
+"  float thB = -1.5708 * st + schwung;            // Sitzwinkel plus Schrittschwung",
 "  vec3 lp = vec3(abs(p.x), p.y, p.z);",
 "  // Die Hüfthöhe folgt der Beindrehung statt linear zu sinken. Sonst hängt",
 "  // der Knöchel in der Mitte der Bewegung durch und der Fuß versinkt im Boden.",
@@ -467,7 +513,7 @@
 "  // Beindrehung statt linear zu sinken, dadurch bleibt der Knöchel auf",
 "  // konstanter Höhe und der Fuß sinkt nie in den Boden.",
 "  vec3 hueftP  = vec3(mix(0.085, 0.088, st),",
-"                      0.076 + 0.082 * cos(1.5708 * st),",
+"                      0.076 + 0.082 * cos(1.5708 * st) + u_leg.z,",
 "                      mix(0.000, 0.105, st));",
 "  vec3 beinRi  = rotX(vec3(0.157,-0.988,0.0), thB);",
 "  vec3 knoechP = hueftP + beinRi * 0.083;        // feste Beinlänge",
@@ -647,6 +693,15 @@
 "    if (fade > 0.002){",
 "      float sha = softShadow(fp + vec3(0.0, 0.006, 0.0), L1, 9.0);",
 "      col = mix(col, col * mix(0.30, 1.0, sha), fade * u_ground);",
+"    }",
+"    // Feine Querbänder mit eigener, weiterer Ausblendung. Sie stehen still,",
+"    // solange Noki steht, und ziehen unter ihm durch, sobald er geht — ohne",
+"    // sie wäre ein Gang auf der Stelle von Stillstand nicht zu unterscheiden.",
+"    float bfade = 1.0 - smoothstep(0.30, 2.10, length(fp.xz));",
+"    if (bfade > 0.002){",
+"      float band = 0.5 + 0.5 * cos((fp.z + u_boden) * 17.0);",
+"      band = smoothstep(0.35, 0.95, band);",
+"      col *= 1.0 - 0.085 * band * bfade * u_ground;",
 "    }",
 "  }",
 "",
@@ -848,7 +903,7 @@
     U = {};
     ["u_res", "u_cam", "u_bob", "u_squash", "u_headRot", "u_antLag", "u_armL", "u_armR",
      "u_eye", "u_eyeCol", "u_glow", "u_look", "u_mouth",
-     "u_body", "u_pose", "u_glimm",
+     "u_body", "u_pose", "u_glimm", "u_leg", "u_boden",
      "u_envTop", "u_envBot", "u_bgTop", "u_bgBot", "u_ground"].forEach(function (n) {
       U[n] = gl.getUniformLocation(prog, n);
     });
@@ -884,7 +939,7 @@
   }
   if (hash.ui === "0") {
     // Nackte Bühne für Referenzbilder
-    ["plate", "readout", "controls", "hint"].forEach(function (id) {
+    ["plate", "readout", "controls", "hint", "griff"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
     });
@@ -919,7 +974,8 @@
     eyeOpen: 1, look: [0, 0],
     body: [0, 0, 0, 0],   // seitlich, sprung, tiefe, rollen
     pose: [0, 0, 0],      // rumpfneigung, sitzen, haltungshöhe
-    glimm: 1, arc: 0, mouth: 0
+    glimm: 1, arc: 0, mouth: 0,
+    leg: [0, 0, 0], boden: 0
   };
 
   var blinkAt = 1.6, blinkPhase = -1, blinkDouble = false;
@@ -950,6 +1006,7 @@
   }
 
   canvas.addEventListener("pointerdown", function (ev) {
+    leisteAuf(false);              // beim Anfassen der Figur macht die Leiste Platz
     canvas.setPointerCapture(ev.pointerId);
     pointers[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
     dragging = true;
@@ -992,6 +1049,7 @@
   // Scrollen: horizontal dreht, vertikal neigt. Strg/Pinch am Trackpad zoomt.
   canvas.addEventListener("wheel", function (ev) {
     ev.preventDefault();
+    leisteAuf(false);
     if (ev.ctrlKey) {
       camT.dist = clamp(camT.dist * (1 + ev.deltaY * 0.004), DIST_MIN, DIST_MAX);
     } else {
@@ -1069,6 +1127,29 @@
       rafferBtn.setAttribute("aria-pressed", String(zeitraffer > 1));
     });
   }
+  // ---- Leiste ein- und ausklappen ----
+  var griff = document.getElementById("griff");
+  var leiste = document.getElementById("controls");
+  function leisteAuf(auf) {
+    if (!leiste || !griff) return;
+    leiste.classList.toggle("zu", !auf);
+    griff.setAttribute("aria-expanded", String(auf));
+  }
+  if (griff) {
+    griff.addEventListener("click", function () {
+      leisteAuf(leiste.classList.contains("zu"));
+    });
+  }
+
+  var gehBtn = document.getElementById("gehen");
+  if (gehBtn) {
+    gehBtn.addEventListener("click", function () {
+      touched();
+      gehBis = 0;                 // von Hand gestartet: kein Zeitlimit
+      setGehen(gehenZ === 0, true);
+    });
+  }
+
   var weckBtn = document.getElementById("wecken");
   if (weckBtn) {
     weckBtn.addEventListener("click", function () {
@@ -1168,6 +1249,11 @@
             o.mouth += 0.85 * e;
             o.gl    += 0.28 * e;
           } },
+    B8: { label:"B8 Ein paar Schritte", dur:0.4, prio:1, f:function (u, o, v) {
+            // Die Einlage stößt nur an; das Gehen läuft danach als Zustand
+            // weiter, bis die Zeit abgelaufen ist.
+            if (u < 0.05 && gehenZ === 0) { setGehen(true); gehBis = time + 5.0 + Math.random() * 4.0; }
+          } },
     F4k:{ label:"F4 Fehler (reduziert)", dur:2.6, prio:3, f:function (u, o) {
             // Vorläufig: F4 kommt vollständig erst in Stufe 3.
             var e = huelle(u, 0.10, 0.40);
@@ -1196,7 +1282,8 @@
   function erlaubt() {
     if (haltung === "schlaf") return [];
     if (haltung === "doesen") return ["B1"];
-    return ["B1", "B3"];
+    // Gehen zieht er nur, wenn er ohnehin schon eine Weile allein ist
+    return ruhe > 60 ? ["B1", "B3", "B8"] : ["B1", "B3"];
   }
 
   function ziehe() {
@@ -1243,6 +1330,26 @@
 
   var gewichtIst = 0;
 
+  // ---------------------------------------------------------------
+  //  Gehen — ein Watschelgang, kein Laufzyklus mit Knien.
+  //  Noki hat kein Kniegelenk: das Bein ist eine starre Strecke am
+  //  Hüftgelenk. Beide Beine schwingen gegenphasig, die Hüfte sinkt
+  //  genau so weit, dass die Füße dabei auf dem Boden bleiben. Das
+  //  ergibt den Gang eines Aufziehspielzeugs — und genau der passt
+  //  zu dieser Figur besser als ein nachgeahmter Menschengang.
+  // ---------------------------------------------------------------
+  var SCHRITT = 4.8;          // Schrittfrequenz
+  var SCHWUNG = 0.42;         // Ausschlag je Bein
+  var TEMPO   = 0.40;         // Bodenversatz je Sekunde
+  var gehen = 0, gehenZ = 0, gehPhase = 0, bodenZ = 0, gehBis = 0;
+
+  function setGehen(an, vomNutzer) {
+    gehenZ = an ? 1 : 0;
+    if (an && vomNutzer) { setHaltung("stehen"); ruhe = 0; }
+    var b = document.getElementById("gehen");
+    if (b) b.setAttribute("aria-pressed", String(an));
+  }
+
   function einlageIntervall() {
     // Zwischen 90 s und 4 min beschäftigt Noki sich selbst — die Einlagen
     // werden häufiger, nicht seltener (Dokument 06, Fall 3). Erst im Dösen
@@ -1263,7 +1370,10 @@
     achtung = lerp(achtung, achtungZ, 1 - Math.pow(0.02, dt / 0.6));
 
     // Zeitkaskade — 20 s · 90 s · 4 min · 15 min
-    setHaltung(ruhe < 90 ? "stehen" : ruhe < 240 ? "sitzen" : ruhe < 900 ? "doesen" : "schlaf");
+    var stufe = ruhe < 90 ? "stehen" : ruhe < 240 ? "sitzen" : ruhe < 900 ? "doesen" : "schlaf";
+    if (gehenZ === 1 && ruhe < 240) stufe = "stehen";   // wer geht, sitzt nicht
+    if (gehenZ === 1 && ruhe >= 240) { gehBis = 0; setGehen(false); }
+    setHaltung(stufe);
 
     // Ebene 4 · Gewicht verlagern (B2) — im Sitzen ausgesetzt
     gewichtAt -= dz;
@@ -1272,6 +1382,9 @@
     // Ebene 5 · Einlage ziehen
     einlageAt -= dz;
     if (einlageAt <= 0) { ziehe(); einlageAt = einlageIntervall(); }
+
+    // Von selbst ein paar Schritte, wenn er sich ohnehin beschäftigt
+    if (gehBis > 0 && time > gehBis) { gehBis = 0; setGehen(false); }
   }
 
   function updateRig(dt) {
@@ -1296,6 +1409,20 @@
     if (!still) treiber(dt);
     var muede = clamp(ruhe / 90, 0, 1);
 
+    // --- Gehen ---
+    gehen = lerp(gehen, gehenZ, 1 - Math.pow(0.02, dt / 0.45));
+    if (!still && gehen > 0.005) {
+      gehPhase += dt * SCHRITT;
+      bodenZ   += dt * TEMPO * gehen;
+    }
+    var gS  = Math.sin(gehPhase) * gehen;
+    var sw  = SCHWUNG * gS;
+    // Die Hüfte sinkt genau so weit, wie die gespreizten Beine kürzer werden.
+    // Dadurch bleiben beide Füße auf dem Boden, statt hindurchzurutschen.
+    var senk = -0.082 * (1 - Math.cos(Math.abs(sw)));
+    rig.leg = [-sw, sw, senk];
+    rig.boden = bodenZ;
+
     // --- 4 · Aktive Einlage, plus Ausblendung einer unterbrochenen ---
     var o = neuOff();
     if (clip) {
@@ -1315,7 +1442,7 @@
     // Atem: Grundfrequenz aller Bewegung. Amplitude gedeckelt, damit der
     // Kanal auch bei schnellem Atem in seinen Grenzen bleibt.
     var br = cur.breath * hal.breath * (1 + stimmung * 0.15)
-           * (1 - 0.10 * muede) * (1 - 0.05 * achtung);
+           * (1 - 0.10 * muede) * (1 - 0.05 * achtung) * (1 + 0.25 * gehen);
     // Deckel so gewaehlt, dass beide Atemkanaele in ihren Grenzen bleiben:
     // 0.013 * 1.53 = 0.0199 (Stauchung), 0.0062 * 1.53 = 0.0095 (Hoehe).
     var brA = Math.min(br, 1.53);
@@ -1354,7 +1481,7 @@
     var camY = Math.atan2(Math.sin(cam.yaw), Math.cos(cam.yaw));
     var zuDir = achtung * clamp(-camY, -0.55, 0.55);   // er dreht sich zu dir
     rig.head[0] = clamp(cur.hPitch + hal.hP + Math.sin(t * 0.83 + 2.0) * 0.020 * driftW + o.hP, -0.25, 0.30);
-    rig.head[1] = clamp(cur.hYaw + look + zuDir + o.hY, -0.55, 0.55);
+    rig.head[1] = clamp(cur.hYaw + look + zuDir + o.hY - 0.045 * gS, -0.55, 0.55);
     rig.head[2] = clamp(cur.hRoll + achtung * 0.08 + Math.sin(t * 0.47) * 0.018 * driftW + o.hR, -0.30, 0.30);
     rig.look    = [clamp(cur.look[0] + look * 0.9 + o.lx, -1, 1),
                    clamp(cur.look[1] + o.ly, -1, 1)];
@@ -1374,9 +1501,10 @@
     var sway = Math.sin(phAtem) * 0.016 * frei;
     var swBas = hal.armSw - HALTUNG.stehen.armSw;
     var fwBas = hal.armFw - HALTUNG.stehen.armFw;
-    var armFw = clamp(cur.armFwd + fwBas + o.aF, -0.20, 0.60);
-    rig.armL = [clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40), armFw];
-    rig.armR = [clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40), armFw];
+    var armFw = cur.armFwd + fwBas + o.aF;
+    var gArm  = 0.30 * gS;          // rechtes Bein vor, rechter Arm zurueck
+    rig.armL = [clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40), clamp(armFw + gArm, -0.20, 0.60)];
+    rig.armR = [clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40), clamp(armFw - gArm, -0.20, 0.60)];
     if (cur.wave > 0.01) {   // Ausdruck „Winken" aus der Bibliothek
       var w = 2.00 + Math.sin(t * 6.4) * 0.28;
       rig.armR = [clamp(lerp(rig.armR[0], w, cur.wave), -0.10, 2.40),
@@ -1384,13 +1512,13 @@
     }
 
     // Rumpf — Ebene 4 (Gewicht) plus Einlagenversätze
-    var gz = still ? 0 : gewichtSeite * (1 - hal.sit);
+    var gz = still ? 0 : gewichtSeite * (1 - hal.sit) * (1 - gehen);
     gewichtIst = lerp(gewichtIst, gz, 1 - Math.pow(0.02, dt / 1.8));
-    rig.body[0] = clamp(gewichtIst * 0.012 + o.bx, -0.015, 0.015);
-    rig.body[1] = clamp(o.by, 0.0, 0.050);
+    rig.body[0] = clamp(gewichtIst * 0.012 + o.bx + 0.007 * gS, -0.015, 0.015);
+    rig.body[1] = clamp(o.by + senk, -0.020, 0.050);
     rig.body[2] = clamp(o.bz, -0.020, 0.050);
-    rig.body[3] = clamp(gewichtIst * 0.030 + o.br, -0.050, 0.050);
-    rig.pose[0] = hal.pitch;
+    rig.body[3] = clamp(gewichtIst * 0.030 + o.br + 0.030 * gS, -0.050, 0.050);
+    rig.pose[0] = clamp(hal.pitch + 0.045 * gehen, -0.10, 0.10);
     rig.pose[1] = hal.sit;
     rig.pose[2] = hal.posY;
 
@@ -1424,7 +1552,7 @@
       "koerper.y":         [-0.010, 0.010, 0.004],
       "koerper.stauchung": [-0.020, 0.020, 0.008],
       "koerper.x":         [-0.015, 0.015, 0.005],
-      "koerper.sprung":    [ 0.000, 0.050, 0.012],
+      "koerper.sprung":    [-0.020, 0.050, 0.012],
       "koerper.z":         [-0.020, 0.050, 0.012],
       "koerper.rollen":    [-0.050, 0.050, 0.012],
       "glimm":             [ 0.000, 2.000, 0.200],
@@ -1633,6 +1761,8 @@
     gl.uniform4f(U.u_body, rig.body[0], rig.body[1], rig.body[2], rig.body[3]);
     gl.uniform3f(U.u_pose, rig.pose[0], rig.pose[1], rig.pose[2]);
     gl.uniform1f(U.u_glimm, rig.glimm);
+    gl.uniform3f(U.u_leg, rig.leg[0], rig.leg[1], rig.leg[2]);
+    gl.uniform1f(U.u_boden, rig.boden);
     gl.uniform3f(U.u_envTop, envTop[0], envTop[1], envTop[2]);
     gl.uniform3f(U.u_envBot, envBot[0], envBot[1], envBot[2]);
     gl.uniform3f(U.u_bgTop, bgTop[0], bgTop[1], bgTop[2]);
@@ -1675,6 +1805,11 @@
     for (var tg in HALTUNG.__test) { hal[tg] = HALTUNG.__test[tg]; }
   }
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
+  if (hash.geh !== undefined) {
+    gehen = gehenZ = 1;
+    gehPhase = num(hash.geh, 0) * Math.PI * 2;   // 0 … 1 = ein voller Schritt
+    bodenZ = gehPhase * 0.08;
+  }
 
   if (hash.selftest === "1") { selbsttest(); return; }
 

@@ -23,9 +23,11 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | **Horizontal scrollen** | um die Hochachse drehen |
 | **Vertikal scrollen** | neigen (bis ±80°) |
 | Zwei-Finger-Pinch, Strg+Scroll | zoomen |
+| Knopf „Bedienung“ unten | klappt die Leiste aus; beim Anfassen der Figur legt sie sich von selbst wieder weg |
 | Ansichts-Schaltflächen | Vorne · Rechts · Hinten · Links · Oben · 3/4 |
 | Ereignis-Schaltflächen | die acht Ereignisse, die später die KI-Seite meldet |
 | Ausdrucks-Schaltflächen | neun Gefühlszustände und die Winkgeste |
+| Gehen | startet und stoppt den Watschelgang; der Boden zieht dabei unter ihm durch |
 | Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
 
 Noki steht dabei nie still: Er atmet, blinzelt in unregelmäßigem Rhythmus, sieht sich um, und
@@ -56,10 +58,10 @@ daraus macht, entscheidet er selbst.
 
 | Dokument | Inhalt |
 |---|---|
-| [04 · Bewegungssprache](design/04-bewegungssprache.md) | Die sieben Leitsätze des Animationsstils, das geschichtete Ruheverhalten, Stehen und Sitzen |
+| [04 · Bewegungssprache](design/04-bewegungssprache.md) | Die sieben Leitsätze des Animationsstils, das geschichtete Ruheverhalten, Stehen, Gehen und Sitzen |
 | [05 · Gesicht und Emotionen](design/05-gesicht-und-emotionen.md) | Sieben Gefühle mit Augen, Mund, Kopf, Körpersprache und Glimm |
 | [06 · Interaktion und Verhalten](design/06-interaktion-und-verhalten.md) | Die fünf Interaktionsfälle, das Verhaltensmodell und die Schnittstelle zur späteren KI-Seite |
-| [07 · Animationsliste](design/07-animationsliste.md) | 36 Animationen mit Auslöser, Gefühl und Spezifikation |
+| [07 · Animationsliste](design/07-animationsliste.md) | 37 Animationen mit Auslöser, Gefühl und Spezifikation |
 | [08 · Anhang](design/08-anhang-referenzvideo.md) | Analyseraster, falls später ein Referenzvideo einfließen soll |
 
 Die Maße in [02](design/02-formensprache-material.md) stimmen exakt mit `noki.html` überein.
@@ -78,7 +80,8 @@ noki.html#yaw=90&pitch=20&dist=2.0&e=denkend&still=1&t=0&ui=0
 `yaw`/`pitch` in Grad, `dist` Kameraabstand, `e` Ausdruckszustand, `still=1` friert jede
 Bewegung ein, `ui=0` blendet die Bedienoberfläche aus, `theme` erzwingt `dark` oder `light`.
 Dazu `pose=` (stehen · sitzen · doesen · schlaf), `clip=` mit `cu=` für eine Einlage an einem
-bestimmten Zeitpunkt und `achtung=1` für die Zuhör-Haltung.
+bestimmten Zeitpunkt, `achtung=1` für die Zuhör-Haltung und `geh=` für eine Schrittphase
+(`0 … 1` = ein voller Schritt).
 
 **Selbsttest:** `noki.html#selftest=1` fährt das Rig über 1200 simulierte Sekunden und prüft
 alle 16 Kanäle gegen ihre Grenzen, die Reihenfolge der Zeitkaskade, die Anti-Wiederholung der
@@ -93,7 +96,7 @@ Idle-Einlagen, die Sprungfreiheit jedes Kanals und den Verlauf der Stimmung.
 - [x] Frei drehbares 3D-Modell, aus allen Winkeln geprüft
 - [x] Rig, Gefühlssystem, Idle-Animation
 - [x] Animations- und Verhaltenskonzept
-- [x] **Stufe 1 umgesetzt** — 12 Animationen, Verhaltensmodell, Zeitkaskade, Stimmung
+- [x] **Stufe 1 umgesetzt** — 13 Animationen inkl. Gehen, Verhaltensmodell, Zeitkaskade, Stimmung
 - [ ] Stufe 2: 13 weitere Animationen (die Rig-Kanäle dafür stehen bereits)
 - [ ] Stufe 3: die seltenen Momente
 - [ ] Anbindung als interaktiver Begleiter

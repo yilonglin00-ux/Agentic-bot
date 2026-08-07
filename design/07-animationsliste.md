@@ -1,6 +1,6 @@
 # 07 · Animationsliste
 
-> Schritt 3, Teil 4. **36 Animationen** in sieben Gruppen — die vollständige Liste für die
+> Schritt 3, Teil 4. **37 Animationen** in sieben Gruppen — die vollständige Liste für die
 > spätere Umsetzung.
 >
 > Jeder Eintrag trägt Name, Beschreibung, Auslöser, Gefühl und eine Spezifikationszeile:
@@ -89,6 +89,13 @@ Er hebt eine Hand vor sich und schaut sie an, den Kopf leicht gedreht. Die Beweg
 deutlichsten sagt: *er beschäftigt sich selbst.*
 *Auslöser:* Idle-Ziehung, erhöhte Wahrscheinlichkeit ab 90 s ohne Interaktion — *Gefühl:* Selbstgenügsamkeit
 `3.0 s · weich · arm_r 1.35 nach vorn, kopf.nicken −0.10 und drehen 0.18, Blick auf die Hand · Prio 1 · ja`
+
+**B8 · Ein paar Schritte** ▶
+Ein Watschelgang auf der Stelle, während der Boden unter ihm durchzieht. Die Beine schwingen
+gegenphasig, die Hüfte sinkt mit der Spreizung, Arme und Kopf schwingen gegen. Ohne Kniegelenk
+ist es der Gang eines Aufziehspielzeugs — und genau der passt zu Noki.
+*Auslöser:* Knopf, oder Idle-Ziehung ab 60 s ohne Interaktion — *Gefühl:* Eigenständigkeit, Tatendrang
+`5–9 s · pendelnd · beinschwung ±0.42 @ 4.8, hüfte −0.082·(1−cos α), koerper.rollen ±0.030, arme ∓0.30 · Prio 1 · ja`
 
 ---
 
@@ -289,11 +296,11 @@ Beweis, dass da drin jemand ist.
 
 Nicht alle 36 müssen gleichzeitig entstehen. Drei Stufen, jede für sich schon vorzeigbar:
 
-**Stufe 1 — Noki lebt** ▶ **umgesetzt** (12 Animationen)
-A1, **A2**, A3, A4, B1, B2, B3, D1, D2, D4, E1, C1
+**Stufe 1 — Noki lebt** ▶ **umgesetzt** (13 Animationen)
+A1, **A2**, A3, A4, B1, B2, B3, **B8**, D1, D2, D4, E1, C1
 
-Damit hat er ein Ruheverhalten, kann sitzen, einschlafen, zuhören, sich freuen, nachdenken
-und winken. Das ist bereits ein Begleiter, mit dem sich sinnvoll interagieren lässt.
+Damit hat er ein Ruheverhalten, kann sitzen, gehen, einschlafen, zuhören, sich freuen,
+nachdenken und winken. Das ist bereits ein Begleiter, mit dem sich sinnvoll interagieren lässt.
 
 *A2 · Sitz-Idle rückte aus Stufe 2 vor: A4 · Schlaf setzt die Sitzhaltung voraus, sonst
 schliefe Noki im Stehen.*

@@ -116,8 +116,8 @@ Fünf Bewegungsverläufe, mehr braucht das ganze Konzept nicht. Die Animationsli
 
 ## Grundhaltung 1: Stehen
 
-Nokis Normalzustand. Er bleibt an seinem Platz — er läuft nicht und wechselt den Ort nicht.
-Was er kann: sich drehen, lehnen, das Gewicht verlagern, hüpfen, sich hinsetzen.
+Nokis Normalzustand. Er **wechselt den Ort nicht** — die Bühne bleibt seine. Was er kann:
+sich drehen, lehnen, das Gewicht verlagern, hüpfen, sich hinsetzen — und gehen.
 
 ### Das geschichtete Ruheverhalten
 
@@ -153,6 +153,38 @@ Siehe die Haltungsregel in [06](06-interaktion-und-verhalten.md).
 
 Weil die Werte gleiten, gibt es keinen sichtbaren Moment, in dem Noki „in den Standby geht".
 Er wird einfach müde.
+
+### Gehen — ein Watschelgang, kein Menschengang
+
+Noki hat **kein Kniegelenk**: sein Bein ist eine starre Strecke am Hüftgelenk. Einen
+nachgeahmten Menschengang gäbe das nicht her — und er wäre auch falsch. Was stattdessen
+herauskommt, ist der Gang eines Aufziehspielzeugs, und der passt zu dieser Figur besser als
+jede Nachahmung.
+
+| | |
+|---|---|
+| Schrittfrequenz | `4.8` |
+| Ausschlag je Bein | `±0.42`, gegenphasig |
+| Hüftabsenkung | `−0.082 · (1 − cos α)` — genau so viel, wie die gespreizten Beine kürzer werden |
+| Rumpf rollt | `±0.030` zur Standseite |
+| Rumpf wiegt seitlich | `±0.007` |
+| Vorlage | `+0.045` |
+| Arme | `∓0.30` gegenläufig zum Bein derselben Seite |
+| Kopf | `∓0.045` gegen die Arme |
+| Atem | `×1.25` |
+
+**Die Hüfte sinkt, statt dass die Füße rutschen.** Sie folgt exakt der Beinspreizung — dadurch
+bleiben beide Füße auf dem Boden, und der Rumpf wippt zweimal je Schritt, weil die Beine
+zweimal je Schritt zusammenkommen. Das ist keine Zutat, sondern fällt aus der Geometrie
+heraus, sobald man die Beinlänge respektiert.
+
+**Er geht auf der Stelle.** Der Boden trägt feine Querbänder, die unter ihm durchziehen —
+ohne sie wäre ein Gang auf der Stelle von Stillstand nicht zu unterscheiden. Die Kamera
+bleibt dadurch immer auf ihm, aus jedem Blickwinkel.
+
+**Wann er geht:** auf Knopfdruck, und von selbst als Leerlauf-Einlage, sobald er länger als
+60 s allein ist. Die selbstständigen Schritte setzen die Zeitkaskade **nicht** zurück — er
+wird trotzdem müde und schläft am Ende ein.
 
 ---
 
