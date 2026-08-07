@@ -1338,10 +1338,20 @@
   //  ergibt den Gang eines Aufziehspielzeugs — und genau der passt
   //  zu dieser Figur besser als ein nachgeahmter Menschengang.
   // ---------------------------------------------------------------
-  var SCHRITT = 4.8;          // Schrittfrequenz
+  var GANGF   = 0.72;         // volle Schrittzyklen je Sekunde
   var SCHWUNG = 0.42;         // Ausschlag je Bein
-  var TEMPO   = 0.40;         // Bodenversatz je Sekunde
-  var gehen = 0, gehenZ = 0, gehPhase = 0, bodenZ = 0, gehBis = 0;
+  var gehen = 0, gehenZ = 0, gehU = 0, bodenZ = 0, gehBis = 0, fzAlt = 0;
+
+  // Schrittprofil: eine zum Dreieck hin verzogene Sinuswelle. Die reine
+  // Sinusform beschleunigt staendig — das liest sich als Schleichen. Mit
+  // Dreiecksanteil laeuft der Abstoss mit gleichmaessiger Geschwindigkeit
+  // und die Umkehr wird zuegig, wie bei einem echten Schritt.
+  function schrittProfil(u) {
+    u = u - Math.floor(u);
+    var w = 2 * Math.PI * u;
+    var dreieck = (2 / Math.PI) * Math.asin(Math.sin(w));
+    return lerp(Math.sin(w), dreieck, 0.65);
+  }
 
   function setGehen(an, vomNutzer) {
     gehenZ = an ? 1 : 0;
@@ -1411,16 +1421,20 @@
 
     // --- Gehen ---
     gehen = lerp(gehen, gehenZ, 1 - Math.pow(0.02, dt / 0.45));
-    if (!still && gehen > 0.005) {
-      gehPhase += dt * SCHRITT;
-      bodenZ   += dt * TEMPO * gehen;
-    }
-    var gS  = Math.sin(gehPhase) * gehen;
+    if (!still && gehen > 0.005) gehU += dt * GANGF;
+    var gS  = schrittProfil(gehU) * gehen;
     var sw  = SCHWUNG * gS;
     // Die Hüfte sinkt genau so weit, wie die gespreizten Beine kürzer werden.
     // Dadurch bleiben beide Füße auf dem Boden, statt hindurchzurutschen.
     var senk = -0.082 * (1 - Math.cos(Math.abs(sw)));
     rig.leg = [-sw, sw, senk];
+
+    // Der Boden rueckt um genau den Weg vor, den der abstossende Fuss
+    // zuruecklegt. Dadurch steht er waehrend des Abstosses exakt still,
+    // statt zu rutschen — vorher lief der Boden rund viermal zu schnell.
+    var fz = 0.083 * Math.sin(sw);
+    if (!still) bodenZ += Math.abs(fz - fzAlt);
+    fzAlt = fz;
     rig.boden = bodenZ;
 
     // --- 4 · Aktive Einlage, plus Ausblendung einer unterbrochenen ---
@@ -1658,6 +1672,30 @@
       }
     })();
 
+    // Gang: In jedem Augenblick muss genau ein Fuß relativ zum Boden
+    // stillstehen — sonst rutscht Noki, statt zu treten.
+    (function () {
+      var schritt = 0.083, boden = 0, N = 600;
+      var fzV = schritt * Math.sin(SCHWUNG * schrittProfil(0));
+      var bandR = fzV + boden, bandL = -fzV + boden, ruhig = 0;
+      for (var q = 1; q <= N; q++) {
+        var u = q / N * 2;                       // zwei volle Zyklen
+        var fz = schritt * Math.sin(SCHWUNG * schrittProfil(u));
+        boden += Math.abs(fz - fzV);
+        var nR = fz + boden, nL = -fz + boden;
+        var beste = Math.min(Math.abs(nR - bandR), Math.abs(nL - bandL));
+        var schrittweite = Math.abs(fz - fzV);
+        if (schrittweite > 1e-9 && beste > 1e-6)
+          melde("gang-rutsch", "Beide Füße rutschen bei Zyklus " + (u / 2).toFixed(3)
+            + " um " + beste.toFixed(6));
+        if (beste < 1e-9) ruhig++;
+        fzV = fz; bandR = nR; bandL = nL;
+      }
+      if (ruhig < N * 0.9)
+        melde("gang-standfuss", "Nur in " + Math.round(ruhig / N * 100)
+          + " % der Bilder stand ein Fuß still");
+    })();
+
     // Stimmung: steigt nach dem Lob und kehrt danach zur Grundstimmung zurück
     if (moodMax < 0.4) melde("stimmung-anstieg",
       "Stimmung stieg nach dem Lob nicht an (max " + moodMax.toFixed(2) + ")");
@@ -1807,8 +1845,9 @@
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
   if (hash.geh !== undefined) {
     gehen = gehenZ = 1;
-    gehPhase = num(hash.geh, 0) * Math.PI * 2;   // 0 … 1 = ein voller Schritt
-    bodenZ = gehPhase * 0.08;
+    gehU = num(hash.geh, 0);                     // 0 … 1 = ein voller Schrittzyklus
+    fzAlt = 0.083 * Math.sin(SCHWUNG * schrittProfil(gehU));
+    bodenZ = gehU * 0.14;
   }
 
   if (hash.selftest === "1") { selbsttest(); return; }

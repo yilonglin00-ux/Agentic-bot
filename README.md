@@ -85,7 +85,8 @@ bestimmten Zeitpunkt, `achtung=1` für die Zuhör-Haltung und `geh=` für eine S
 
 **Selbsttest:** `noki.html#selftest=1` fährt das Rig über 1200 simulierte Sekunden und prüft
 alle 16 Kanäle gegen ihre Grenzen, die Reihenfolge der Zeitkaskade, die Anti-Wiederholung der
-Idle-Einlagen, die Sprungfreiheit jedes Kanals und den Verlauf der Stimmung.
+Idle-Einlagen, die Sprungfreiheit jedes Kanals, den Verlauf der Stimmung, die konstante
+Beinlänge über den Sitzübergang und dass beim Gehen stets ein Fuß still auf dem Boden steht.
 
 ---
 

@@ -95,7 +95,7 @@ Ein Watschelgang auf der Stelle, während der Boden unter ihm durchzieht. Die Be
 gegenphasig, die Hüfte sinkt mit der Spreizung, Arme und Kopf schwingen gegen. Ohne Kniegelenk
 ist es der Gang eines Aufziehspielzeugs — und genau der passt zu Noki.
 *Auslöser:* Knopf, oder Idle-Ziehung ab 60 s ohne Interaktion — *Gefühl:* Eigenständigkeit, Tatendrang
-`5–9 s · pendelnd · beinschwung ±0.42 @ 4.8, hüfte −0.082·(1−cos α), koerper.rollen ±0.030, arme ∓0.30 · Prio 1 · ja`
+`5–9 s · pendelnd (65 % Dreieck) · beinschwung ±0.42 @ 0.72 Zyklen/s, hüfte −0.082·(1−cos α), boden += |Δfuß|, koerper.rollen ±0.030, arme ∓0.30 · Prio 1 · ja`
 
 ---
 

@@ -163,7 +163,7 @@ jede Nachahmung.
 
 | | |
 |---|---|
-| Schrittfrequenz | `4.8` |
+| Schrittzyklen je Sekunde | `0.72` — ein Schritt dauert `0.69 s` |
 | Ausschlag je Bein | `±0.42`, gegenphasig |
 | Hüftabsenkung | `−0.082 · (1 − cos α)` — genau so viel, wie die gespreizten Beine kürzer werden |
 | Rumpf rollt | `±0.030` zur Standseite |
@@ -173,6 +173,11 @@ jede Nachahmung.
 | Kopf | `∓0.045` gegen die Arme |
 | Atem | `×1.25` |
 
+**Das Schrittprofil ist eine zum Dreieck hin verzogene Sinuswelle** (65 % Dreiecksanteil).
+Eine reine Sinusform beschleunigt ununterbrochen und liest sich als Schleichen; mit
+Dreiecksanteil läuft der Abstoß mit gleichmäßiger Geschwindigkeit und die Umkehr wird zügig —
+so sieht ein Schritt aus.
+
 **Die Hüfte sinkt, statt dass die Füße rutschen.** Sie folgt exakt der Beinspreizung — dadurch
 bleiben beide Füße auf dem Boden, und der Rumpf wippt zweimal je Schritt, weil die Beine
 zweimal je Schritt zusammenkommen. Das ist keine Zutat, sondern fällt aus der Geometrie
@@ -181,6 +186,16 @@ heraus, sobald man die Beinlänge respektiert.
 **Er geht auf der Stelle.** Der Boden trägt feine Querbänder, die unter ihm durchziehen —
 ohne sie wäre ein Gang auf der Stelle von Stillstand nicht zu unterscheiden. Die Kamera
 bleibt dadurch immer auf ihm, aus jedem Blickwinkel.
+
+**Der Boden rückt um genau den Weg vor, den der abstoßende Fuß zurücklegt.** Nicht um einen
+frei gewählten Betrag — das ist der Unterschied zwischen Treten und Rutschen. Rechnerisch:
+`Boden += |Δ(0.083 · sin θ)|`. Damit steht in jedem Augenblick **genau ein Fuß still**
+relativ zum Boden, während der andere nach vorn schwingt; welcher, wechselt mit jedem
+Halbzyklus. Daraus ergibt sich die Ganggeschwindigkeit von `0.097` Einheiten je Sekunde — sie
+ist eine Folge der Beinlänge, kein eingestellter Wert.
+
+Der Selbsttest prüft das über zwei volle Zyklen: In über 90 % der Bilder muss ein Fuß auf
+`10⁻⁹` genau stillstehen.
 
 **Wann er geht:** auf Knopfdruck, und von selbst als Leerlauf-Einlage, sobald er länger als
 60 s allein ist. Die selbstständigen Schritte setzen die Zeitkaskade **nicht** zurück — er
