@@ -1007,9 +1007,22 @@
     benutzen:   { aS:0.86, aF:0.44, lS:0.14, lF:0.10, hP: 0.02, hY:-0.16, lx:-0.28, hgX:-0.16, hgZ:0.00, gr:1 },
     reichen:    { aS:0.70, aF:0.58, lS:0.08, lF:0.06, hP:-0.05, hY: 0.00, lx: 0.00, hgX:-0.34, hgZ:0.00, gr:1 },
     ablegen:    { aS:0.26, aF:0.54, lS:0.06, lF:0.10, hP: 0.17, hY:-0.11, lx:-0.30, hgX: 0.22, hgZ:0.00, gr:0 },
-    mund:       { aS:1.18, aF:0.30, lS:0.10, lF:0.06, hP: 0.06, hY:-0.10, lx:-0.20, hgX:-0.30, hgZ:0.00, gr:1 },
+    mund:       { aS:1.86, aF:0.02, lS:0.10, lF:0.06, hP: 0.05, hY:-0.09, lx:-0.22, hgX:-0.30, hgZ:0.00, gr:1 },
     ansetzen:   { aS:0.66, aF:0.62, lS:0.16, lF:0.22, hP: 0.20, hY:-0.14, lx:-0.36, hgX: 0.34, hgZ:0.00, gr:1 },
-    trinken:    { aS:1.24, aF:0.26, lS:0.10, lF:0.06, hP:-0.10, hY:-0.06, lx:-0.10, hgX:-0.62, hgZ:0.00, gr:1 },
+    trinken:    { aS:2.05, aF:-0.04, lS:0.10, lF:0.06, hP:-0.06, hY:-0.12, lx:-0.16, hgX:-0.62, hgZ:0.00, gr:1 },
+    // --- objektspezifische Phasen ---
+    lesen:      { aS:0.94, aF:0.50, lS:0.14, lF:0.12, hP: 0.05, hY:-0.19, lx:-0.32, hgX:-0.28, hgZ:0.00, gr:1 },
+    schreiben:  { aS:0.92, aF:0.52, lS:0.18, lF:0.16, hP: 0.08, hY:-0.19, lx:-0.33, hgX:-0.26, hgZ:0.00, gr:1 },
+    telefon:    { aS:2.10, aF:-0.06, lS:0.10, lF:0.06, hP: 0.02, hY:-0.16, lx: 0.06, hgX:-0.18, hgZ:0.00, gr:1 },
+    foto:       { aS:0.80, aF:0.60, lS:0.30, lF:0.44, hP:-0.08, hY:-0.06, lx:-0.16, hgX:-0.34, hgZ:0.00, gr:1 },
+    zeichnen:   { aS:0.88, aF:0.54, lS:0.16, lF:0.14, hP: 0.09, hY:-0.20, lx:-0.34, hgX:-0.24, hgZ:0.00, gr:1 },
+    zeigen:     { aS:0.72, aF:0.56, lS:0.20, lF:0.30, hP:-0.04, hY: 0.02, lx: 0.02, hgX:-0.40, hgZ:0.00, gr:1 },
+    schloss:    { aS:0.58, aF:0.64, lS:0.14, lF:0.18, hP: 0.13, hY:-0.13, lx:-0.34, hgX: 0.16, hgZ:0.00, gr:1 },
+    schliessen: { aS:0.58, aF:0.64, lS:0.14, lF:0.18, hP: 0.13, hY:-0.13, lx:-0.34, hgX: 0.16, hgZ:0.00, gr:1 },
+    oeffnen:    { aS:0.58, aF:0.64, lS:0.14, lF:0.18, hP: 0.13, hY:-0.13, lx:-0.34, hgX: 0.16, hgZ:0.00, gr:1 },
+    bund:       { aS:0.68, aF:0.34, lS:0.10, lF:0.08, hP: 0.02, hY:-0.14, lx:-0.26, hgX:-0.10, hgZ:0.00, gr:1 },
+    einstecken: { aS:0.34, aF:0.36, lS:0.08, lF:0.08, hP: 0.10, hY:-0.08, lx:-0.20, hgX: 0.14, hgZ:0.00, gr:1 },
+    pruefen:    { aS:1.02, aF:0.34, lS:0.12, lF:0.08, hP:-0.04, hY:-0.22, lx:-0.36, hgX:-0.34, hgZ:0.00, gr:1 },
     eindrehen:  { aS:0.66, aF:0.62, lS:0.16, lF:0.22, hP: 0.20, hY:-0.14, lx:-0.36, hgX: 0.34, hgZ:0.00, gr:1 },
     ausdrehen:  { aS:0.66, aF:0.62, lS:0.16, lF:0.22, hP: 0.20, hY:-0.14, lx:-0.36, hgX: 0.34, hgZ:0.00, gr:1 },
     scrollen:   { aS:0.90, aF:0.50, lS:0.16, lF:0.14, hP: 0.02, hY:-0.18, lx:-0.30, hgX:-0.26, hgZ:0.00, gr:1 },
@@ -1132,6 +1145,86 @@
       { d:0.60, e:"zufrieden",  greif:"leer" }
     ]}
   };
+
+  // =================================================================
+  //  AKTIONEN JE GEGENSTAND
+  //  Jede Aktion ist eine Folge von Greifphasen. Der Läufer setzt davor
+  //  automatisch das Aufnehmen, wenn nichts in der Hand liegt, und danach
+  //  das Zurück in die Halten-Stellung. Dadurch gilt für jede Aktion:
+  //  aufnehmen → benutzen → sauber beenden.
+  // =================================================================
+  var AKTION = {
+    smartphone: [
+      { id:"ansehen",  label:"Display ansehen", e:"neugierig", ph:[["betrachten",2.4]] },
+      { id:"tippen",   label:"Tippen",          e:"neutral",   ph:[["tippen",2.4]] },
+      { id:"scrollen", label:"Scrollen",        e:"neutral",   ph:[["scrollen",2.6]] },
+      { id:"wischen",  label:"Wischen",         e:"neugierig", ph:[["wischen",2.0]] },
+      { id:"lesen",    label:"Nachricht lesen", e:"neugierig", ph:[["lesen",3.0]] },
+      { id:"schreiben",label:"Nachricht schreiben", e:"denkend", ph:[["schreiben",3.2]] },
+      { id:"telefon",  label:"Telefonieren",    e:"zufrieden", ph:[["telefon",3.6]] },
+      { id:"foto",     label:"Foto aufnehmen",  e:"neugierig", ph:[["foto",2.2],["betrachten",1.4]] },
+      { id:"drehen",   label:"Drehen",          e:"neutral",   ph:[["drehen",1.8]] },
+      { id:"weg",      label:"Einstecken",      e:"neutral",   ph:[["einstecken",1.2]], ende:1 }
+    ],
+    tablet: [
+      { id:"lesen",    label:"Lesen",           e:"neugierig", ph:[["lesen",3.2]] },
+      { id:"tippen",   label:"Tippen",          e:"neutral",   ph:[["tippen",2.4]] },
+      { id:"scrollen", label:"Scrollen",        e:"neutral",   ph:[["scrollen",2.6]] },
+      { id:"zeichnen", label:"Notizen machen",  e:"denkend",   ph:[["zeichnen",3.2]] },
+      { id:"zeigen",   label:"Präsentation zeigen", e:"zufrieden", ph:[["zeigen",3.0]] },
+      { id:"video",    label:"Video betrachten",e:"zufrieden", ph:[["betrachten",3.4]] },
+      { id:"weg",      label:"Ablegen",         e:"neutral",   ph:[], ende:1 }
+    ],
+    schluessel: [
+      { id:"auf",      label:"Aufnehmen",       e:"neugierig", ph:[["halten",1.2]] },
+      { id:"betracht", label:"Betrachten",      e:"neugierig", ph:[["betrachten",2.2]] },
+      { id:"schloss",  label:"Ins Schloss führen", e:"denkend", ph:[["schloss",1.6]] },
+      { id:"zu",       label:"Abschließen",     e:"denkend",   ph:[["schloss",0.8],["schliessen",1.6]] },
+      { id:"offen",    label:"Aufschließen",    e:"neutral",   ph:[["schloss",0.8],["oeffnen",1.6]] },
+      { id:"bund",     label:"Schlüsselbund bewegen", e:"neugierig", ph:[["bund",2.0]] },
+      { id:"stecken",  label:"Einstecken",      e:"neutral",   ph:[["einstecken",1.2]], ende:1 },
+      { id:"weg",      label:"Ablegen",         e:"neutral",   ph:[], ende:1 }
+    ],
+    schraubenzieher: [
+      { id:"auf",      label:"Aufnehmen",       e:"neugierig", ph:[["halten",1.2]] },
+      { id:"ansetzen", label:"Schraube ansetzen", e:"denkend", ph:[["ansetzen",1.6]] },
+      { id:"fest",     label:"Festziehen",      e:"denkend",   ph:[["ansetzen",0.7],["eindrehen",3.6]] },
+      { id:"loesen",   label:"Lösen",           e:"neutral",   ph:[["ansetzen",0.7],["ausdrehen",3.0]] },
+      { id:"pruefen",  label:"Kontrollieren",   e:"neugierig", ph:[["pruefen",2.6]] },
+      { id:"weg",      label:"Ablegen",         e:"neutral",   ph:[], ende:1 }
+    ],
+    tasse: [
+      { id:"auf",      label:"Aufnehmen",       e:"neugierig", ph:[["halten",1.2]] },
+      { id:"betracht", label:"Kurz betrachten", e:"neugierig", ph:[["betrachten",1.8]] },
+      { id:"mund",     label:"Zum Mund führen", e:"neutral",   ph:[["mund",1.4]] },
+      { id:"trinken",  label:"Trinken",         e:"zufrieden", ph:[["mund",1.0],["trinken",2.6]] },
+      { id:"halten",   label:"In der Hand halten", e:"zufrieden", ph:[["halten",2.4]] },
+      { id:"weg",      label:"Vorsichtig abstellen", e:"neutral", ph:[], ende:1 }
+    ]
+  };
+
+  // Baut aus einer Aktion einen vollständigen Ablauf: davor das Aufnehmen,
+  // falls nötig, danach das saubere Beenden.
+  function starteAktion(objKey, akt) {
+    setGegenstand(objKey);
+    var schritte = [];
+    var inDerHand = greifIst.gr > 0.5 && gegKey === objKey;
+    if (!inDerHand) {
+      schritte.push({ d:0.95, e:"neugierig", achtung:0, greif:"hinlangen", obj:objKey });
+      schritte.push({ d:0.50, e:"neutral",   greif:"fassen" });
+    }
+    akt.ph.forEach(function (p, i) {
+      schritte.push({ d:p[1], e:(i === 0 ? akt.e : undefined), greif:p[0] });
+    });
+    if (akt.ende) {
+      schritte.push({ d:1.50, e:"neutral",   greif:"ablegen" });
+      schritte.push({ d:0.60, e:"zufrieden", greif:"leer" });
+    } else {
+      schritte.push({ d:1.00, e:"zufrieden", greif:"halten" });
+    }
+    ABLAUF.__aktion = { label: akt.label, schritte: schritte };
+    starteAblauf("__aktion");
+  }
 
   var ablauf = null;      // { key, i, t }
 
@@ -1500,9 +1593,24 @@
   }
 
   // ---- Gegenstände und Greifphasen ----
+  // ---- Objektmenü: erst das Objekt, dann nur dessen Aktionen ----
   var gegBox = document.getElementById("gegen"), gegBtn = {};
+  var aktBox = document.getElementById("griffe");
+
+  function zeigeAktionen(key) {
+    if (!aktBox) return;
+    aktBox.innerHTML = "";
+    (AKTION[key] || []).forEach(function (a) {
+      var b = document.createElement("button");
+      b.className = "chip"; b.type = "button";
+      b.textContent = a.label;
+      b.addEventListener("click", function () { touched(); starteAktion(key, a); });
+      aktBox.appendChild(b);
+    });
+  }
+
   if (gegBox) {
-    Object.keys(GEGENSTAND).forEach(function (key) {
+    Object.keys(AKTION).forEach(function (key) {
       var b = document.createElement("button");
       b.className = "chip"; b.type = "button";
       b.textContent = GEGENSTAND[key].label;
@@ -1512,28 +1620,11 @@
         Object.keys(gegBtn).forEach(function (k) {
           gegBtn[k].setAttribute("aria-pressed", String(k === key));
         });
+        zeigeAktionen(key);
       });
       gegBtn[key] = b; gegBox.appendChild(b);
     });
-  }
-  var griffBox = document.getElementById("griffe");
-  if (griffBox) {
-    [["trinken","Tasse trinken"], ["bedienen","Smartphone bedienen"],
-     ["schrauben","Schrauben"], ["greifen","Allgemeiner Ablauf"]].forEach(function (a) {
-      var b0 = document.createElement("button");
-      b0.className = "chip"; b0.type = "button";
-      b0.textContent = a[1];
-      b0.addEventListener("click", function () { starteAblauf(a[0]); });
-      griffBox.appendChild(b0);
-    });
-    ["hinlangen", "halten", "betrachten", "mund", "trinken", "ansetzen",
-     "eindrehen", "scrollen", "tippen", "wischen", "drehen", "reichen", "leer"].forEach(function (ph) {
-      var b = document.createElement("button");
-      b.className = "chip"; b.type = "button";
-      b.textContent = ph.charAt(0).toUpperCase() + ph.slice(1);
-      b.addEventListener("click", function () { touched(); ablauf = null; setGreif(ph); });
-      griffBox.appendChild(b);
-    });
+    zeigeAktionen(gegKey);
   }
 
   // ---- Reiter ----
@@ -1986,6 +2077,30 @@
       hgY += 0.22 * Math.sin(greifT * 2.4);
     } else if (ph === "drehen") {
       hgY += 1.55 * (0.5 - 0.5 * Math.cos(clamp(greifT / 1.1, 0, 1) * Math.PI));
+    } else if (ph === "lesen") {
+      o.lx += -0.10 * Math.sin(greifT * 1.1);        // Blick wandert über die Zeilen
+      o.hP += 0.012 * Math.sin(greifT * 0.55);
+    } else if (ph === "schreiben") {
+      hgX += Math.max(Math.sin(greifT * 8.4), 0.0) * 0.07;
+      o.lx += -0.05 * Math.sin(greifT * 4.2);
+    } else if (ph === "telefon") {
+      hgZ += 0.10;                                   // Gerät ans Ohr gekippt
+      o.hR += 0.10;
+    } else if (ph === "foto") {
+      hgX += -0.04 * Math.sin(greifT * 0.9);
+      if (greifT > 1.4 && greifT < 1.6) hgX += 0.06;  // der Auslöser
+    } else if (ph === "zeichnen") {
+      hgY += 0.10 * Math.sin(greifT * 3.6);
+      hgZ += 0.06 * Math.sin(greifT * 2.3);
+    } else if (ph === "schliessen" || ph === "oeffnen") {
+      // Schließen und Öffnen: eine gefasste Vierteldrehung, kein Kreisen
+      var ri2 = (ph === "schliessen") ? 1 : -1;
+      hgY += ri2 * 1.35 * (0.5 - 0.5 * Math.cos(clamp(greifT / 1.1, 0, 1) * Math.PI));
+    } else if (ph === "bund") {
+      hgZ += 0.16 * Math.sin(greifT * 7.2) * Math.exp(-greifT * 0.5);
+    } else if (ph === "pruefen") {
+      hgY += 0.9 * Math.sin(greifT * 0.8);           // langsam vor die Augen drehen
+      o.lx += -0.06 * Math.sin(greifT * 0.8);
     } else if (ph === "benutzen") {
       nutzIst = 1;
       if (geg.nutz === "drehen")   hgZ += Math.sin(greifT * 5.4) * 0.55;
@@ -2410,7 +2525,10 @@
   }
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
   if (hash.obj !== undefined) {
-    var gsl = Object.keys(GEGENSTAND)[clamp(Math.round(num(hash.obj, 1)) - 1, 0, 3)];
+    // Name oder Nummer, beides erlaubt
+    var gnamen = Object.keys(GEGENSTAND);
+    var gsl = GEGENSTAND[hash.obj] ? hash.obj
+            : gnamen[clamp(Math.round(num(hash.obj, 1)) - 1, 0, gnamen.length - 1)];
     setGegenstand(gsl);
     setGreif(hash.greif && GREIF[hash.greif] ? hash.greif : "halten");
     for (var gz in GREIF[greifPhase]) { greifIst[gz] = GREIF[greifPhase][gz]; }

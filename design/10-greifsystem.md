@@ -162,6 +162,83 @@ Damit niemand mehr erwartet, als da ist:
 
 ---
 
+## Das Objektmenü
+
+Im Reiter **Gegenstand** stehen oben die fünf Objekte. Ein Klick wählt eines aus — darunter
+erscheinen **ausschließlich dessen Aktionen**. Insgesamt 37, verteilt auf fünf Objekte.
+
+| Objekt | Aktionen |
+|---|---|
+| **Smartphone** | Display ansehen · Tippen · Scrollen · Wischen · Nachricht lesen · Nachricht schreiben · Telefonieren · Foto aufnehmen · Drehen · Einstecken |
+| **Tablet** | Lesen · Tippen · Scrollen · Notizen machen · Präsentation zeigen · Video betrachten · Ablegen |
+| **Schlüssel** | Aufnehmen · Betrachten · Ins Schloss führen · Abschließen · Aufschließen · Schlüsselbund bewegen · Einstecken · Ablegen |
+| **Schraubenzieher** | Aufnehmen · Schraube ansetzen · Festziehen · Lösen · Kontrollieren · Ablegen |
+| **Tasse** | Aufnehmen · Kurz betrachten · Zum Mund führen · Trinken · In der Hand halten · Vorsichtig abstellen |
+
+### Jede Aktion ist vollständig
+
+Der Läufer setzt vor jede Aktion automatisch das **Aufnehmen**, wenn nichts in der Hand liegt,
+und danach das **saubere Beenden** in die Halten-Stellung. Aktionen mit `ende` schließen
+stattdessen mit Ablegen ab. Eine Aktion ist damit immer:
+
+```
+[Hinlangen → Fassen]  →  eigentliche Bewegung  →  [Halten | Ablegen → Leer]
+```
+
+Eine Aktion besteht dadurch nur noch aus ihrer Kernbewegung — der Rahmen entsteht von selbst.
+Eine neue Aktion ist eine Zeile:
+
+```
+{ id, label, e: Ausdruck, ph: [[Phase, Dauer], …], ende: 0|1 }
+```
+
+### Die Bewegungen sitzen im Handgelenk
+
+Keine der Aktionen bewegt den Arm anders als die Greifphase es vorgibt. Was sie unterscheidet,
+ist die Handgelenkbewegung:
+
+| Aktion | Bewegung |
+|---|---|
+| Tippen | Gelenk nickt `+0.09`, einseitig, `6.2 Hz` |
+| Schreiben | dasselbe mit `8.4 Hz`, Blick wandert schneller |
+| Scrollen | Gelenk wiegt `±0.05` mit `3.1 Hz`, Blick geht mit |
+| Wischen | Gelenk dreht `±0.22` um die Unterarmachse |
+| Lesen | keine Handbewegung — nur der Blick wandert über die Zeilen |
+| Drehen | einmalig `1.55` über `1.1 s` |
+| Telefonieren | Gelenk kippt `+0.10`, Kopf neigt sich `+0.10` dagegen |
+| Foto | ruhiges Halten, bei `1.4 s` ein kurzer Stoß — der Auslöser |
+| Zeichnen | zwei überlagerte Achsen, `3.6` und `2.3 Hz` |
+| Abschließen | **eine gefasste Vierteldrehung** `1.35` über `1.1 s`, kein Kreisen |
+| Aufschließen | dieselbe Drehung in Gegenrichtung |
+| Schlüsselbund | gedämpftes Klingeln: `±0.16` mit `7.2 Hz`, exponentiell abklingend |
+| Festziehen | Ratschen: `62 %` durchdrehen, `38 %` lösen und neu ansetzen |
+| Kontrollieren | langsames Vor-die-Augen-Drehen mit `0.8 Hz` |
+| Trinken | Gelenk kippt über `0.9 s` weich auf `−0.85` |
+
+### Die Trinkhaltung — eine Korrektur
+
+Die frühere Fassung hob den Arm nur auf `1.24`. Nachgerechnet stand die Hand damit bei
+`y = 0.325` — **`0.155` unterhalb der Kopfunterkante**. Die Tasse kam nie ans Gesicht; „zum
+Mund führen" war ein leeres Versprechen.
+
+Jetzt: Arm auf `2.05`, Hand bei `y = 0.510`, also auf Höhe der unteren Gesichtskante. Der
+Abstand zum Kopf ist nachgerechnet:
+
+```
+Kopf-Halbbreite bei y = 0.510   0.213
+Linke Tassenkante               0.325
+Freiraum                        0.112
+```
+
+Die Tasse kann den Kopf damit nicht durchdringen — weder in der Anfahrt noch beim Kippen,
+weil das Kippen im Handgelenk sitzt und die Hand nicht verschiebt.
+
+**Warum nicht direkt vor dem Gesicht?** Bei `±0.205` Schulterbreite und `0.24` Armlänge
+erreicht die Hand die Körpermitte nicht. Die Tasse kommt seitlich ans Gesicht, der Kopf neigt
+sich ihr entgegen. Das ist die glaubwürdigste Lösung ohne Designänderung.
+
+---
+
 ## Einen Gegenstand hinzufügen
 
 1. **Geometrie**: ein Zweig in `sdGegenstand` aus den vorhandenen Grundformen
