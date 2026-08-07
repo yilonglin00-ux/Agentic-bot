@@ -27,7 +27,7 @@ Arme schwingen seitenverkehrt mit. Darüber liegen Blinzeln, Blickwandern und Ge
 Noki sitzt, Beine nach vorn, Arme stützen locker seitlich. Deutlich ruhiger als A1 — man muss
 den Unterschied hören können, ohne die Pose zu sehen.
 *Auslöser:* nach 90 s ohne Interaktion, oder wenn eine Aufgabe länger als 30 s läuft — *Gefühl:* Gelassenheit
-`Zyklus 7.4 s · weich · wie A1 mit halber Amplitude, knie 0.85 rad, kopf.nicken −0.06 · Prio 0 · läuft immer`
+`Zyklus 7.4 s · weich · wie A1 mit halber Amplitude, beinwinkel −1.583, koerper −0.150, rumpfneigung −0.06 · Prio 0 · läuft immer`
 
 **A3 · Dösen** ▶
 Die Lider sinken, der Glimm dimmt, alles verlangsamt sich. Kein Umschalten — die Ermüdungsregel
@@ -58,7 +58,7 @@ gegenläufig. Die häufigste Einlage.
 Verlagerung von einem Bein aufs andere, mit leichtem Rollen des Rumpfs. Winzig, aber die
 wirksamste Einzelbewegung gegen den Eindruck einer aufgestellten Figur.
 *Auslöser:* alle 8–14 s automatisch, nicht Teil der Ziehung — *Gefühl:* Körperlichkeit
-`1.8 s · weich · koerper.x ±0.012, koerper.rollen ±0.03, knie wechselseitig 0.12 · Prio 1 · ja`
+`1.8 s · weich · koerper.x ±0.012, koerper.rollen ±0.03 · Prio 1 · ja`
 
 **B3 · Antenne schütteln** ▶
 Ein kurzes, schnelles Kopfschütteln, nur damit die Antenne ausschwingt — als wolle er sie
@@ -322,7 +322,7 @@ sind **sechs umgesetzt**. Damit stehen alle Kanäle bereit, die die Stufen 1 und
 | `koerper` Tiefe (z) | B5, E5, E6, G1, G3, C3 | **umgesetzt** |
 | `koerper.sprung` | B4, D6, E6 | **umgesetzt** |
 | `koerper` Rollen (z) | B2, G2 | **umgesetzt** |
-| Sitzstellung der Beine | A2, B2, C2 | **umgesetzt** |
+| Beinwinkel (Sitzstellung) | A2, C2 | **umgesetzt** |
 | `glimm` eigenständig | A4, G4 | **umgesetzt** |
 | Kopf-Nicken bis `+0.34` | tieferer Schlaf | offen, nur Feinschliff |
 | Lidwert je Auge | Zwinkern | offen, nur Feinschliff |

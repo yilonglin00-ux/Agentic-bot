@@ -450,14 +450,24 @@
 "",
 "  // ---- Beine ----",
 "  // Sie hängen nicht am Rumpf: beim Atmen bewegt sich der Körper, die Füße",
-"  // bleiben stehen. Das Sitzen entsteht durch Verschieben der Stützpunkte",
-"  // zwischen Steh- und Sitzstellung — robuster als eine Gelenkkette und im",
-"  // Ergebnis nicht zu unterscheiden.",
+"  // bleiben stehen.",
+"  //",
+"  // Das Bein wird GEDREHT, nicht gestreckt. Würde man Hüfte, Knöchel und Fuß",
+"  // einzeln zwischen Steh- und Sitzstellung interpolieren, bliebe die",
+"  // Beinlänge nicht erhalten — sie wüchse unterwegs auf das Doppelte und der",
+"  // Fußansatz auf das Dreifache. Fester Betrag mal Drehung hält jede Strecke",
+"  // konstant, in jeder Zwischenstellung.",
 "  float st = u_pose.y;",
+"  float thB = -1.583 * st;                       // Beinwinkel um die Seitenachse",
 "  vec3 lp = vec3(abs(p.x), p.y, p.z);",
-"  vec3 hueftP  = mix(vec3(0.085,0.158,0.000), vec3(0.088,0.075,0.020), st);",
-"  vec3 knoechP = mix(vec3(0.098,0.076,0.000), vec3(0.100,0.048,0.178), st);",
-"  vec3 fussP   = mix(vec3(0.105,0.047,0.020), vec3(0.105,0.042,0.286), st);",
+"  // Die Hüfthöhe folgt der Beindrehung statt linear zu sinken. Sonst hängt",
+"  // der Knöchel in der Mitte der Bewegung durch und der Fuß versinkt im Boden.",
+"  vec3 hueftP  = vec3(mix(0.085, 0.088, st),",
+"                      0.076 + 0.082 * cos(1.583 * st),",
+"                      mix(0.000, 0.014, st));",
+"  vec3 beinRi  = rotX(vec3(0.157,-0.988,0.0), thB);",
+"  vec3 knoechP = hueftP + beinRi * 0.083;        // feste Beinlänge",
+"  vec3 fussP   = knoechP + vec3(0.007,-0.029,0.020);   // starrer Fußversatz",
 "  res = opU(res, vec2(sdCapsule(lp, hueftP, knoechP, 0.044), M_DARK));",
 "  res = opU(res, vec2(sdRoundBox(lp - fussP, vec3(0.032,0.004,0.050), 0.042), M_WHITE));",
 "",
@@ -1483,6 +1493,38 @@
         melde("wiederholung", "Anti-Wiederholung verletzt: " + gezogen[g2].key
           + " zweimal hintereinander bei " + gezogen[g2].pool + " Auswahlmoeglichkeiten");
     }
+
+    // Gliedmaßenlängen: Beine dürfen sich in KEINER Zwischenstellung dehnen.
+    // Genau dieser Fehler steckte in der ersten Fassung der Sitzhaltung.
+    (function () {
+      function rotX(v, a) {
+        var c = Math.cos(a), s = Math.sin(a);
+        return [v[0], c * v[1] - s * v[2], s * v[1] + c * v[2]];
+      }
+      function betrag(v) { return Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]); }
+      var bein0 = null, fuss0 = null;
+      for (var q = 0; q <= 100; q++) {
+        var sq = q / 100;
+        var hue = [0.085 + (0.088 - 0.085) * sq,
+                   0.076 + 0.082 * Math.cos(1.583 * sq),
+                   0.000 + (0.014 - 0.000) * sq];
+        var ri  = rotX([0.157, -0.988, 0.0], -1.583 * sq);
+        var kno = [hue[0] + ri[0] * 0.083, hue[1] + ri[1] * 0.083, hue[2] + ri[2] * 0.083];
+        var fus = [kno[0] + 0.007, kno[1] - 0.029, kno[2] + 0.020];
+        var lBein = betrag([kno[0]-hue[0], kno[1]-hue[1], kno[2]-hue[2]]);
+        var lFuss = betrag([fus[0]-kno[0], fus[1]-kno[1], fus[2]-kno[2]]);
+        if (bein0 === null) { bein0 = lBein; fuss0 = lFuss; }
+        if (Math.abs(lBein - bein0) > 1e-4)
+          melde("beinlaenge", "Bein gedehnt: " + lBein.toFixed(4) + " statt "
+            + bein0.toFixed(4) + " bei sitzen=" + sq.toFixed(2));
+        if (Math.abs(lFuss - fuss0) > 1e-4)
+          melde("fusslaenge", "Fußansatz gedehnt: " + lFuss.toFixed(4) + " statt "
+            + fuss0.toFixed(4) + " bei sitzen=" + sq.toFixed(2));
+        if (fus[1] - 0.046 < -0.010)
+          melde("fuss-boden", "Fuß sinkt in den Boden (" + (fus[1] - 0.046).toFixed(4)
+            + ") bei sitzen=" + sq.toFixed(2));
+      }
+    })();
 
     // Stimmung: steigt nach dem Lob und kehrt danach zur Grundstimmung zurück
     if (moodMax < 0.4) melde("stimmung-anstieg",

@@ -55,12 +55,18 @@ Füße bleiben stehen. Das ist der Unterschied zwischen „schwebt" und „steht
 | `koerper.sprung` | Heben (y) | 0 | 0 … +0.050 | Hüpfen — **eigener Kanal**, addiert sich auf den Atemkanal |
 | `koerper` | Rollen (z) | 0 | ±0.050 | Gewichtsverlagerung, Verlegenheit |
 | `koerper` | Rumpfneigung (x) | 0 | −0.10 … +0.10 | Sitzhaltung |
-| `bein_*` | Sitzstellung | 0 | 0 … 1 | blendet die Bein-Stützpunkte von Stehen nach Sitzen |
+| `bein_*` | Beinwinkel (x) | 0 | 0 … −1.583 | Sitzstellung. **Dreht das Bein bei fester Länge `0.083`** — Stützpunkte einzeln zu interpolieren würde es dehnen |
 | `glimm` | Helligkeit | 1.0 | 0 … 2.0 | **eigener Kanal**, unabhängig von der Augenhelligkeit |
 
 Alle Kanäle dieser Tabelle sind in `noki.html` umgesetzt und werden vom eingebauten
 Selbsttest (`noki.html#selftest=1`) über 1200 simulierte Sekunden gegen genau diese Grenzen
-geprüft.
+geprüft. Zusätzlich prüft er über den gesamten Sitzübergang, dass **Beinlänge und Fußversatz
+konstant bleiben** und der Fuß nicht in den Boden sinkt.
+
+> **Gliedmaßen werden gedreht, nie gestreckt.** Interpoliert man Gelenkpunkte einzeln
+> zwischen zwei Posen, bleibt die Länge dazwischen nicht erhalten. Beim Sitzen wüchse das
+> Bein so auf das Doppelte und der Fußansatz auf das Dreifache. Jede Pose wird deshalb über
+> feste Beträge und Winkel gebaut.
 
 **Die harte Grenze:** Kein Wert darf die Silhouettenregel aus
 [02](02-formensprache-material.md) verletzen. Ein über 2.4 rad ausgeschwenkter Arm
