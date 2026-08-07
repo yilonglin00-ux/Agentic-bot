@@ -400,6 +400,7 @@
 "uniform float u_ground;",
 "uniform vec4  u_objA;       // Typ, Sichtbarkeit, Griffdrehung x, Griffdrehung z",
 "uniform vec3  u_objB;       // Griffversatz in der Handebene",
+"uniform vec3  u_hand;       // Handgelenk: Drehung x, y, z",
 "",
 "const float M_WHITE = 1.0;",
 "const float M_DARK  = 2.0;",
@@ -490,7 +491,13 @@
 "}",
 "",
 "vec3 zuGriff(vec3 h){",
-"  vec3 g = h - u_objB;",
+"  // Erst das Handgelenk — es dreht die ganze Hand samt Inhalt. An einer",
+"  // Kugel ist es unsichtbar, am gehaltenen Gegenstand sieht man es sofort.",
+"  vec3 g = rotX(h, -u_hand.x);",
+"  g = rotY(g, -u_hand.y);",
+"  g = rotZ(g, -u_hand.z);",
+"  // Dann die Grifflage des Gegenstands in der gedrehten Hand.",
+"  g = g - u_objB;",
 "  g = rotX(g, -u_objA.z);",
 "  g = rotZ(g, -u_objA.w);",
 "  return g;",
@@ -516,11 +523,15 @@
 "    becher = max(becher, -sdZylinder(g - vec3(0.0, 0.026, 0.0), 0.038, 0.028));",
 "    r = opU(r, vec2(becher, M_WHITE));",
 "    r = opU(r, vec2(sdTorus(rotX(g - vec3(0.048, 0.010, 0.0), 1.5708), 0.024, 0.0065), M_WHITE));",
-"  } else {",
+"  } else if (typ < 4.5){",
 "    // 4 · Schluessel — Faustgriff, ganz in der Handflaeche",
 "    r = opU(r, vec2(sdTorus(rotX(g - vec3(0.0, 0.028, 0.0), 1.5708), 0.017, 0.0045), M_METALL));",
 "    r = opU(r, vec2(sdRoundBox(g - vec3(0.0,-0.010,0.0), vec3(0.005,0.026,0.0012), 0.0018), M_METALL));",
 "    r = opU(r, vec2(sdRoundBox(g - vec3(0.007,-0.032,0.0), vec3(0.0035,0.005,0.0012), 0.001), M_METALL));",
+"  } else {",
+"    // 5 · Smartphone — Flachgriff, schmaler und dicker als das Tablet",
+"    r = opU(r, vec2(sdRoundBox(g, vec3(0.026,0.052,0.0042), 0.006), M_DARK));",
+"    r = opU(r, vec2(sdRoundBox(g - vec3(0.0,0.002,0.0060), vec3(0.021,0.045,0.0006), 0.003), M_SCHIRM));",
 "  }",
 "  return r;",
 "}",
@@ -956,28 +967,55 @@
   //  Gegenstand braucht nur einen Eintrag in GEGENSTAND — Geometrie im
   //  Shader, Griffart und Griffwerte hier.
   // =================================================================
-  var GEGENSTAND = {
-    schraubenzieher: { typ:1, griff:"stab",   label:"Schraubenzieher",
-                       off:[0.004,-0.006,0.006], drehX: 0.30, drehZ: 0.10, nutzAchse:"drehen" },
-    tablet:          { typ:2, griff:"flach",  label:"Tablet",
-                       off:[0.014,-0.030,0.026], drehX: 1.05, drehZ: 0.16, nutzAchse:"tippen" },
-    becher:          { typ:3, griff:"buegel", label:"Kaffeebecher",
-                       off:[-0.026,-0.004,0.004], drehX: 0.08, drehZ: 0.10, nutzAchse:"kippen" },
-    schluessel:      { typ:4, griff:"faust",  label:"Schlüssel",
-                       off:[0.002,-0.004,0.008], drehX: 0.22, drehZ: 0.06, nutzAchse:"drehen" }
+  // Sieben Griffarten. Jede legt fest, wie die Hand steht und wie der Arm
+  // sie traegt — der Gegenstand liefert nur noch seine Grifflage dazu.
+  var GRIFFART = {
+    kraft:     { label:"Kraftgriff",     aS: 0.02, aF: 0.00, hgX: 0.10, hgZ: 0.00, zwei:0 },
+    praezision:{ label:"Präzisionsgriff",aS: 0.06, aF: 0.06, hgX: 0.24, hgZ: 0.10, zwei:0 },
+    henkel:    { label:"Henkelgriff",    aS:-0.02, aF: 0.02, hgX: 0.00, hgZ:-0.14, zwei:0 },
+    flach:     { label:"Flachgriff",     aS: 0.04, aF: 0.10, hgX:-0.22, hgZ: 0.00, zwei:0 },
+    zwei:      { label:"Zwei-Hand-Griff",aS: 0.00, aF: 0.14, hgX:-0.14, hgZ: 0.00, zwei:1 },
+    zeigen:    { label:"Zeigegriff",     aS: 0.10, aF: 0.16, hgX: 0.30, hgZ: 0.00, zwei:0 },
+    tragen:    { label:"Traggriff",      aS:-0.06, aF:-0.06, hgX: 0.00, hgZ:-0.06, zwei:0 }
   };
 
-  // Die sieben Phasen. Jede ist eine Armhaltung plus Blickziel — universell,
-  // unabhaengig davon, welcher Gegenstand gerade in der Hand liegt.
+  // Ein Gegenstand bringt mit: Geometrie-Typ, Griffart, Grifflage (Versatz und
+  // zwei Winkel), Gewicht und seine Nutzungsfolge. Mehr braucht ein neuer
+  // Gegenstand nicht — das Animationssystem bleibt unberuehrt.
+  var GEGENSTAND = {
+    schraubenzieher: { typ:1, art:"kraft",      label:"Schraubenzieher", gewicht:0.25,
+                       off:[0.004,-0.006,0.006], drehX: 0.30, drehZ: 0.10, nutz:"schrauben" },
+    tasse:           { typ:3, art:"henkel",     label:"Tasse",           gewicht:0.35,
+                       off:[-0.026,-0.004,0.004], drehX: 0.08, drehZ: 0.10, nutz:"trinken" },
+    smartphone:      { typ:5, art:"flach",      label:"Smartphone",      gewicht:0.15,
+                       off:[0.012,-0.026,0.022], drehX: 0.95, drehZ: 0.14, nutz:"bedienen" },
+    tablet:          { typ:2, art:"zwei",       label:"Tablet",          gewicht:0.55,
+                       off:[0.014,-0.030,0.026], drehX: 1.05, drehZ: 0.16, nutz:"bedienen" },
+    schluessel:      { typ:4, art:"praezision", label:"Schlüssel",       gewicht:0.08,
+                       off:[0.002,-0.004,0.008], drehX: 0.22, drehZ: 0.06, nutz:"drehen" }
+  };
+
+  // Die sieben Phasen plus zwei gegenstandseigene. Neu gegenüber Stufe 2:
+  // lS/lF führen die linke Hand mit (Zwei-Hand-Griff), hgX/hgZ sind die
+  // Handgelenkstellung der Phase.
   var GREIF = {
-    leer:       { aS:0.00, aF:0.00, hP: 0.00, hY: 0.00, lx: 0.00, gr:0 },
-    hinlangen:  { aS:0.26, aF:0.54, hP: 0.17, hY:-0.11, lx:-0.30, gr:0 },
-    fassen:     { aS:0.30, aF:0.56, hP: 0.18, hY:-0.11, lx:-0.30, gr:1 },
-    halten:     { aS:0.54, aF:0.32, hP: 0.04, hY:-0.06, lx:-0.12, gr:1 },
-    betrachten: { aS:0.96, aF:0.48, hP:-0.02, hY:-0.21, lx:-0.34, gr:1 },
-    benutzen:   { aS:0.86, aF:0.44, hP: 0.02, hY:-0.16, lx:-0.28, gr:1 },
-    reichen:    { aS:0.70, aF:0.58, hP:-0.05, hY: 0.00, lx: 0.00, gr:1 },
-    ablegen:    { aS:0.26, aF:0.54, hP: 0.17, hY:-0.11, lx:-0.30, gr:0 }
+    leer:       { aS:0.00, aF:0.00, lS:0.00, lF:0.00, hP: 0.00, hY: 0.00, lx: 0.00, hgX: 0.00, hgZ:0.00, gr:0 },
+    hinlangen:  { aS:0.26, aF:0.54, lS:0.06, lF:0.10, hP: 0.17, hY:-0.11, lx:-0.30, hgX: 0.26, hgZ:0.00, gr:0 },
+    fassen:     { aS:0.30, aF:0.56, lS:0.08, lF:0.12, hP: 0.18, hY:-0.11, lx:-0.30, hgX: 0.10, hgZ:0.00, gr:1 },
+    halten:     { aS:0.54, aF:0.32, lS:0.10, lF:0.06, hP: 0.04, hY:-0.06, lx:-0.12, hgX: 0.00, hgZ:0.00, gr:1 },
+    betrachten: { aS:0.96, aF:0.48, lS:0.12, lF:0.08, hP:-0.02, hY:-0.21, lx:-0.34, hgX:-0.30, hgZ:0.00, gr:1 },
+    benutzen:   { aS:0.86, aF:0.44, lS:0.14, lF:0.10, hP: 0.02, hY:-0.16, lx:-0.28, hgX:-0.16, hgZ:0.00, gr:1 },
+    reichen:    { aS:0.70, aF:0.58, lS:0.08, lF:0.06, hP:-0.05, hY: 0.00, lx: 0.00, hgX:-0.34, hgZ:0.00, gr:1 },
+    ablegen:    { aS:0.26, aF:0.54, lS:0.06, lF:0.10, hP: 0.17, hY:-0.11, lx:-0.30, hgX: 0.22, hgZ:0.00, gr:0 },
+    mund:       { aS:1.18, aF:0.30, lS:0.10, lF:0.06, hP: 0.06, hY:-0.10, lx:-0.20, hgX:-0.30, hgZ:0.00, gr:1 },
+    ansetzen:   { aS:0.66, aF:0.62, lS:0.16, lF:0.22, hP: 0.20, hY:-0.14, lx:-0.36, hgX: 0.34, hgZ:0.00, gr:1 },
+    trinken:    { aS:1.24, aF:0.26, lS:0.10, lF:0.06, hP:-0.10, hY:-0.06, lx:-0.10, hgX:-0.62, hgZ:0.00, gr:1 },
+    eindrehen:  { aS:0.66, aF:0.62, lS:0.16, lF:0.22, hP: 0.20, hY:-0.14, lx:-0.36, hgX: 0.34, hgZ:0.00, gr:1 },
+    ausdrehen:  { aS:0.66, aF:0.62, lS:0.16, lF:0.22, hP: 0.20, hY:-0.14, lx:-0.36, hgX: 0.34, hgZ:0.00, gr:1 },
+    scrollen:   { aS:0.90, aF:0.50, lS:0.16, lF:0.14, hP: 0.02, hY:-0.18, lx:-0.30, hgX:-0.26, hgZ:0.00, gr:1 },
+    tippen:     { aS:0.90, aF:0.50, lS:0.18, lF:0.16, hP: 0.03, hY:-0.18, lx:-0.30, hgX:-0.26, hgZ:0.00, gr:1 },
+    wischen:    { aS:0.90, aF:0.50, lS:0.16, lF:0.14, hP: 0.02, hY:-0.18, lx:-0.30, hgX:-0.26, hgZ:0.00, gr:1 },
+    drehen:     { aS:0.88, aF:0.48, lS:0.14, lF:0.12, hP: 0.00, hY:-0.16, lx:-0.28, hgX:-0.26, hgZ:0.00, gr:1 }
   };
 
   var gegKey = "schraubenzieher";
@@ -1052,7 +1090,38 @@
       { d:1.60, e:"gluecklich" },
       { d:1.80, e:"zufrieden" }
     ]},
-    greifen: { label:"Gegenstand", schritte:[
+    trinken: { label:"Tasse: trinken", schritte:[
+      { d:1.00, e:"neugierig",  achtung:0, greif:"hinlangen", obj:"tasse" },
+      { d:0.55, e:"neutral",    greif:"fassen" },
+      { d:1.00, e:"zufrieden",  greif:"halten" },
+      { d:1.30, e:"neutral",    greif:"mund" },      // zum Mund führen
+      { d:2.60, e:"zufrieden",  greif:"trinken" },   // kippen und trinken
+      { d:1.20, e:"zufrieden",  greif:"halten" },    // kurz halten
+      { d:1.60, e:"neutral",    greif:"ablegen" },   // vorsichtig abstellen
+      { d:0.60, e:"zufrieden",  greif:"leer" }
+    ]},
+    bedienen: { label:"Smartphone: bedienen", schritte:[
+      { d:0.95, e:"neugierig",  achtung:0, greif:"hinlangen", obj:"smartphone" },
+      { d:0.50, e:"neutral",    greif:"fassen" },
+      { d:1.30, e:"neugierig",  greif:"betrachten" },  // Display ansehen
+      { d:2.20, e:"neutral",    greif:"scrollen" },
+      { d:1.60, e:"denkend",    greif:"tippen" },
+      { d:1.40, e:"neugierig",  greif:"wischen" },
+      { d:1.60, e:"neutral",    greif:"drehen" },
+      { d:1.50, e:"neutral",    greif:"ablegen" },
+      { d:0.60, e:"zufrieden",  greif:"leer" }
+    ]},
+    schrauben: { label:"Schraubenzieher: schrauben", schritte:[
+      { d:1.00, e:"neugierig",  achtung:0, greif:"hinlangen", obj:"schraubenzieher" },
+      { d:0.55, e:"neutral",    greif:"fassen" },
+      { d:1.10, e:"denkend",    greif:"ansetzen" },   // Schraube ansetzen
+      { d:3.60, e:"denkend",    greif:"eindrehen" },
+      { d:2.40, e:"neutral",    greif:"ausdrehen" },
+      { d:1.00, e:"zufrieden",  greif:"halten" },
+      { d:1.60, e:"neutral",    greif:"ablegen" },    // kontrolliert absetzen
+      { d:0.60, e:"zufrieden",  greif:"leer" }
+    ]},
+    greifen: { label:"Allgemeiner Ablauf", schritte:[
       { d:1.00, e:"neugierig",  achtung:0, greif:"hinlangen" },
       { d:0.55, e:"neutral",    greif:"fassen" },
       { d:1.30, e:"zufrieden",  greif:"halten" },
@@ -1071,6 +1140,7 @@
     if (sch.haltung) setHaltung(sch.haltung);
     if (sch.e) setAusdruck(sch.e);
     if (sch.achtung !== undefined) achtungZ = sch.achtung;
+    if (sch.obj) setGegenstand(sch.obj);
     if (sch.greif) setGreif(sch.greif);
     if (sch.clip) starte(sch.clip);
   }
@@ -1194,7 +1264,7 @@
     U = {};
     ["u_res", "u_cam", "u_bob", "u_squash", "u_headRot", "u_antLag", "u_armL", "u_armR",
      "u_eye", "u_eyeCol", "u_glow", "u_look", "u_mouth",
-     "u_body", "u_pose", "u_glimm", "u_leg", "u_boden", "u_objA", "u_objB",
+     "u_body", "u_pose", "u_glimm", "u_leg", "u_boden", "u_objA", "u_objB", "u_hand",
      "u_envTop", "u_envBot", "u_bgTop", "u_bgBot", "u_ground"].forEach(function (n) {
       U[n] = gl.getUniformLocation(prog, n);
     });
@@ -1268,7 +1338,9 @@
     glimm: 1, arc: 0, mouth: 0,
     leg: [0, 0, 0], boden: 0,
     obj: [1, 0, 0, 0],        // Typ, Groesse in der Hand, Griffdrehung x, z
-    objOff: [0, 0, 0]         // Griffversatz in der Handebene
+    objOff: [0, 0, 0],        // Griffversatz in der Handebene
+    hand: [0, 0, 0],          // Handgelenk
+    armFwL: 0, gewicht: 0
   };
 
   var blinkAt = 1.6, blinkPhase = -1, blinkDouble = false;
@@ -1417,7 +1489,8 @@
   var abBox = document.getElementById("ablaeufe");
   if (abBox) {
     Object.keys(ABLAUF).forEach(function (key) {
-      if (key === "greifen") return;              // liegt im Reiter Gegenstand
+      if (key === "greifen" || key === "trinken" || key === "bedienen"
+          || key === "schrauben") return;         // liegen im Reiter Gegenstand
       var b = document.createElement("button");
       b.className = "chip"; b.type = "button";
       b.textContent = ABLAUF[key].label;
@@ -1445,12 +1518,16 @@
   }
   var griffBox = document.getElementById("griffe");
   if (griffBox) {
-    var b0 = document.createElement("button");
-    b0.className = "chip"; b0.type = "button";
-    b0.textContent = "Ganzer Greifablauf";
-    b0.addEventListener("click", function () { starteAblauf("greifen"); });
-    griffBox.appendChild(b0);
-    ["hinlangen", "halten", "betrachten", "benutzen", "reichen", "leer"].forEach(function (ph) {
+    [["trinken","Tasse trinken"], ["bedienen","Smartphone bedienen"],
+     ["schrauben","Schrauben"], ["greifen","Allgemeiner Ablauf"]].forEach(function (a) {
+      var b0 = document.createElement("button");
+      b0.className = "chip"; b0.type = "button";
+      b0.textContent = a[1];
+      b0.addEventListener("click", function () { starteAblauf(a[0]); });
+      griffBox.appendChild(b0);
+    });
+    ["hinlangen", "halten", "betrachten", "mund", "trinken", "ansetzen",
+     "eindrehen", "scrollen", "tippen", "wischen", "drehen", "reichen", "leer"].forEach(function (ph) {
       var b = document.createElement("button");
       b.className = "chip"; b.type = "button";
       b.textContent = ph.charAt(0).toUpperCase() + ph.slice(1);
@@ -1874,39 +1951,75 @@
       else for (var fk in fadeOff) { o[fk] += fadeOff[fk] * fw; }
     }
 
-    // --- 4b · Greifpose ---
-    // Die Phase liefert eine Armhaltung und ein Blickziel; beides wird weich
-    // angefahren. Der Gegenstand selbst haengt am Handkoordinatensystem und
-    // braucht dafuer keine eigene Animation.
+    // --- 4b · Greifpose, Handgelenk und Gewicht ---
+    // Die Phase liefert Armhaltung, Handgelenkstellung und Blickziel; die
+    // Griffart des Gegenstands legt darauf ihren Versatz. Der Gegenstand
+    // selbst haengt am Handkoordinatensystem und braucht keine eigene
+    // Animation — nur seine Nutzbewegung.
     greifT += dt;
-    var ziG = GREIF[greifPhase];
+    var ziG = GREIF[greifPhase] || GREIF.leer;
     var gkk = still ? 1 : 1 - Math.pow(0.02, dt / 0.55);
     for (var gf in ziG) { greifIst[gf] = lerp(greifIst[gf], ziG[gf], gkk); }
-    o.aR += greifIst.aS;
-    o.aF += greifIst.aF;
-    o.hP += greifIst.hP;
+
+    var geg = GEGENSTAND[gegKey];
+    var art = GRIFFART[geg.art] || GRIFFART.kraft;
+    var traegt = greifIst.gr;                       // 0 = leer, 1 = in der Hand
+
+    // Nutzbewegung: jede wirkt auf Handgelenk oder Grifflage, nie auf den Arm.
+    var hgX = greifIst.hgX + art.hgX * traegt;
+    var hgY = 0, hgZ = greifIst.hgZ + art.hgZ * traegt;
+    var dx = geg.drehX, dz = geg.drehZ;
+    var ph = greifPhase;
+    if (ph === "eindrehen" || ph === "ausdrehen") {
+      // Schrauben: drehen, loesen, neu ansetzen — ein Ratschen, kein Kreisel
+      var ri = (ph === "eindrehen") ? 1 : -1;
+      var zy = (greifT * 1.35) % 1;
+      hgZ += ri * (zy < 0.62 ? (-0.55 + 1.35 * (zy / 0.62)) : (0.80 - 1.35 * ((zy - 0.62) / 0.38)));
+    } else if (ph === "trinken") {
+      hgX += -0.55 * (0.5 - 0.5 * Math.cos(clamp(greifT / 0.9, 0, 1) * Math.PI));
+    } else if (ph === "scrollen") {
+      hgZ += 0.05 * Math.sin(greifT * 3.1);
+      o.lx += -0.05 * Math.sin(greifT * 3.1);
+    } else if (ph === "tippen") {
+      hgX += Math.max(Math.sin(greifT * 6.2), 0.0) * 0.09;
+    } else if (ph === "wischen") {
+      hgY += 0.22 * Math.sin(greifT * 2.4);
+    } else if (ph === "drehen") {
+      hgY += 1.55 * (0.5 - 0.5 * Math.cos(clamp(greifT / 1.1, 0, 1) * Math.PI));
+    } else if (ph === "benutzen") {
+      nutzIst = 1;
+      if (geg.nutz === "drehen")   hgZ += Math.sin(greifT * 5.4) * 0.55;
+      if (geg.nutz === "bedienen") hgX += Math.max(Math.sin(greifT * 5.0), 0.0) * 0.09;
+      if (geg.nutz === "trinken")  hgX += -0.40 * (0.5 + 0.5 * Math.sin(greifT * 1.6));
+      if (geg.nutz === "schrauben") hgZ += Math.sin(greifT * 5.4) * 0.55;
+    }
+
+    // Gewicht: schwere Gegenstaende ziehen den Arm herunter, der Rumpf
+    // lehnt sich gegen und der Atem wird ruhiger. Sichtbar, nicht erklaert.
+    var gw = geg.gewicht * traegt;
+    // Beim Zwei-Hand-Griff halten beide Arme vor dem Körper, und der
+    // Gegenstand rückt zur Mitte. Ein Spiegeln der rechten Armhaltung reicht
+    // nicht: die linke Hand käme nach außen statt zum Gegenstand.
+    var zh = art.zwei * traegt;
+    o.aR += greifIst.aS + art.aS * traegt - 0.16 * gw + (0.52 - greifIst.aS) * zh;
+    o.aF += greifIst.aF + art.aF * traegt + (0.54 - greifIst.aF) * zh;
+    o.aL += 0.44 * zh;
+    o.bz -= 0.020 * gw;                             // Gegengewicht nach hinten
+    o.hP += greifIst.hP + 0.05 * gw;
     o.hY += greifIst.hY;
     o.lx += greifIst.lx;
 
-    var geg = GEGENSTAND[gegKey];
-    // Benutzen: eine kleine, gegenstandsgerechte Bewegung im Griff selbst
-    var nutz = (greifPhase === "benutzen") ? 1 : 0;
-    nutzIst = lerp(nutzIst, nutz, still ? 1 : 1 - Math.pow(0.02, dt / 0.4));
-    var wig = nutzIst * Math.sin(greifT * 5.4);
-    var dx = geg.drehX, dz = geg.drehZ;
-    if (geg.nutzAchse === "drehen") dz += wig * 0.55;
-    else if (geg.nutzAchse === "tippen") dx += Math.abs(wig) * 0.10;
-    else if (geg.nutzAchse === "kippen") dx += (0.5 + 0.5 * Math.sin(greifT * 1.6)) * nutzIst * 0.55;
-    // Ein einziger Massstab fuer alle Gegenstaende: sie sitzen im selben
-    // Griffraum, also skaliert er sie gemeinsam um den Griffpunkt.
-    rig.obj    = [geg.typ, greifIst.gr * 1.55, dx, dz];
-    rig.objOff = geg.off;
+    rig.hand   = [hgX, hgY, hgZ];
+    rig.obj    = [geg.typ, traegt * 1.55, dx, dz];
+    rig.objOff = [geg.off[0] - 0.062 * zh, geg.off[1], geg.off[2] + 0.010 * zh];
+    rig.armFwL = 0.54 * zh;
+    rig.gewicht = gw;
 
     // --- 5 · Ebenen zusammensetzen ---
     // Atem: Grundfrequenz aller Bewegung. Amplitude gedeckelt, damit der
     // Kanal auch bei schnellem Atem in seinen Grenzen bleibt.
     var br = cur.breath * hal.breath * (1 + stimmung * 0.15)
-           * (1 - 0.10 * muede) * (1 - 0.05 * achtung) * (1 + 0.25 * gehen);
+           * (1 - 0.10 * muede) * (1 - 0.05 * achtung) * (1 + 0.25 * gehen) * (1 - 0.12 * rig.gewicht);
     // Deckel so gewaehlt, dass beide Atemkanaele in ihren Grenzen bleiben:
     // 0.013 * 1.53 = 0.0199 (Stauchung), 0.0062 * 1.53 = 0.0095 (Hoehe).
     var brA = Math.min(br, 1.53);
@@ -1967,7 +2080,7 @@
     var fwBas = hal.armFw - HALTUNG.stehen.armFw;
     var armFw = cur.armFwd + fwBas + o.aF;
     var gArm  = 0.30 * gS;          // rechtes Bein vor, rechter Arm zurueck
-    rig.armL = [clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40), clamp(armFw + gArm, -0.20, 0.60)];
+    rig.armL = [clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40), clamp(armFw + gArm + rig.armFwL, -0.20, 0.60)];
     rig.armR = [clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40), clamp(armFw - gArm, -0.20, 0.60)];
     if (cur.wave > 0.01) {   // Ausdruck „Winken" aus der Bibliothek
       var w = 2.00 + Math.sin(t * 6.4) * 0.28;
@@ -2253,6 +2366,7 @@
     gl.uniform1f(U.u_boden, rig.boden);
     gl.uniform4f(U.u_objA, rig.obj[0], rig.obj[1], rig.obj[2], rig.obj[3]);
     gl.uniform3f(U.u_objB, rig.objOff[0], rig.objOff[1], rig.objOff[2]);
+    gl.uniform3f(U.u_hand, rig.hand[0], rig.hand[1], rig.hand[2]);
     gl.uniform3f(U.u_envTop, envTop[0], envTop[1], envTop[2]);
     gl.uniform3f(U.u_envBot, envBot[0], envBot[1], envBot[2]);
     gl.uniform3f(U.u_bgTop, bgTop[0], bgTop[1], bgTop[2]);
