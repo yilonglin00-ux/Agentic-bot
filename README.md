@@ -25,7 +25,10 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | Zwei-Finger-Pinch, Strg+Scroll | zoomen |
 | Knopf „Bedienung“ unten | klappt die Leiste aus; beim Anfassen der Figur legt sie sich von selbst wieder weg |
 | Ansichts-Schaltflächen | Vorne · Rechts · Hinten · Links · Oben · 3/4 |
+| Reiter in der Leiste | Ansicht · Ereignis · Ausdruck · Ablauf · Gegenstand · Bewegung |
 | Ereignis-Schaltflächen | die acht Ereignisse, die später die KI-Seite meldet |
+| Ablauf-Schaltflächen | mehrstufige Sequenzen: Aufgabe, Wiedersehen, Erklären, Dankbarkeit … |
+| Gegenstand-Schaltflächen | vier Gegenstände und die sieben Greifphasen |
 | Ausdrucks-Schaltflächen | neun Gefühlszustände und die Winkgeste |
 | Gehen | startet und stoppt den Watschelgang; der Boden zieht dabei unter ihm durch |
 | Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
@@ -62,6 +65,7 @@ daraus macht, entscheidet er selbst.
 | [05 · Gesicht und Emotionen](design/05-gesicht-und-emotionen.md) | Sieben Gefühle mit Augen, Mund, Kopf, Körpersprache und Glimm |
 | [06 · Interaktion und Verhalten](design/06-interaktion-und-verhalten.md) | Die fünf Interaktionsfälle, das Verhaltensmodell und die Schnittstelle zur späteren KI-Seite |
 | [07 · Animationsliste](design/07-animationsliste.md) | 37 Animationen mit Auslöser, Gefühl und Spezifikation |
+| [09 · Stufe 2 und Greifsystem](design/09-stufe2-und-greifsystem.md) | Die dreizehn Animationen der Stufe 2, das Sequenzsystem und das universelle Greifsystem |
 | [08 · Anhang](design/08-anhang-referenzvideo.md) | Analyseraster, falls später ein Referenzvideo einfließen soll |
 
 Die Maße in [02](design/02-formensprache-material.md) stimmen exakt mit `noki.html` überein.
@@ -98,8 +102,8 @@ Beinlänge über den Sitzübergang und dass beim Gehen stets ein Fuß still auf 
 - [x] Rig, Gefühlssystem, Idle-Animation
 - [x] Animations- und Verhaltenskonzept
 - [x] **Stufe 1 umgesetzt** — 13 Animationen inkl. Gehen, Verhaltensmodell, Zeitkaskade, Stimmung
-- [ ] Stufe 2: 13 weitere Animationen (die Rig-Kanäle dafür stehen bereits)
-- [ ] Stufe 3: die seltenen Momente
+- [x] **Stufe 2 umgesetzt** — Sequenzsystem, zehn neue Einlagen, zwei Ausdrücke, neun Abläufe, Greifsystem mit vier Gegenständen
+- [ ] Stufe 3: die seltenen Momente, zehn weitere Gegenstände, die zweite Hand
 - [ ] Anbindung als interaktiver Begleiter
 
 [07 · Animationsliste](design/07-animationsliste.md) markiert mit ▶, was bereits läuft, und

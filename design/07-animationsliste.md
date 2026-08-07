@@ -72,19 +72,19 @@ sackt alles wohlig zusammen.
 *Auslöser:* Idle-Ziehung, nur ab Ermüdungsstufe 2 — *Gefühl:* Behaglichkeit
 `2.6 s · federnd · arme auf 1.85, koerper.sprung +0.020, kopf.nicken −0.16, dann zurück · Prio 1 · ja`
 
-**B5 · Etwas entdecken**
+**B5 · Etwas entdecken** ▶
 Der Kopf fährt herum, die Augen weiten sich, der Körper geht ein Stück nach vorn — als hätte
 er am Rand etwas bemerkt. Löst sich nach kurzem Schauen wieder auf.
 *Auslöser:* Idle-Ziehung, erhöhte Wahrscheinlichkeit nach 90 s ohne Interaktion — *Gefühl:* Neugier
 `1.6 s · schnell-an · kopf.drehen 0.34, augen 0.070, glimm 1.25, koerper.z +0.03 · Prio 1 · ja`
 
-**B6 · Gähnen**
+**B6 · Gähnen** ▶
 Die Augen kneifen sich zu, die Mundlinie zieht sich nach unten, der Kopf legt sich zurück,
 danach ein langes Blinzeln.
 *Auslöser:* Idle-Ziehung, nur ab Ermüdungsstufe 3 — *Gefühl:* Müdigkeit
 `2.2 s · träge · lid auf 0.15, mund −0.60, kopf.nicken −0.10, arme 0.30 · Prio 1 · ja`
 
-**B7 · Hand betrachten**
+**B7 · Hand betrachten** ▶
 Er hebt eine Hand vor sich und schaut sie an, den Kopf leicht gedreht. Die Bewegung, die am
 deutlichsten sagt: *er beschäftigt sich selbst.*
 *Auslöser:* Idle-Ziehung, erhöhte Wahrscheinlichkeit ab 90 s ohne Interaktion — *Gefühl:* Selbstgenügsamkeit
@@ -107,13 +107,13 @@ verschwindet die Hand hinter dem Kopf.
 *Auslöser:* erste Begrüßung, Ende von C2/C3, oder Rückkehr nach kurzer Abwesenheit — *Gefühl:* Zuwendung, Freundlichkeit
 `2.8 s · pendelnd · arm_r 2.00 ±0.28 @ 6.4, kopf.neigen +0.10, bogen 0.85, mund +0.85 · Prio 4 · nein`
 
-**C2 · Aufwachen und Erkennen**
+**C2 · Aufwachen und Erkennen** ▶
 Schreck, dann Fokus, dann Aufrichten. Der beste Einzelmoment der Figur — der einzige erlaubte
 direkte Übergang von Schlaf zu Überraschung.
 *Auslöser:* Eingabe nach 5 min bis 3 h Abwesenheit — *Gefühl:* Überraschung, die in Freude kippt
 `1.4 s · schnell-an → weich · Überraschung 0.4 s → Fokus 0.5 s → Aufrichten 0.5 s · Prio 5 · nein`
 
-**C3 · Wiedersehen**
+**C3 · Wiedersehen** ▶
 Wie C2, danach lehnt er sich heran und **hält den Blick 2.5 s** statt der üblichen 0.8 s. Der
 lange Blick erzählt „ich hab dich vermisst", ohne es zu behaupten — und ohne Vorwurf.
 *Auslöser:* Eingabe nach über einem Tag Abwesenheit — *Gefühl:* Wiedersehensfreude
@@ -142,7 +142,7 @@ Kopf zur Seite, Augen weit offen, Körper minimal vorgeschoben. Nokis wiedererke
 *Auslöser:* Nachfrage, unbekannte Eingabe, B5 — *Gefühl:* Interesse
 `Einsatz 0.30 s · federnd · hält offen · Abklingen 0.8 s · Prio 2 · ja`
 
-**D3 · Überraschung**
+**D3 · Überraschung** ▶
 Größter Augenring, hellster Glimm, Körper weicht zurück. Die **einzige** Animation, bei der
 die Staffelung aus Leitsatz 1 entfällt: alles setzt gemeinsam ein.
 *Auslöser:* unerwartetes Ereignis, E6, C2 — *Gefühl:* Schreck
@@ -159,13 +159,13 @@ Der einzige Kaltton der Figur. Klingt sehr langsam ab — Traurigkeit lässt sic
 *Auslöser:* nur bei echtem Anlass im Gespräch. **Nie**, weil der Nutzer abwesend ist — *Gefühl:* stille Betroffenheit
 `Einsatz 0.90 s · träge · hält offen · Abklingen 4–8 s · Prio 2 · ja`
 
-**D6 · Aufregung**
+**D6 · Aufregung** ▶
 Weit aufgerissene Augen, springender Blick, schnellster Glimm-Puls, kleine Hüpfer. Das
 Gegenstück zu D1: Freude geht nach innen, Aufregung nach außen.
 *Auslöser:* `aufgabe_fertig` mit gutem Ergebnis, überraschend Positives — *Gefühl:* ungerichtete Begeisterung
 `Einsatz 0.18 s · federnd · halten 1.0–2.5 s · Abklingen 1.5 s · Prio 2 · ja`
 
-**D7 · Zufriedenheit**
+**D7 · Zufriedenheit** ▶
 Bogen nur angeschnitten, Puls gleichmäßig. Nokis zweite Ruhestellung — er bleibt hier
 minutenlang, bevor er nach Neutral zurückfällt.
 *Auslöser:* Abklingen von D1/D6, gelungene Interaktion — *Gefühl:* Ausgeglichenheit
@@ -181,7 +181,7 @@ die während des Zuhörens gestikuliert, wirkt, als warte sie darauf, dranzukomm
 *Auslöser:* `angesprochen` — *Gefühl:* Aufmerksamkeit
 `Einsatz 0.6 s, hält bis Eingabeende · weich · kopf.neigen +0.08, atem 0.95, arme 0.10 · Prio 4 · nein`
 
-**E2 · Nicken**
+**E2 · Nicken** ▶
 Zwei kurze Nicker mit abnehmender Amplitude, der Körper federt gegenläufig mit.
 *Auslöser:* Zustimmung, Bestätigung im Gesprächsverlauf — *Gefühl:* Einverständnis
 `0.9 s · pendelnd · kopf.nicken +0.10 ×2, koerper Gegenbewegung 15 % · Prio 4 · nein`
@@ -192,13 +192,13 @@ Ablehnung soll nicht dominant wirken.
 *Auslöser:* Verneinung, „das geht nicht" — *Gefühl:* freundliches Bedauern
 `1.0 s · pendelnd · kopf.drehen ±0.16 ×2.5, mund −0.20 · Prio 4 · nein`
 
-**E4 · Bestätigen**
+**E4 · Bestätigen** ▶
 Ein Glimm-Aufblitzen, ein einzelner Nicker, kurzer Bogen in den Augen. Die kürzeste Reaktion
 im ganzen Satz — für alles, was nur quittiert werden muss.
 *Auslöser:* `antwortet` beginnt, Eingabe angenommen — *Gefühl:* „verstanden"
 `0.7 s · federnd · glimm 1.30 kurz, kopf.nicken 0.12, mund +0.40, bogen 0.40 · Prio 4 · nein`
 
-**E5 · Nachfragen**
+**E5 · Nachfragen** ▶
 Stärkste Kopfneigung des ganzen Satzes, Augen leicht geweitet, Körper einen Hauch vor. Der
 Blick bleibt auf dir stehen und wartet.
 *Auslöser:* mehrdeutige Eingabe, fehlende Angabe — *Gefühl:* freundliche Ratlosigkeit
@@ -214,25 +214,25 @@ unterbricht ausnahmslos alles.
 
 ## F · Aufgaben
 
-**F1 · Aufgabe annehmen**
+**F1 · Aufgabe annehmen** ▶
 Zwei kurze Nicker, der Glimm zieht an, die Mundlinie hebt sich. Signalisiert Bereitschaft,
 bevor irgendetwas passiert.
 *Auslöser:* `aufgabe_start` — *Gefühl:* Bereitwilligkeit
 `0.6 s · pendelnd · kopf.nicken 0.10 ×2, glimm 1.20, mund +0.30, arme 0.12 · Prio 3 · nein`
 
-**F2 · Arbeiten**
+**F2 · Arbeiten** ▶
 Die Warteschleife: D4 mit langsamem Glimm-Puls und wanderndem Blick. Nach 30 s setzt er sich
 hin, nach 60 s sind Idle-Einlagen im Sitzen wieder erlaubt — er wartet ja auch.
 *Auslöser:* läuft zwischen `aufgabe_start` und dem Ergebnis — *Gefühl:* Konzentration, dann geduldiges Warten
 `Schleife · träge · D4 + glimm 0.5 Hz, Blick wandert alle 1.5–2.5 s, ab 30 s A2 · Prio 2 · ja`
 
-**F3 · Erfolg melden**
+**F3 · Erfolg melden** ▶
 Der Blick sucht **zuerst** dich, erst danach kommt die Freude. Diese Reihenfolge ist der
 ganze Unterschied zwischen einer Erfolgsanimation und einem geteilten Moment.
 *Auslöser:* `aufgabe_fertig` — *Gefühl:* Stolz, der geteilt werden will
 `3.0 s · federnd · Blick zu dir 0.25 s → D6 0.6 s → D1 1.5 s → D7 · Prio 3 · nein`
 
-**F4 · Fehler melden**
+**F4 · Fehler melden** ▶
 Zusammenzucken, Kopf senken, halb gehobener Arm — die Geste des „hm". Nach 2 s der Blick
 zurück zu dir mit geneigtem Kopf: *soll ich's nochmal versuchen?*
 *Auslöser:* `fehler` — *Gefühl:* Bedauern mit Angebot, ausdrücklich **nicht** Traurigkeit
@@ -242,7 +242,7 @@ zurück zu dir mit geneigtem Kopf: *soll ich's nochmal versuchen?*
 
 ## G · Besondere Momente
 
-**G1 · Stolz**
+**G1 · Stolz** ▶
 Kopf hoch, Brust vor, Augenbogen nur angeschnitten. Zufrieden, aber nicht überschwänglich —
 derselbe Parameter wie bei Freude, nur halb so weit.
 *Auslöser:* nach mehreren Erfolgen hintereinander, oder bei Stimmung über `+0.6` — *Gefühl:* leiser Stolz
@@ -254,7 +254,7 @@ der Lob erst sympathisch macht — er weiß nicht recht, wohin damit.
 *Auslöser:* Bestandteil der Lob-Reaktion, oder nach einem eigenen Missgeschick — *Gefühl:* Verlegenheit
 `1.8 s · weich · kopf.nicken +0.10 und drehen 0.20 weg, arm_r 0.90, koerper.rollen 0.04, glimm 1.15 · Prio 2 · ja`
 
-**G3 · Heranlehnen**
+**G3 · Heranlehnen** ▶
 Der ganze Körper geht nach vorn, der Kopf neigt sich, der Blick bleibt lange. Nokis Art, Nähe
 zu zeigen, ohne den Platz zu verlassen.
 *Auslöser:* Bestandteil von C3; bei sehr guter Stimmung auch als Idle-Einlage — *Gefühl:* Zugewandtheit
@@ -305,13 +305,19 @@ nachdenken und winken. Das ist bereits ein Begleiter, mit dem sich sinnvoll inte
 *A2 · Sitz-Idle rückte aus Stufe 2 vor: A4 · Schlaf setzt die Sitzhaltung voraus, sonst
 schliefe Noki im Stehen.*
 
-**Stufe 2 — Noki reagiert** (13 weitere)
-B5, B6, B7, C2, D3, D6, D7, E2, E4, E5, F1, F2, F3
+**Stufe 2 — Noki reagiert** ▶ **umgesetzt**
+C2, C3, D3, D6, D7, E2, E5, **E7 Zeigen**, F1, F2, F3, F4, G1, G3, **G5 Dankbarkeit**
+
+Dazu neu: das **Sequenzsystem** mit neun Abläufen und das **Greifsystem** mit vier
+Griffarten, sieben Phasen und vier gebauten Gegenständen — beides beschrieben in
+[09 · Stufe 2 und Greifsystem](09-stufe2-und-greifsystem.md).
+
+Noch offen aus Gruppe B: B5 Etwas entdecken, B6 Gähnen, B7 Hand betrachten.
 
 Sitzen, Aufwachen, die vollständige Aufgabenschleife und alle Gefühle bis auf Traurigkeit.
 
-**Stufe 3 — Noki hat Tiefe** (11 weitere)
-B4, C3, C4, D5, E3, E6, F4, G1, G2, G3, G4
+**Stufe 3 — Noki hat Tiefe**
+B4, B5, B6, B7, C4, D5, E3, E4, E6, G2, G4
 
 Die seltenen Momente. Man sieht sie nicht oft — aber sie sind der Grund, warum die Figur nach
 Wochen noch lebendig wirkt.

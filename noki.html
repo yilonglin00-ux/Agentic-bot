@@ -182,6 +182,36 @@
     pointer-events: none;
   }
 
+  .reiter {
+    display: flex;
+    gap: 2px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--panel-edge);
+    overflow-x: auto;
+  }
+  .reiter button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink-faint);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color .16s ease, background .16s ease;
+  }
+  .reiter button:hover { color: var(--ink); }
+  .reiter button[aria-selected="true"] { color: var(--chip-on-ink); background: var(--chip-on); }
+  .reiter button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  .blatt { display: flex; flex-direction: column; gap: 6px; }
+  .blatt[hidden] { display: none; }
+
   .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
   #controls { max-height: 42vh; overflow-y: auto; overflow-x: hidden; }
 
@@ -282,6 +312,7 @@
     <div>AUSDRUCK <span id="ro-emo">neutral</span></div>
     <div>STIMMUNG <span id="ro-mood">+0.15</span></div>
     <div>L&Auml;UFT <span id="ro-clip">&mdash;</span></div>
+    <div>ABLAUF <span id="ro-ablauf">&mdash;</span></div>
   </div>
 
   <div id="hint">ziehen &middot; horizontal scrollen = drehen &middot; vertikal scrollen = neigen</div>
@@ -290,20 +321,16 @@
           title="Bedienung ein- und ausblenden">Bedienung</button>
 
   <div id="controls" class="zu">
-    <div class="row">
-      <div class="label">Ansicht</div>
-      <div class="chips" id="views"></div>
+    <div class="reiter" id="reiter" role="tablist"></div>
+    <div class="blatt" id="bl-ansicht"><div class="chips" id="views"></div></div>
+    <div class="blatt" id="bl-ereignis" hidden><div class="chips" id="events"></div></div>
+    <div class="blatt" id="bl-ausdruck" hidden><div class="chips" id="emos"></div></div>
+    <div class="blatt" id="bl-ablauf" hidden><div class="chips" id="ablaeufe"></div></div>
+    <div class="blatt" id="bl-gegenstand" hidden>
+      <div class="chips" id="gegen"></div>
+      <div class="chips" id="griffe"></div>
     </div>
-    <div class="row">
-      <div class="label">Ereignis</div>
-      <div class="chips" id="events"></div>
-    </div>
-    <div class="row">
-      <div class="label">Ausdruck</div>
-      <div class="chips" id="emos"></div>
-    </div>
-    <div class="row">
-      <div class="label">Bewegung</div>
+    <div class="blatt" id="bl-zeit" hidden>
       <div class="chips">
         <button class="chip" type="button" id="gehen" aria-pressed="false">Gehen</button>
         <button class="chip" type="button" id="raffer" aria-pressed="false">Zeitraffer &times;10</button>
@@ -371,11 +398,16 @@
 "uniform vec3  u_bgTop;",
 "uniform vec3  u_bgBot;",
 "uniform float u_ground;",
+"uniform vec4  u_objA;       // Typ, Sichtbarkeit, Griffdrehung x, Griffdrehung z",
+"uniform vec3  u_objB;       // Griffversatz in der Handebene",
 "",
 "const float M_WHITE = 1.0;",
 "const float M_DARK  = 2.0;",
 "const float M_GLASS = 3.0;",
 "const float M_EMIT  = 4.0;",
+"const float M_METALL = 7.0;   // gebuerstetes Metall an Gegenstaenden",
+"const float M_HOLZ   = 8.0;   // matter, warmer Griffwerkstoff",
+"const float M_SCHIRM = 9.0;   // leuchtende Anzeigeflaeche",
 "",
 "// ---------- Grundformen ----------",
 "float sdSphere(vec3 p, float r){ return length(p) - r; }",
@@ -392,6 +424,13 @@
 "  vec3 pa = p - a, ba = b - a;",
 "  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);",
 "  return length(pa - ba * h) - r;",
+"}",
+"float sdZylinder(vec3 p, float h, float r){",
+"  vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(r, h);",
+"  return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));",
+"}",
+"float sdTorus(vec3 p, float gr, float kl){",
+"  return length(vec2(length(p.xz) - gr, p.y)) - kl;",
 "}",
 "vec2 opU(vec2 a, vec2 b){ return (a.x < b.x) ? a : b; }",
 "",
@@ -433,6 +472,56 @@
 "  r = opU(r, vec2(sdCapsule(q, vec3(0.033,-0.116,0.0), vec3(0.037,-0.134,0.0), 0.046), M_DARK));  // Gelenkband",
 "  r = opU(r, vec2(sdCapsule(q, vec3(0.038,-0.140,0.0), vec3(0.048,-0.206,0.004), 0.043), M_WHITE));// Unterarm",
 "  r = opU(r, vec2(sdSphere(q - vec3(0.052,-0.238,0.006), 0.032), M_DARK));        // Hand",
+"  return r;",
+"}",
+"",
+"// ---------- Greifsystem ----------",
+"// Die Hand ist eine Kugel ohne Finger. Ein Gegenstand wird deshalb nicht",
+"// umschlossen, sondern in einem eigenen Handkoordinatensystem gehalten:",
+"// Ursprung ist die Handmitte, die Achsen laufen mit dem Unterarm. Jeder",
+"// Gegenstand braucht dadurch nur einen Versatz und zwei Drehwinkel — das",
+"// ist alles, was ein neuer Gegenstand mitbringen muss.",
+"vec3 toHand(vec3 pb, float sgn, vec2 rot){",
+"  vec3 q = pb - vec3(sgn * 0.205, 0.400, 0.018);",
+"  q = rotZ(q, -sgn * rot.x);",
+"  q = rotX(q, rot.y);",
+"  q.x *= sgn;",
+"  return q - vec3(0.052, -0.238, 0.006);      // Handmitte",
+"}",
+"",
+"vec3 zuGriff(vec3 h){",
+"  vec3 g = h - u_objB;",
+"  g = rotX(g, -u_objA.z);",
+"  g = rotZ(g, -u_objA.w);",
+"  return g;",
+"}",
+"",
+"// Vier Gegenstaende, die die vier Griffarten abdecken. Weitere kommen als",
+"// je ein Zweig hinzu — Geometrie und Griffwerte, sonst nichts.",
+"vec2 sdGegenstand(vec3 g, float typ){",
+"  vec2 r = vec2(1e9, 0.0);",
+"  if (typ < 1.5){",
+"    // 1 · Schraubenzieher — Stabgriff, Laengsachse quer durch die Hand",
+"    r = opU(r, vec2(sdZylinder(g - vec3(0.0, 0.026, 0.0), 0.034, 0.018), M_HOLZ));",
+"    r = opU(r, vec2(sdSphere(g - vec3(0.0, 0.062, 0.0), 0.018), M_HOLZ));",
+"    r = opU(r, vec2(sdZylinder(g - vec3(0.0,-0.046, 0.0), 0.046, 0.0055), M_METALL));",
+"    r = opU(r, vec2(sdRoundBox(g - vec3(0.0,-0.094,0.0), vec3(0.007,0.004,0.0008), 0.0018), M_METALL));",
+"  } else if (typ < 2.5){",
+"    // 2 · Tablet — Flachgriff, Flaeche liegt an der Handinnenseite",
+"    r = opU(r, vec2(sdRoundBox(g, vec3(0.050,0.070,0.0035), 0.007), M_DARK));",
+"    r = opU(r, vec2(sdRoundBox(g - vec3(0.0,0.0,0.0055), vec3(0.042,0.060,0.0006), 0.004), M_SCHIRM));",
+"  } else if (typ < 3.5){",
+"    // 3 · Kaffeebecher — Buegelgriff, Henkel liegt im Griffbogen",
+"    float becher = sdZylinder(g - vec3(0.0, 0.012, 0.0), 0.040, 0.034);",
+"    becher = max(becher, -sdZylinder(g - vec3(0.0, 0.026, 0.0), 0.038, 0.028));",
+"    r = opU(r, vec2(becher, M_WHITE));",
+"    r = opU(r, vec2(sdTorus(rotX(g - vec3(0.048, 0.010, 0.0), 1.5708), 0.024, 0.0065), M_WHITE));",
+"  } else {",
+"    // 4 · Schluessel — Faustgriff, ganz in der Handflaeche",
+"    r = opU(r, vec2(sdTorus(rotX(g - vec3(0.0, 0.028, 0.0), 1.5708), 0.017, 0.0045), M_METALL));",
+"    r = opU(r, vec2(sdRoundBox(g - vec3(0.0,-0.010,0.0), vec3(0.005,0.026,0.0012), 0.0018), M_METALL));",
+"    r = opU(r, vec2(sdRoundBox(g - vec3(0.007,-0.032,0.0), vec3(0.0035,0.005,0.0012), 0.001), M_METALL));",
+"  }",
 "  return r;",
 "}",
 "",
@@ -488,6 +577,13 @@
 "  // ---- Arme ----",
 "  res = opU(res, armPart(pb,  1.0, u_armR));",
 "  res = opU(res, armPart(pb, -1.0, u_armL));",
+"",
+"  // ---- Gegenstand in der rechten Hand ----",
+"  if (u_objA.y > 0.004){",
+"    float sk = u_objA.y;                       // waechst beim Fassen in die Hand",
+"    vec2 ob = sdGegenstand(zuGriff(toHand(pb, 1.0, u_armR)) / sk, u_objA.x);",
+"    res = opU(res, vec2(ob.x * sk, ob.y));",
+"  }",
 "",
 "  // ---- Beine ----",
 "  // Sie hängen nicht am Rumpf: beim Atmen bewegt sich der Körper, die Füße",
@@ -732,9 +828,16 @@
 "        alb = vec3(0.014, 0.016, 0.021); rough = 0.070; metal = 0.10;",
 "        isGlass = true;",
 "        paintGlass(p, alb, emis);",
-"      } else {",
+"      } else if (mat < 4.5){",
 "        alb = vec3(0.42, 0.31, 0.17); rough = 0.32; metal = 0.0;",
 "        emis = u_eyeCol * 1.35 * u_glimm;",
+"      } else if (mat < 7.5){",
+"        alb = vec3(0.62, 0.64, 0.67); rough = 0.24; metal = 0.95;   // Metall",
+"      } else if (mat < 8.5){",
+"        alb = vec3(0.46, 0.28, 0.19); rough = 0.55; metal = 0.0;    // Griffwerkstoff",
+"      } else {",
+"        alb = vec3(0.06, 0.08, 0.10); rough = 0.14; metal = 0.0;    // Anzeigeflaeche",
+"        emis = vec3(0.42, 0.62, 0.78) * 0.55;",
 "      }",
 "",
 "      float ao  = calcAO(p, n);",
@@ -817,6 +920,10 @@
                     armL: -0.02, armR: -0.02, breath: 0.5 , puls: 0.6}),
     stolz:      E({ eyeR: 0.061, arc: 0.55, hPitch: -0.17, mouth: 0.65, glow: 1.22,
                     armL: 0.15, armR: 0.15, breath: 0.8 , puls: 1.1}),
+    aufgeregt:  E({ eyeR: 0.074, eyeW: 0.0135, glow: 1.45, hPitch: -0.10, hRoll: 0.09,
+                    mouth: 0.70, armL: 0.45, armR: 0.45, armFwd: 0.24, breath: 2.4, puls: 3.2 }),
+    zufrieden:  E({ eyeR: 0.063, arc: 0.45, lid: 0.85, glow: 1.05, hPitch: -0.03, hRoll: 0.06,
+                    mouth: 0.45, armL: 0.09, armR: 0.09, breath: 0.80, puls: 0.7 }),
     winken:     E({ eyeR: 0.069, eyeW: 0.0116, arc: 0.85, hPitch: -0.07, hRoll: 0.10,
                     mouth: 0.85, glow: 1.28, armL: 0.16, wave: 1.0, breath: 1.6 , puls: 1.6})
   };
@@ -824,7 +931,8 @@
   var EMO_LABEL = {
     neutral: "Neutral", neugierig: "Neugierig", gluecklich: "Glücklich",
     ueberrascht: "Überrascht", denkend: "Denkend", muede: "Müde",
-    traurig: "Traurig", stolz: "Stolz", winken: "Winken"
+    traurig: "Traurig", stolz: "Stolz", winken: "Winken",
+    aufgeregt: "Aufgeregt", zufrieden: "Zufrieden"
   };
 
   // Die acht Ereignisse. Die Agentenseite meldet nur diese — was Noki
@@ -839,6 +947,189 @@
     fehler:         { label:"Fehler",         voll:false },
     nutzer_weg:     { label:"weg",            voll:true }
   };
+
+  // =================================================================
+  //  GREIFSYSTEM
+  //  Die Hand ist eine Kugel ohne Finger. Greifen entsteht deshalb aus
+  //  drei Dingen: der Arm bringt die Hand hin, der Gegenstand rastet in
+  //  ein Handkoordinatensystem ein, und der Blick geht mit. Ein neuer
+  //  Gegenstand braucht nur einen Eintrag in GEGENSTAND — Geometrie im
+  //  Shader, Griffart und Griffwerte hier.
+  // =================================================================
+  var GEGENSTAND = {
+    schraubenzieher: { typ:1, griff:"stab",   label:"Schraubenzieher",
+                       off:[0.004,-0.006,0.006], drehX: 0.30, drehZ: 0.10, nutzAchse:"drehen" },
+    tablet:          { typ:2, griff:"flach",  label:"Tablet",
+                       off:[0.014,-0.030,0.026], drehX: 1.05, drehZ: 0.16, nutzAchse:"tippen" },
+    becher:          { typ:3, griff:"buegel", label:"Kaffeebecher",
+                       off:[-0.026,-0.004,0.004], drehX: 0.08, drehZ: 0.10, nutzAchse:"kippen" },
+    schluessel:      { typ:4, griff:"faust",  label:"Schlüssel",
+                       off:[0.002,-0.004,0.008], drehX: 0.22, drehZ: 0.06, nutzAchse:"drehen" }
+  };
+
+  // Die sieben Phasen. Jede ist eine Armhaltung plus Blickziel — universell,
+  // unabhaengig davon, welcher Gegenstand gerade in der Hand liegt.
+  var GREIF = {
+    leer:       { aS:0.00, aF:0.00, hP: 0.00, hY: 0.00, lx: 0.00, gr:0 },
+    hinlangen:  { aS:0.26, aF:0.54, hP: 0.17, hY:-0.11, lx:-0.30, gr:0 },
+    fassen:     { aS:0.30, aF:0.56, hP: 0.18, hY:-0.11, lx:-0.30, gr:1 },
+    halten:     { aS:0.54, aF:0.32, hP: 0.04, hY:-0.06, lx:-0.12, gr:1 },
+    betrachten: { aS:0.96, aF:0.48, hP:-0.02, hY:-0.21, lx:-0.34, gr:1 },
+    benutzen:   { aS:0.86, aF:0.44, hP: 0.02, hY:-0.16, lx:-0.28, gr:1 },
+    reichen:    { aS:0.70, aF:0.58, hP:-0.05, hY: 0.00, lx: 0.00, gr:1 },
+    ablegen:    { aS:0.26, aF:0.54, hP: 0.17, hY:-0.11, lx:-0.30, gr:0 }
+  };
+
+  var gegKey = "schraubenzieher";
+  var greifPhase = "leer", greifIst = {}, greifT = 0;
+  for (var gk0 in GREIF.leer) { greifIst[gk0] = GREIF.leer[gk0]; }
+
+  function setGegenstand(key) {
+    if (GEGENSTAND[key]) gegKey = key;
+  }
+  function setGreif(phase) {
+    if (GREIF[phase]) { greifPhase = phase; greifT = 0; }
+  }
+
+  // =================================================================
+  //  ABLAEUFE — mehrstufige Sequenzen
+  //  Ein Schritt setzt beim Eintritt Ausdruck, Einlage, Aufmerksamkeit
+  //  oder Greifphase und laeuft dann seine Dauer ab. Dadurch entstehen
+  //  Ketten wie die Aufgabenschleife aus vorhandenen Bausteinen, ohne
+  //  dass eine einzige Kombination eigens gebaut werden muesste.
+  // =================================================================
+  var ABLAUF = {
+    aufgabe: { label:"Aufgabe gelingt", schritte:[
+      { d:0.75, e:"neutral",    clip:"F1", achtung:1 },
+      { d:3.20, e:"denkend",    achtung:0.25 },
+      { d:0.45, e:"neutral",    achtung:1 },
+      { d:0.75, e:"aufgeregt" },
+      { d:1.80, e:"gluecklich", clip:"G1" },
+      { d:2.40, e:"zufrieden" }
+    ]},
+    fehlschlag: { label:"Aufgabe misslingt", schritte:[
+      { d:0.75, e:"neutral",   clip:"F1", achtung:1 },
+      { d:2.60, e:"denkend",   achtung:0.25 },
+      { d:3.00, e:"neutral",   clip:"F4", achtung:1 },
+      { d:1.60, e:"neugierig" },
+      { d:1.20, e:"neutral" }
+    ]},
+    aufwachen: { label:"Aufwachen", schritte:[
+      { d:0.55, e:"ueberrascht", clip:"C2k", achtung:1, haltung:"stehen" },
+      { d:0.70, e:"neugierig" },
+      { d:2.00, e:"gluecklich" },
+      { d:2.90, e:"gluecklich", clip:"C1" },
+      { d:1.50, e:"zufrieden" }
+    ]},
+    wiedersehen: { label:"Wiedersehen", schritte:[
+      { d:0.55, e:"ueberrascht", clip:"C2k", achtung:1, haltung:"stehen" },
+      { d:0.75, e:"neugierig" },
+      { d:3.30, e:"neugierig",   clip:"G3" },     // der lange Blick
+      { d:2.00, e:"gluecklich" },
+      { d:2.90, e:"gluecklich",  clip:"C1" },
+      { d:1.50, e:"zufrieden" }
+    ]},
+    erklaeren: { label:"Erklären", schritte:[
+      { d:0.45, e:"neutral", achtung:1 },
+      { d:2.90, e:"neutral", clip:"E7" },
+      { d:1.00, e:"neutral", clip:"E2" },
+      { d:1.20, e:"zufrieden" }
+    ]},
+    nachfragen: { label:"Nachfragen", schritte:[
+      { d:0.40, e:"neutral",   achtung:1 },
+      { d:1.60, e:"neugierig", clip:"E5" },
+      { d:1.80, e:"neugierig" },
+      { d:0.90, e:"neutral",   clip:"E2" }
+    ]},
+    danke: { label:"Dankbarkeit", schritte:[
+      { d:0.35, e:"neutral",    achtung:1 },
+      { d:2.40, e:"gluecklich", clip:"G5" },
+      { d:1.60, e:"zufrieden" }
+    ]},
+    aufregung: { label:"Aufregung", schritte:[
+      { d:0.30, e:"ueberrascht", clip:"D3k", achtung:1 },
+      { d:2.20, e:"aufgeregt" },
+      { d:1.60, e:"gluecklich" },
+      { d:1.80, e:"zufrieden" }
+    ]},
+    greifen: { label:"Gegenstand", schritte:[
+      { d:1.00, e:"neugierig",  achtung:0, greif:"hinlangen" },
+      { d:0.55, e:"neutral",    greif:"fassen" },
+      { d:1.30, e:"zufrieden",  greif:"halten" },
+      { d:2.40, e:"neugierig",  greif:"betrachten" },
+      { d:2.80, e:"denkend",    greif:"benutzen" },
+      { d:2.20, e:"gluecklich", greif:"reichen", achtung:1 },
+      { d:1.50, e:"neutral",    greif:"ablegen" },
+      { d:0.60, e:"zufrieden",  greif:"leer" }
+    ]}
+  };
+
+  var ablauf = null;      // { key, i, t }
+
+  function ablaufSchritt() {
+    var a = ABLAUF[ablauf.key], sch = a.schritte[ablauf.i];
+    if (sch.haltung) setHaltung(sch.haltung);
+    if (sch.e) setAusdruck(sch.e);
+    if (sch.achtung !== undefined) achtungZ = sch.achtung;
+    if (sch.greif) setGreif(sch.greif);
+    if (sch.clip) starte(sch.clip);
+  }
+
+  function starteAblauf(key) {
+    if (!ABLAUF[key]) return;
+    touched();
+    ablauf = { key: key, i: 0, t: 0 };
+    ablaufSchritt();
+    var el = document.getElementById("ro-ablauf");
+    if (el) el.textContent = ABLAUF[key].label;
+  }
+
+  function ablaufTakt(dt) {
+    if (!ablauf) return;
+    ablauf.t += dt;
+    var sch = ABLAUF[ablauf.key].schritte;
+    while (ablauf && ablauf.t >= sch[ablauf.i].d) {
+      ablauf.t -= sch[ablauf.i].d;
+      ablauf.i++;
+      if (ablauf.i >= sch.length) {
+        ablauf = null;
+        var el = document.getElementById("ro-ablauf");
+        if (el) el.textContent = "—";
+        return;
+      }
+      ablaufSchritt();
+    }
+  }
+
+  // ---------------------------------------------------------------
+  //  Gehen — ein Watschelgang, kein Laufzyklus mit Knien.
+  //  Noki hat kein Kniegelenk: das Bein ist eine starre Strecke am
+  //  Hüftgelenk. Beide Beine schwingen gegenphasig, die Hüfte sinkt
+  //  genau so weit, dass die Füße dabei auf dem Boden bleiben. Das
+  //  ergibt den Gang eines Aufziehspielzeugs — und genau der passt
+  //  zu dieser Figur besser als ein nachgeahmter Menschengang.
+  // ---------------------------------------------------------------
+  var GANGF   = 0.72;         // volle Schrittzyklen je Sekunde
+  var SCHWUNG = 0.42;         // Ausschlag je Bein
+  var gehen = 0, gehenZ = 0, gehU = 0, bodenZ = 0, gehBis = 0, fzAlt = 0;
+
+  // Schrittprofil: eine zum Dreieck hin verzogene Sinuswelle. Die reine
+  // Sinusform beschleunigt staendig — das liest sich als Schleichen. Mit
+  // Dreiecksanteil laeuft der Abstoss mit gleichmaessiger Geschwindigkeit
+  // und die Umkehr wird zuegig, wie bei einem echten Schritt.
+  function schrittProfil(u) {
+    u = u - Math.floor(u);
+    var w = 2 * Math.PI * u;
+    var dreieck = (2 / Math.PI) * Math.asin(Math.sin(w));
+    return lerp(Math.sin(w), dreieck, 0.65);
+  }
+
+  function setGehen(an, vomNutzer) {
+    gehenZ = an ? 1 : 0;
+    if (an && vomNutzer) { setHaltung("stehen"); ruhe = 0; }
+    var b = document.getElementById("gehen");
+    if (b) b.setAttribute("aria-pressed", String(an));
+  }
 
   var VIEWS = [
     { id: "vorne",  label: "Vorne",  yaw: 0,             pitch: 0.05 },
@@ -903,7 +1194,7 @@
     U = {};
     ["u_res", "u_cam", "u_bob", "u_squash", "u_headRot", "u_antLag", "u_armL", "u_armR",
      "u_eye", "u_eyeCol", "u_glow", "u_look", "u_mouth",
-     "u_body", "u_pose", "u_glimm", "u_leg", "u_boden",
+     "u_body", "u_pose", "u_glimm", "u_leg", "u_boden", "u_objA", "u_objB",
      "u_envTop", "u_envBot", "u_bgTop", "u_bgBot", "u_ground"].forEach(function (n) {
       U[n] = gl.getUniformLocation(prog, n);
     });
@@ -975,7 +1266,9 @@
     body: [0, 0, 0, 0],   // seitlich, sprung, tiefe, rollen
     pose: [0, 0, 0],      // rumpfneigung, sitzen, haltungshöhe
     glimm: 1, arc: 0, mouth: 0,
-    leg: [0, 0, 0], boden: 0
+    leg: [0, 0, 0], boden: 0,
+    obj: [1, 0, 0, 0],        // Typ, Groesse in der Hand, Griffdrehung x, z
+    objOff: [0, 0, 0]         // Griffversatz in der Handebene
   };
 
   var blinkAt = 1.6, blinkPhase = -1, blinkDouble = false;
@@ -983,6 +1276,7 @@
   var time = still ? (parseFloat(hash.t) || 0) : 0;
   var prevHeadYaw = 0;
   var phAtem = 0, phGlimm = 0;   // fortgeschriebene Phasen, siehe updateRig
+  var nutzIst = 0;
 
   // ---- Verhaltenszustand (Dokument 06) ----
   var ruhe      = 0;        // Sekunden ohne Interaktion — treibt die Zeitkaskade
@@ -1119,6 +1413,77 @@
     });
   }
 
+  // ---- Ablauf-Knöpfe ----
+  var abBox = document.getElementById("ablaeufe");
+  if (abBox) {
+    Object.keys(ABLAUF).forEach(function (key) {
+      if (key === "greifen") return;              // liegt im Reiter Gegenstand
+      var b = document.createElement("button");
+      b.className = "chip"; b.type = "button";
+      b.textContent = ABLAUF[key].label;
+      b.addEventListener("click", function () { starteAblauf(key); });
+      abBox.appendChild(b);
+    });
+  }
+
+  // ---- Gegenstände und Greifphasen ----
+  var gegBox = document.getElementById("gegen"), gegBtn = {};
+  if (gegBox) {
+    Object.keys(GEGENSTAND).forEach(function (key) {
+      var b = document.createElement("button");
+      b.className = "chip"; b.type = "button";
+      b.textContent = GEGENSTAND[key].label;
+      b.setAttribute("aria-pressed", String(key === gegKey));
+      b.addEventListener("click", function () {
+        setGegenstand(key); touched();
+        Object.keys(gegBtn).forEach(function (k) {
+          gegBtn[k].setAttribute("aria-pressed", String(k === key));
+        });
+      });
+      gegBtn[key] = b; gegBox.appendChild(b);
+    });
+  }
+  var griffBox = document.getElementById("griffe");
+  if (griffBox) {
+    var b0 = document.createElement("button");
+    b0.className = "chip"; b0.type = "button";
+    b0.textContent = "Ganzer Greifablauf";
+    b0.addEventListener("click", function () { starteAblauf("greifen"); });
+    griffBox.appendChild(b0);
+    ["hinlangen", "halten", "betrachten", "benutzen", "reichen", "leer"].forEach(function (ph) {
+      var b = document.createElement("button");
+      b.className = "chip"; b.type = "button";
+      b.textContent = ph.charAt(0).toUpperCase() + ph.slice(1);
+      b.addEventListener("click", function () { touched(); ablauf = null; setGreif(ph); });
+      griffBox.appendChild(b);
+    });
+  }
+
+  // ---- Reiter ----
+  var REITER = [
+    ["ansicht", "Ansicht"], ["ereignis", "Ereignis"], ["ausdruck", "Ausdruck"],
+    ["ablauf", "Ablauf"], ["gegenstand", "Gegenstand"], ["zeit", "Bewegung"]
+  ];
+  var reiterBox = document.getElementById("reiter"), reiterBtn = {};
+  function zeigeBlatt(key) {
+    REITER.forEach(function (r) {
+      var bl = document.getElementById("bl-" + r[0]);
+      if (bl) bl.hidden = (r[0] !== key);
+      if (reiterBtn[r[0]]) reiterBtn[r[0]].setAttribute("aria-selected", String(r[0] === key));
+    });
+  }
+  if (reiterBox) {
+    REITER.forEach(function (r) {
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = r[1];
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", String(r[0] === "ansicht"));
+      b.addEventListener("click", function () { zeigeBlatt(r[0]); });
+      reiterBtn[r[0]] = b; reiterBox.appendChild(b);
+    });
+    zeigeBlatt(hash.reiter && reiterBtn[hash.reiter] ? hash.reiter : "ansicht");
+  }
+
   var rafferBtn = document.getElementById("raffer");
   if (rafferBtn) {
     rafferBtn.setAttribute("aria-pressed", String(zeitraffer > 1));
@@ -1227,7 +1592,7 @@
   // ---------------------------------------------------------------
   function neuOff() {
     return { hP:0, hY:0, hR:0, aL:0, aR:0, aF:0,
-             bx:0, by:0, bz:0, br:0, lx:0, ly:0, gl:0, arc:0, mouth:0 };
+             bx:0, by:0, bz:0, br:0, lx:0, ly:0, gl:0, arc:0, mouth:0, eyeR:0 };
   }
 
   var EINLAGE = {
@@ -1254,13 +1619,92 @@
             // weiter, bis die Zeit abgelaufen ist.
             if (u < 0.05 && gehenZ === 0) { setGehen(true); gehBis = time + 5.0 + Math.random() * 4.0; }
           } },
-    F4k:{ label:"F4 Fehler (reduziert)", dur:2.6, prio:3, f:function (u, o) {
-            // Vorläufig: F4 kommt vollständig erst in Stufe 3.
-            var e = huelle(u, 0.10, 0.40);
-            o.hP    += 0.14 * e;
-            o.gl    -= 0.30 * e;
+    // ---- Stufe 2 ----
+    D3k:{ label:"D3 Überraschung", dur:1.2, prio:5, f:function (u, o) {
+            // Einzige Animation ohne Staffelung: alles setzt gemeinsam ein.
+            var e = cSchnellAn(clamp(u / 0.07, 0, 1)) * (1 - cWeich(clamp((u - 0.33) / 0.67, 0, 1)));
+            o.bz -= 0.020 * e;          // weicht zurück
+            o.by += 0.013 * e;
+            o.aL += 0.45 * e; o.aR += 0.45 * e;
+            o.aF += 0.16 * e;
+            o.hP += -0.10 * e;
+            o.gl += 0.45 * e;
+            o.eyeR += 0.016 * e;
+          } },
+    C2k:{ label:"C2 Aufwachen", dur:1.6, prio:5, f:function (u, o) {
+            var schreck = cSchnellAn(clamp(u / 0.06, 0, 1)) * (1 - cWeich(clamp((u - 0.16) / 0.32, 0, 1)));
+            var auf     = cFedernd(clamp((u - 0.42) / 0.58, 0, 1));
+            o.by += 0.016 * schreck;
+            o.aL += 0.42 * schreck; o.aR += 0.42 * schreck;
+            o.hP += -0.13 * schreck - 0.05 * auf;
+            o.gl += 0.55 * schreck + 0.15 * auf;
+            o.eyeR += 0.014 * schreck;
+          } },
+    E2: { label:"E2 Nicken", dur:0.95, prio:4, f:function (u, o, v) {
+            o.hP += cPendelnd(u, 2) * 0.11 * v.amp;
+            o.bz += cPendelnd(u, 2) * 0.006;     // Rumpf federt gegen, Leitsatz 4
+            o.gl += huelle(u, 0.2, 0.4) * 0.12;
+          } },
+    E5: { label:"E5 Nachfragen", dur:1.5, prio:4, f:function (u, o, v) {
+            var e = huelle(u, 0.26, 0.30);
+            o.hR   += 0.24 * e * v.amp;          // stärkste Kopfneigung des Satzes
+            o.bz   += 0.020 * e;
+            o.eyeR += 0.006 * e;
+            o.gl   += 0.10 * e;
+          } },
+    E7: { label:"E7 Zeigen", dur:2.8, prio:4, f:function (u, o, v) {
+            var e = huelle(u, 0.20, 0.26);
+            o.aR += 0.78 * e;                    // Arm hebt sich nach vorn
+            o.aF += 0.46 * e;
+            o.hY += -0.15 * e;                   // Kopf dreht zur Hand
+            o.hR += 0.09 * e;
+            // Blick pendelt zwischen Hand und Nutzer — das macht aus Zeigen Erklären
+            o.lx += -0.32 * e * (0.5 + 0.5 * Math.cos(u * Math.PI * 4.0));
+            o.mouth += 0.32 * e;
+          } },
+    F1: { label:"F1 Aufgabe annehmen", dur:0.75, prio:3, f:function (u, o) {
+            o.hP += cPendelnd(u, 2) * 0.10;
+            var e = huelle(u, 0.20, 0.40);
+            o.gl += 0.20 * e;
+            o.mouth += 0.30 * e;
+          } },
+    F4: { label:"F4 Fehler melden", dur:2.9, prio:3, f:function (u, o) {
+            var zuck = (u < 0.055) ? Math.sin(u / 0.055 * Math.PI) : 0.0;
+            var e    = huelle(u, 0.10, 0.36);
+            var frag = cTraege(clamp((u - 0.62) / 0.38, 0, 1));
+            o.bz -= 0.012 * zuck;
+            o.hP += 0.14 * e - 0.05 * zuck;
+            o.gl -= 0.30 * e;
             o.mouth -= 0.35 * e;
-            o.hR    += 0.16 * e * cTraege(clamp((u - 0.7) / 0.3, 0, 1));
+            var arm = cTraege(clamp((u - 0.14) / 0.34, 0, 1)) * e;
+            o.aR += 0.46 * arm;                  // halb gehobener Arm: die Geste des „hm"
+            o.aF += 0.20 * arm;
+            o.hR += 0.16 * frag;                 // Kopf neigt sich: nochmal versuchen?
+          } },
+    G1: { label:"G1 Stolz", dur:2.5, prio:2, f:function (u, o) {
+            var e = huelle(u, 0.24, 0.34);
+            o.hP += -0.15 * e;
+            o.bz += 0.028 * e;                   // Brust vor
+            o.aL += 0.09 * e; o.aR += 0.09 * e;
+            o.arc += 0.50 * e;                   // Ring nur angeschnitten
+            o.mouth += 0.55 * e;
+            o.gl += 0.22 * e;
+          } },
+    G3: { label:"G3 Heranlehnen", dur:3.2, prio:2, f:function (u, o) {
+            var e = huelle(u, 0.22, 0.28);
+            o.bz += 0.048 * e;
+            o.hR += 0.18 * e;
+            o.eyeR += 0.005 * e;
+          } },
+    G5: { label:"G5 Dankbarkeit", dur:2.3, prio:3, f:function (u, o) {
+            var e = huelle(u, 0.28, 0.32);
+            o.hP += 0.16 * e;                    // kleine Verbeugung
+            o.bz += 0.014 * e;
+            o.aR += 0.60 * e;                    // Hand zur Brust
+            o.aF += 0.48 * e;
+            o.arc += 0.72 * e;
+            o.mouth += 0.55 * e;
+            o.gl += 0.30 * e;
           } }
   };
 
@@ -1322,43 +1766,13 @@
       case "aufgabe_fertig":                                // vorläufig D1 statt F3
         achtungZ = 1; setAusdruck("gluecklich"); stimme(0.25); break;
       case "fehler":                                        // F4 reduziert
-        achtungZ = 1; setAusdruck("neutral"); starte("F4k"); stimme(-0.15); break;
+        achtungZ = 1; setAusdruck("neutral"); starte("F4"); stimme(-0.15); break;
       case "nutzer_weg":
         achtungZ = 0; ruhe = Math.max(ruhe, 21); break;
     }
   }
 
   var gewichtIst = 0;
-
-  // ---------------------------------------------------------------
-  //  Gehen — ein Watschelgang, kein Laufzyklus mit Knien.
-  //  Noki hat kein Kniegelenk: das Bein ist eine starre Strecke am
-  //  Hüftgelenk. Beide Beine schwingen gegenphasig, die Hüfte sinkt
-  //  genau so weit, dass die Füße dabei auf dem Boden bleiben. Das
-  //  ergibt den Gang eines Aufziehspielzeugs — und genau der passt
-  //  zu dieser Figur besser als ein nachgeahmter Menschengang.
-  // ---------------------------------------------------------------
-  var GANGF   = 0.72;         // volle Schrittzyklen je Sekunde
-  var SCHWUNG = 0.42;         // Ausschlag je Bein
-  var gehen = 0, gehenZ = 0, gehU = 0, bodenZ = 0, gehBis = 0, fzAlt = 0;
-
-  // Schrittprofil: eine zum Dreieck hin verzogene Sinuswelle. Die reine
-  // Sinusform beschleunigt staendig — das liest sich als Schleichen. Mit
-  // Dreiecksanteil laeuft der Abstoss mit gleichmaessiger Geschwindigkeit
-  // und die Umkehr wird zuegig, wie bei einem echten Schritt.
-  function schrittProfil(u) {
-    u = u - Math.floor(u);
-    var w = 2 * Math.PI * u;
-    var dreieck = (2 / Math.PI) * Math.asin(Math.sin(w));
-    return lerp(Math.sin(w), dreieck, 0.65);
-  }
-
-  function setGehen(an, vomNutzer) {
-    gehenZ = an ? 1 : 0;
-    if (an && vomNutzer) { setHaltung("stehen"); ruhe = 0; }
-    var b = document.getElementById("gehen");
-    if (b) b.setAttribute("aria-pressed", String(an));
-  }
 
   function einlageIntervall() {
     // Zwischen 90 s und 4 min beschäftigt Noki sich selbst — die Einlagen
@@ -1369,8 +1783,9 @@
   }
 
   function treiber(dt) {
+    ablaufTakt(dt);
     var dz = dt * zeitraffer;
-    ruhe += dz;
+    if (ablauf) ruhe = 0; else ruhe += dz;
 
     // Stimmung kehrt träge zur Grundstimmung zurück, Halbwertszeit 4 min
     stimmung = 0.15 + (stimmung - 0.15) * Math.pow(0.5, dz / 240);
@@ -1442,7 +1857,14 @@
     if (clip) {
       if (!still) clip.t += dt;
       var u = clip.t / clip.dur;
-      if (u >= 1) { clip = null; letzteOff = null; }
+      if (u >= 1) {
+        // Auch das natürliche Ende wird ausgeblendet, nicht geschnitten.
+        // Einlagen, die nicht bei null enden, rissen sonst um ihren
+        // Restversatz — „unterbrechen heißt nie abbrechen" gilt für das
+        // Ende genauso wie für die Unterbrechung.
+        fadeOff = letzteOff; fadeT = 0;
+        clip = null; letzteOff = null;
+      }
       else { EINLAGE[clip.key].f(u, o, clip); letzteOff = o; }
     }
     if (fadeOff) {
@@ -1451,6 +1873,34 @@
       if (fw <= 0) fadeOff = null;
       else for (var fk in fadeOff) { o[fk] += fadeOff[fk] * fw; }
     }
+
+    // --- 4b · Greifpose ---
+    // Die Phase liefert eine Armhaltung und ein Blickziel; beides wird weich
+    // angefahren. Der Gegenstand selbst haengt am Handkoordinatensystem und
+    // braucht dafuer keine eigene Animation.
+    greifT += dt;
+    var ziG = GREIF[greifPhase];
+    var gkk = still ? 1 : 1 - Math.pow(0.02, dt / 0.55);
+    for (var gf in ziG) { greifIst[gf] = lerp(greifIst[gf], ziG[gf], gkk); }
+    o.aR += greifIst.aS;
+    o.aF += greifIst.aF;
+    o.hP += greifIst.hP;
+    o.hY += greifIst.hY;
+    o.lx += greifIst.lx;
+
+    var geg = GEGENSTAND[gegKey];
+    // Benutzen: eine kleine, gegenstandsgerechte Bewegung im Griff selbst
+    var nutz = (greifPhase === "benutzen") ? 1 : 0;
+    nutzIst = lerp(nutzIst, nutz, still ? 1 : 1 - Math.pow(0.02, dt / 0.4));
+    var wig = nutzIst * Math.sin(greifT * 5.4);
+    var dx = geg.drehX, dz = geg.drehZ;
+    if (geg.nutzAchse === "drehen") dz += wig * 0.55;
+    else if (geg.nutzAchse === "tippen") dx += Math.abs(wig) * 0.10;
+    else if (geg.nutzAchse === "kippen") dx += (0.5 + 0.5 * Math.sin(greifT * 1.6)) * nutzIst * 0.55;
+    // Ein einziger Massstab fuer alle Gegenstaende: sie sitzen im selben
+    // Griffraum, also skaliert er sie gemeinsam um den Griffpunkt.
+    rig.obj    = [geg.typ, greifIst.gr * 1.55, dx, dz];
+    rig.objOff = geg.off;
 
     // --- 5 · Ebenen zusammensetzen ---
     // Atem: Grundfrequenz aller Bewegung. Amplitude gedeckelt, damit der
@@ -1801,6 +2251,8 @@
     gl.uniform1f(U.u_glimm, rig.glimm);
     gl.uniform3f(U.u_leg, rig.leg[0], rig.leg[1], rig.leg[2]);
     gl.uniform1f(U.u_boden, rig.boden);
+    gl.uniform4f(U.u_objA, rig.obj[0], rig.obj[1], rig.obj[2], rig.obj[3]);
+    gl.uniform3f(U.u_objB, rig.objOff[0], rig.objOff[1], rig.objOff[2]);
     gl.uniform3f(U.u_envTop, envTop[0], envTop[1], envTop[2]);
     gl.uniform3f(U.u_envBot, envBot[0], envBot[1], envBot[2]);
     gl.uniform3f(U.u_bgTop, bgTop[0], bgTop[1], bgTop[2]);
@@ -1843,12 +2295,20 @@
     for (var tg in HALTUNG.__test) { hal[tg] = HALTUNG.__test[tg]; }
   }
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
+  if (hash.obj !== undefined) {
+    var gsl = Object.keys(GEGENSTAND)[clamp(Math.round(num(hash.obj, 1)) - 1, 0, 3)];
+    setGegenstand(gsl);
+    setGreif(hash.greif && GREIF[hash.greif] ? hash.greif : "halten");
+    for (var gz in GREIF[greifPhase]) { greifIst[gz] = GREIF[greifPhase][gz]; }
+  }
   if (hash.geh !== undefined) {
     gehen = gehenZ = 1;
     gehU = num(hash.geh, 0);                     // 0 … 1 = ein voller Schrittzyklus
     fzAlt = 0.083 * Math.sin(SCHWUNG * schrittProfil(gehU));
     bodenZ = gehU * 0.14;
   }
+
+  if (hash.leiste === "1") leisteAuf(true);
 
   if (hash.selftest === "1") { selbsttest(); return; }
 
