@@ -458,13 +458,17 @@
 "  // Fußansatz auf das Dreifache. Fester Betrag mal Drehung hält jede Strecke",
 "  // konstant, in jeder Zwischenstellung.",
 "  float st = u_pose.y;",
-"  float thB = -1.583 * st;                       // Beinwinkel um die Seitenachse",
+"  float thB = -1.5708 * st;                      // Beinwinkel um die Seitenachse",
 "  vec3 lp = vec3(abs(p.x), p.y, p.z);",
 "  // Die Hüfthöhe folgt der Beindrehung statt linear zu sinken. Sonst hängt",
 "  // der Knöchel in der Mitte der Bewegung durch und der Fuß versinkt im Boden.",
+"  // Die Hüfte wandert beim Hinsetzen nach vorn — sonst läge das ganze",
+"  // Beinsegment im Rumpf-Ellipsoid und wäre unsichtbar. Ihre Höhe folgt der",
+"  // Beindrehung statt linear zu sinken, dadurch bleibt der Knöchel auf",
+"  // konstanter Höhe und der Fuß sinkt nie in den Boden.",
 "  vec3 hueftP  = vec3(mix(0.085, 0.088, st),",
-"                      0.076 + 0.082 * cos(1.583 * st),",
-"                      mix(0.000, 0.014, st));",
+"                      0.076 + 0.082 * cos(1.5708 * st),",
+"                      mix(0.000, 0.105, st));",
 "  vec3 beinRi  = rotX(vec3(0.157,-0.988,0.0), thB);",
 "  vec3 knoechP = hueftP + beinRi * 0.083;        // feste Beinlänge",
 "  vec3 fussP   = knoechP + vec3(0.007,-0.029,0.020);   // starrer Fußversatz",
@@ -1506,9 +1510,9 @@
       for (var q = 0; q <= 100; q++) {
         var sq = q / 100;
         var hue = [0.085 + (0.088 - 0.085) * sq,
-                   0.076 + 0.082 * Math.cos(1.583 * sq),
-                   0.000 + (0.014 - 0.000) * sq];
-        var ri  = rotX([0.157, -0.988, 0.0], -1.583 * sq);
+                   0.076 + 0.082 * Math.cos(1.5708 * sq),
+                   0.000 + (0.105 - 0.000) * sq];
+        var ri  = rotX([0.157, -0.988, 0.0], -1.5708 * sq);
         var kno = [hue[0] + ri[0] * 0.083, hue[1] + ri[1] * 0.083, hue[2] + ri[2] * 0.083];
         var fus = [kno[0] + 0.007, kno[1] - 0.029, kno[2] + 0.020];
         var lBein = betrag([kno[0]-hue[0], kno[1]-hue[1], kno[2]-hue[2]]);

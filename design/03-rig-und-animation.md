@@ -55,7 +55,7 @@ Füße bleiben stehen. Das ist der Unterschied zwischen „schwebt" und „steht
 | `koerper.sprung` | Heben (y) | 0 | 0 … +0.050 | Hüpfen — **eigener Kanal**, addiert sich auf den Atemkanal |
 | `koerper` | Rollen (z) | 0 | ±0.050 | Gewichtsverlagerung, Verlegenheit |
 | `koerper` | Rumpfneigung (x) | 0 | −0.10 … +0.10 | Sitzhaltung |
-| `bein_*` | Beinwinkel (x) | 0 | 0 … −1.583 | Sitzstellung. **Dreht das Bein bei fester Länge `0.083`** — Stützpunkte einzeln zu interpolieren würde es dehnen |
+| `bein_*` | Beinwinkel (x) | 0 | 0 … −π/2 | Sitzstellung. **Dreht das Bein bei fester Länge `0.083`** — Stützpunkte einzeln zu interpolieren würde es dehnen. Die Hüfte wandert dabei nach vorn, sonst verschwindet das Bein im Rumpf |
 | `glimm` | Helligkeit | 1.0 | 0 … 2.0 | **eigener Kanal**, unabhängig von der Augenhelligkeit |
 
 Alle Kanäle dieser Tabelle sind in `noki.html` umgesetzt und werden vom eingebauten

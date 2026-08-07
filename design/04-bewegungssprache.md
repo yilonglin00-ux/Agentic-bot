@@ -165,16 +165,22 @@ damit genau auf der Bodenlinie auf. Er lehnt sich leicht zurück (`−0.06` Nick
 stützen locker seitlich.
 
 **Die Beine drehen sich, sie strecken sich nicht.** Das Bein ist eine starre Strecke von
-`0.083`, die um `−1.583` um die Seitenachse schwenkt; der Fuß hängt mit festem Versatz daran
-und wird nie gedreht. Die Hüfthöhe folgt dabei der Drehung (`0.076 + 0.082 · cos`) statt
-linear zu sinken — dadurch bleibt der Knöchel auf konstanter Höhe und die Füße schleifen über
-den Boden nach vorn, statt in ihn einzusinken.
+`0.083`, die um `−π/2` um die Seitenachse bis in die Waagerechte schwenkt; der Fuß hängt mit
+festem Versatz daran und wird nie gedreht.
 
-Weil Nokis Beine mit `0.083` sehr kurz sind, reichen die Füße im Sitzen nur bis `z = 0.116` —
-sie schauen knapp vor dem Bauch hervor. Ein weiter ausgestreckter Sitz wäre nur mit gedehnten
-Beinen zu haben und ist damit ausgeschlossen. Wer ihn will, müsste dem Bein ein echtes
-Kniegelenk aus zwei Segmenten geben; das wäre eine Änderung an der Figur selbst und gehört
-dann in [02](02-formensprache-material.md).
+Zwei Dinge machen die Bewegung sauber:
+
+- **Die Hüfthöhe folgt der Drehung** (`0.076 + 0.082 · cos`) statt linear zu sinken. Dadurch
+  bleibt der Knöchel auf konstanter Höhe, und die Füße schleifen beim Hinsetzen über den
+  Boden nach vorn, statt in ihn einzusinken.
+- **Die Hüfte wandert nach vorn** (`z: 0 → 0.105`). Ohne das läge das ganze Beinsegment im
+  Rumpf-Ellipsoid und wäre unsichtbar — Noki säße scheinbar ohne Beine da.
+
+Die Füße kommen so bis `z = 0.207` nach vorn. Weil Nokis Beine mit `0.083` sehr kurz sind,
+bleibt der Sitz kompakt; ein weit ausgestreckter Sitz wäre nur mit gedehnten Beinen zu haben
+und ist damit ausgeschlossen. Wer ihn will, müsste dem Bein ein echtes Kniegelenk aus zwei
+Segmenten geben — das wäre eine Änderung an der Figur selbst und gehört dann in
+[02](02-formensprache-material.md).
 
 **Eigener Atemtakt:** `0.85` statt `1.15` — Sitzen ist ruhiger als Stehen, und das muss man
 sehen können, ohne die Pose zu erkennen.

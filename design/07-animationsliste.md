@@ -27,7 +27,7 @@ Arme schwingen seitenverkehrt mit. Darüber liegen Blinzeln, Blickwandern und Ge
 Noki sitzt, Beine nach vorn, Arme stützen locker seitlich. Deutlich ruhiger als A1 — man muss
 den Unterschied hören können, ohne die Pose zu sehen.
 *Auslöser:* nach 90 s ohne Interaktion, oder wenn eine Aufgabe länger als 30 s läuft — *Gefühl:* Gelassenheit
-`Zyklus 7.4 s · weich · wie A1 mit halber Amplitude, beinwinkel −1.583, koerper −0.150, rumpfneigung −0.06 · Prio 0 · läuft immer`
+`Zyklus 7.4 s · weich · wie A1 mit halber Amplitude, beinwinkel −π/2, hüfte nach vorn 0.105, koerper −0.150, rumpfneigung −0.06 · Prio 0 · läuft immer`
 
 **A3 · Dösen** ▶
 Die Lider sinken, der Glimm dimmt, alles verlangsamt sich. Kein Umschalten — die Ermüdungsregel
