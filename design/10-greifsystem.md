@@ -66,9 +66,9 @@ Griffart zugewiesen — mehr braucht es nicht, damit er sich richtig verhält.
 | **Berührungsfläche** | Der Henkelring auf der Innenseite der Handkugel; das Gefäß berührt die Hand nicht |
 | **Eine oder zwei Hände?** | Eine. Bei `0.35` Gewicht kein Grund für zwei |
 | **Aufnehmen** | Arm senkt sich (`hinlangen`), Handgelenk `+0.26` gebeugt, Blick auf die Hand; beim `fassen` streckt sich das Gelenk auf `+0.10` |
-| **Wie ändert sich die Haltung beim Benutzen?** | Zum Mund: Arm auf `1.18` aus, Handgelenk `−0.30`. Beim Trinken kippt das Gelenk über `0.9 s` weich auf `−0.85` — das Gefäß neigt sich, nicht der Arm |
+| **Wie ändert sich die Haltung beim Benutzen?** | Zum Mund: Arm auf `1.86` aus, Handgelenk `−0.30`. Beim Trinken Arm auf `2.05`, Hand auf Höhe der unteren Gesichtskante; das Gelenk kippt über `0.9 s` weich auf `−0.85` — **das Gefäß neigt sich, nicht der Arm.** Siehe die Nachrechnung unten |
 | **Ablegen** | Rückweg über `halten`, Gelenk auf `+0.22`, Arm senkt sich langsamer als beim Aufnehmen — vorsichtig abstellen heißt: die letzte Bewegung ist die langsamste |
-| **Folge** | Hinlangen `1.0` → Fassen `0.55` → Halten `1.0` → Zum Mund `1.3` → Trinken `2.6` → Halten `1.2` → Ablegen `1.6` → Leer `0.6` |
+| **Folge** | Hinlangen `1.0` → Fassen `0.55` → Halten `1.0` → Zum Mund `1.4` → Trinken `2.6` → Halten `1.2` → Ablegen `1.5` → Leer `0.6` |
 
 ### Smartphone — Flachgriff
 
