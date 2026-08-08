@@ -280,6 +280,51 @@
   }
   #hint.gone { opacity: 0; }
 
+  /* Virtueller Joystick. Er liegt links unten, wo der Daumen beim Halten
+     ohnehin ruht, und weit genug von der Bedienleiste entfernt, dass sich
+     beide nicht ins Gehege kommen. `touch-action: none` ist Pflicht: sonst
+     scrollt der Browser die Seite, statt den Knopf zu bewegen. */
+  #stick {
+    position: absolute;
+    left: clamp(14px, 4vw, 34px);
+    bottom: clamp(16px, 5vh, 40px);
+    width: 116px;
+    height: 116px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+    touch-action: none;
+    cursor: grab;
+    opacity: .55;
+    transition: opacity .22s ease;
+    z-index: 6;
+  }
+  #stick:hover, #stick.an { opacity: 1; }
+  #stick.weg { opacity: 0; pointer-events: none; }
+  #stick.an { cursor: grabbing; }
+  #stick::after {           /* feiner Ring als Reichweitenmarke */
+    content: "";
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    border: 1px dashed var(--panel-edge);
+  }
+  #stickKnopf {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 46px;
+    height: 46px;
+    margin: -23px 0 0 -23px;
+    border-radius: 50%;
+    background: var(--chip-on);
+    border: 1px solid var(--panel-edge);
+    pointer-events: none;
+  }
+  #stick:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
   #fail {
     position: absolute;
     inset: 0;
@@ -322,9 +367,13 @@
     <div>STIMMUNG <span id="ro-mood">+0.15</span></div>
     <div>L&Auml;UFT <span id="ro-clip">&mdash;</span></div>
     <div>ABLAUF <span id="ro-ablauf">&mdash;</span></div>
+    <div>RAUM <span id="ro-raum">&mdash;</span></div>
   </div>
 
   <div id="hint">ziehen &middot; horizontal scrollen = drehen &middot; vertikal scrollen = neigen</div>
+
+  <div id="stick" role="application" aria-label="Noki bewegen"
+       title="Ziehen: Noki l&auml;uft. Weiter aussen = schneller."><div id="stickKnopf"></div></div>
 
   <button id="griff" type="button" aria-expanded="false" aria-controls="controls"
           title="Bedienung ein- und ausblenden">Bedienung</button>
@@ -380,6 +429,205 @@
   };
 
   // =================================================================
+  //  1b · GRUNDRISS
+  //  Drei Raeume nebeneinander, zwei Durchgaenge:
+  //
+  //        Schlafzimmer  <--tuer_schlaf--  Hauptbereich  --tuer_neben-->  Nebenraum
+  //
+  //  Diese Tabelle ist die EINZIGE Wahrheit ueber die Umgebung. Aus ihr
+  //  entstehen beide Seiten: der GLSL-Text der Waende weiter unten und die
+  //  Kollisionspruefung im JS. Waeren es zwei Listen, wuerden sie
+  //  auseinanderlaufen, und Noki bliebe an einer Wand haengen, die man
+  //  nicht sieht — oder liefe durch eine, die man sieht.
+  //
+  //  Die Bezeichner sind bereits die, die eine spaetere Agentenlogik
+  //  braucht. Implementiert ist davon nichts: hier steht nur, wo etwas
+  //  liegt, nicht wie man dorthin findet.
+  //
+  //  Masse in Einheiten der Figurenhoehe. Noki ist 1.00 hoch und an den
+  //  Schultern 0.41 breit; ein Raum von 2.6 ist damit gut vier
+  //  Schulterbreiten tief.
+  // =================================================================
+  //  Alle drei Raeume sind gleich tief. Das ist kein Zufall und keine
+  //  Bequemlichkeit: dadurch faellt die gemeinsame Wand zweier Raeume auf
+  //  genau dieselbe Kante, und die Zusammenfassung unten erkennt sie als
+  //  EINE Wand. Waeren die Tiefen verschieden, staenden dort zwei
+  //  ueberlappende Quader — im Bild unsichtbar, aber jede Tuer wuerde
+  //  doppelt gebaut, und die Pfosten staenden zweimal ineinander.
+  var RAUM = {
+    main_room: { x0: -1.30, x1:  1.30, z0: -1.20, z1:  1.20,
+                 label: "Hauptbereich", ton:  0.000 },
+    bedroom:   { x0: -3.30, x1: -1.30, z0: -1.20, z1:  1.20,
+                 label: "Schlafzimmer", ton: -0.170 },
+    room_3:    { x0:  1.30, x1:  3.20, z0: -1.20, z1:  1.20,
+                 label: "Nebenraum",    ton:  0.155 }
+  };
+
+  // Durchgaenge. `bei` ist die Wand, in der die Oeffnung sitzt, `mitte`
+  // ihre Lage darin. 0.95 Breite gegen einen Figurenradius von 0.20: mehr
+  // als das Doppelte, damit niemand an der Laibung haengen bleibt.
+  var TUER = [
+    { id: "tuer_schlaf", von: "main_room", nach: "bedroom",
+      achse: "x", bei: -1.30, mitte: -0.15, breite: 0.80 },
+    { id: "tuer_neben",  von: "main_room", nach: "room_3",
+      achse: "x", bei:  1.30, mitte: -0.15, breite: 0.80 }
+  ];
+
+  var WAND_H  = 0.62;    // Wandhoehe — ein Architekturmodell, kein Haus:
+                         // die Kamera sieht von schraeg oben in jeden Raum,
+                         // und die Figur wird nie von einer Wand verdeckt.
+  var WAND_D  = 0.12;    // halbe Wanddicke
+  var PFOSTEN_H = 0.78;  // Tuerpfosten ueberragen die Wand, damit ein
+                         // Durchgang als Tuer lesbar ist und nicht als Luecke
+  var PFOSTEN_B = 0.075; // halbe Pfostenbreite
+  var FIGUR_R = 0.20;    // Kollisionsradius: Rumpf 0.19, Fussaussenkante 0.16
+
+  // ---------------------------------------------------------------
+  //  Aus Raeumen und Tueren die Wandquader ableiten.
+  //  Jede Wand ist ein achsparalleler Quader { cx, cz, hx, hz, h }.
+  //  Eine Wand mit Tuer wird in zwei Stuecke geteilt — die Oeffnung
+  //  entsteht also durch Weglassen, nicht durch Abziehen. Dadurch ist
+  //  sie in der Kollision automatisch dieselbe Luecke wie im Bild.
+  // ---------------------------------------------------------------
+  function waende() {
+    var w = [], pf = [];
+    // Jede Raumkante wird zu einer Wandstrecke. Doppelte Kanten (die
+    // gemeinsame Wand zweier Raeume) werden ueber ihren Schluessel
+    // zusammengefasst, sonst staende dort eine doppelt dicke Wand.
+    var kanten = {};
+    function kante(achse, bei, a0, a1) {
+      var k = achse + "|" + bei.toFixed(3) + "|" + a0.toFixed(3) + "|" + a1.toFixed(3);
+      if (!kanten[k]) kanten[k] = { achse: achse, bei: bei, a0: a0, a1: a1 };
+    }
+    for (var rk in RAUM) {
+      var r = RAUM[rk];
+      kante("x", r.x0, r.z0, r.z1);   // linke Wand
+      kante("x", r.x1, r.z0, r.z1);   // rechte Wand
+      kante("z", r.z0, r.x0, r.x1);   // hintere Wand
+      kante("z", r.z1, r.x0, r.x1);   // vordere Wand
+    }
+    for (var kk in kanten) {
+      var e = kanten[kk];
+      // Alle Oeffnungen, die in dieser Kante liegen, als Luecken sammeln
+      var luecken = [];
+      for (var ti = 0; ti < TUER.length; ti++) {
+        var t = TUER[ti];
+        if (t.achse !== e.achse || Math.abs(t.bei - e.bei) > 1e-6) continue;
+        if (t.mitte - t.breite / 2 < e.a0 - 1e-6) continue;
+        if (t.mitte + t.breite / 2 > e.a1 + 1e-6) continue;
+        luecken.push(t);
+        pf.push({ achse: e.achse, bei: e.bei, a: t.mitte - t.breite / 2 - PFOSTEN_B });
+        pf.push({ achse: e.achse, bei: e.bei, a: t.mitte + t.breite / 2 + PFOSTEN_B });
+      }
+      luecken.sort(function (a, b) { return a.mitte - b.mitte; });
+      var von = e.a0;
+      for (var li = 0; li <= luecken.length; li++) {
+        var bis = (li < luecken.length) ? luecken[li].mitte - luecken[li].breite / 2 : e.a1;
+        if (bis - von > 1e-4) w.push(quader(e.achse, e.bei, von, bis, WAND_H));
+        if (li < luecken.length) von = luecken[li].mitte + luecken[li].breite / 2;
+      }
+    }
+    // Tuerpfosten: schmale Saeulen links und rechts der Oeffnung. Sie sind
+    // hoeher UND eine Spur dicker als die Wand — nur hoeher genuegte nicht,
+    // dann verschwaende der Pfosten bis auf einen Absatz in der Wandflucht.
+    // So steht er als Rahmen davor, und ein Durchgang liest sich als Tuer.
+    for (var pi = 0; pi < pf.length; pi++) {
+      var p = pf[pi];
+      w.push(quader(p.achse, p.bei, p.a - PFOSTEN_B, p.a + PFOSTEN_B,
+                    PFOSTEN_H, WAND_D + 0.030));
+    }
+    return w;
+  }
+
+  function quader(achse, bei, a0, a1, h, d) {
+    if (d === undefined) d = WAND_D;
+    if (achse === "x") {
+      return { cx: bei, cz: (a0 + a1) / 2, hx: d, hz: (a1 - a0) / 2, h: h };
+    }
+    return { cx: (a0 + a1) / 2, cz: bei, hx: (a1 - a0) / 2, hz: d, h: h };
+  }
+
+  var WAENDE = waende();
+
+  // Die aeussere Huelle des ganzen Hauses. Sie ist der Grund, warum die
+  // sechzehn Quader den Marsch nicht ausbremsen: ein Strahl, der weit
+  // draussen laeuft, bekommt EINE Kastendistanz zurueck statt sechzehn.
+  var HAUS = (function () {
+    var b = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9, y1: 0 };
+    for (var i = 0; i < WAENDE.length; i++) {
+      var q = WAENDE[i];
+      b.x0 = Math.min(b.x0, q.cx - q.hx); b.x1 = Math.max(b.x1, q.cx + q.hx);
+      b.z0 = Math.min(b.z0, q.cz - q.hz); b.z1 = Math.max(b.z1, q.cz + q.hz);
+      b.y1 = Math.max(b.y1, q.h);
+    }
+    return b;
+  })();
+
+  // Der GLSL-Text der Umgebung. Er wird unten in den Shader eingesetzt —
+  // eine feste Entfaltung ohne Schleife, weil WebGL 1 keine dynamisch
+  // indizierten Arrays mag und der Uebersetzer so alles einsetzen kann.
+  // Erzeugt statt getippt, damit Bild und Kollision nicht auseinanderlaufen
+  // koennen: beide lesen dieselbe Liste `WAENDE`.
+  function weltGLSL() {
+    var f = function (v) { return v.toFixed(4); };
+    var z = [
+      "vec2 mapWelt(vec3 p){",
+      "  vec2 r = vec2(1e9, M_WAND);",
+      "  if (u_welt < 0.5) return r;",
+      "  vec3 bd = abs(p - vec3(" + f((HAUS.x0 + HAUS.x1) / 2) + ", " + f(HAUS.y1 / 2)
+        + ", " + f((HAUS.z0 + HAUS.z1) / 2) + ")) - vec3("
+        + f((HAUS.x1 - HAUS.x0) / 2) + ", " + f(HAUS.y1 / 2) + ", "
+        + f((HAUS.z1 - HAUS.z0) / 2) + ");",
+      "  float bb = length(max(bd, 0.0)) + min(max(bd.x, max(bd.y, bd.z)), 0.0);",
+      "  if (bb > 0.25) return vec2(bb, M_WAND);"
+    ];
+    for (var i = 0; i < WAENDE.length; i++) {
+      var q = WAENDE[i];
+      var m = (q.h > WAND_H + 1e-6) ? "M_RAHMEN" : "M_WAND";
+      z.push("  r = opU(r, vec2(sdRoundBox(p - vec3(" + f(q.cx) + ", " + f(q.h / 2)
+        + ", " + f(q.cz) + "), vec3(" + f(q.hx) + ", " + f(q.h / 2) + ", "
+        + f(q.hz) + "), 0.012), " + m + "));");
+    }
+    z.push("  return r;");
+    z.push("}");
+    return z.join("\n");
+  }
+
+  // Der Boden bleibt analytisch geschnitten — der Grund dafuer steht unten
+  // an Ort und Stelle und gilt unveraendert. Was dazukommt, ist nur die
+  // Frage „in welchem Raum liegt dieser Punkt?".
+  //
+  //   x = Raumton,  y = Abstand zur Hausflaeche (negativ innen),
+  //   z = Abstand zur ROHEN Raumkante — daraus wird die Schwelle im
+  //       Durchgang. Ueberall sonst liegt diese Kante unter einer Wand
+  //       und ist unsichtbar; genau in der Tueroeffnung wird sie zum
+  //       Strich am Boden, der den Raumwechsel markiert.
+  function bodenGLSL() {
+    var f = function (v) { return v.toFixed(4); };
+    var z = ["vec3 raumAt(vec2 q){",
+             "  vec3 r = vec3(0.0, 9.0, 9.0);",
+             "  vec2 d; float s;"];
+    for (var k in RAUM) {
+      var r = RAUM[k];
+      var cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+      var hx = (r.x1 - r.x0) / 2, hz = (r.z1 - r.z0) / 2;
+      // Die Bodenflaeche reicht um eine halbe Wanddicke ueber den Raum
+      // hinaus, damit sie unter der Wand durchlaeuft und an der Fuge
+      // zweier Raeume kein Spalt aufreisst.
+      z.push("  d = abs(q - vec2(" + f(cx) + ", " + f(cz) + ")) - vec2("
+        + f(hx + WAND_D) + ", " + f(hz + WAND_D) + ");");
+      z.push("  s = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);");
+      z.push("  if (s < r.y) r = vec3(" + f(r.ton) + ", s, r.z);");
+      z.push("  d = abs(q - vec2(" + f(cx) + ", " + f(cz) + ")) - vec2("
+        + f(hx) + ", " + f(hz) + ");");
+      z.push("  r.z = min(r.z, abs(length(max(d, 0.0)) + min(max(d.x, d.y), 0.0)));");
+    }
+    z.push("  return r;");
+    z.push("}");
+    return z.join("\n");
+  }
+
+  // =================================================================
   //  2 · FRAGMENT-SHADER
   //     Noki wird als Distanzfeld berechnet: jedes Bauteil ist eine
   //     benannte mathematische Form mit Position, Radius und Drehachse.
@@ -408,6 +656,9 @@
 "uniform float u_glimm;      // Glimm-Helligkeit, unabhaengig von den Augen",
 "uniform vec3  u_leg;        // Schwung links, Schwung rechts, Hueftabsenkung",
 "uniform float u_boden;      // Bodenversatz, zieht beim Gehen unter Noki durch",
+"uniform vec3  u_pos;        // Noki in der Welt: x, z, Kurs",
+"uniform vec3  u_ziel;       // Kameraziel — folgt Noki, statt fest zu stehen",
+"uniform float u_welt;       // 1 = Umgebung, 0 = die alte leere Buehne",
 "uniform vec3  u_envTop;",
 "uniform vec3  u_envBot;",
 "uniform vec3  u_bgTop;",
@@ -425,6 +676,8 @@
 "const float M_DARK  = 2.0;",
 "const float M_GLASS = 3.0;",
 "const float M_EMIT  = 4.0;",
+"const float M_WAND   = 5.0;   // Wandflaeche der Umgebung: matt, hell, ohne Glanz",
+"const float M_RAHMEN = 6.0;   // Tuerpfosten — eine Spur dunkler, damit die Tuer liest",
 "const float M_METALL = 7.0;   // gebuerstetes Metall an Gegenstaenden",
 "const float M_HOLZ   = 8.0;   // matter, warmer Griffwerkstoff",
 "const float M_SCHIRM = 9.0;   // leuchtende Anzeigeflaeche",
@@ -745,19 +998,39 @@
 "  return res;",
 "}",
 "",
+"// ---------- Die Umgebung ----------",
+bodenGLSL(),
+"",
+"// Sie steht NEBEN der Figur, nicht in ihr: `mapChar` bleibt Zeichen fuer",
+"// Zeichen unveraendert und wird nur mit einem anderen Punkt aufgerufen.",
+"// Dadurch kann die Umgebung keine Bewegung beschaedigen — sie stellt die",
+"// Figur an einen Ort, sie baut sie nicht um.",
+weltGLSL(),
+"",
+"// Weltpunkt in den Rahmen der Figur. Noki schaut bei Kurs 0 nach +z;",
+"// gedreht wird der PUNKT gegen den Kurs, nicht die Figur mit ihm.",
+"vec3 zuFigur(vec3 p){",
+"  if (u_welt < 0.5) return p;      // ohne Welt bleibt alles bitgleich wie bisher",
+"  return rotY(p - vec3(u_pos.x, 0.0, u_pos.y), -u_pos.z);",
+"}",
+"",
+"vec2 mapSzene(vec3 p){",
+"  return opU(mapChar(zuFigur(p)), mapWelt(p));",
+"}",
+"",
 "vec3 calcNormal(vec3 p){",
 "  vec2 e = vec2(1.0, -1.0) * 0.0007;",
 "  return normalize(",
-"      e.xyy * mapChar(p + e.xyy).x +",
-"      e.yyx * mapChar(p + e.yyx).x +",
-"      e.yxy * mapChar(p + e.yxy).x +",
-"      e.xxx * mapChar(p + e.xxx).x);",
+"      e.xyy * mapSzene(p + e.xyy).x +",
+"      e.yyx * mapSzene(p + e.yyx).x +",
+"      e.yxy * mapSzene(p + e.yxy).x +",
+"      e.xxx * mapSzene(p + e.xxx).x);",
 "}",
 "",
 "float softShadow(vec3 ro, vec3 rd, float k){",
 "  float res = 1.0, t = 0.020;",
 "  for (int i = 0; i < 26; i++){",
-"    float h = mapChar(ro + rd * t).x;",
+"    float h = mapSzene(ro + rd * t).x;",
 "    res = min(res, k * h / t);",
 "    t += clamp(h, 0.012, 0.090);",
 "    if (res < 0.004 || t > 2.4) break;",
@@ -887,7 +1160,7 @@
 "  vec2 uv = (2.0 * gl_FragCoord.xy - u_res) / u_res.y;",
 "",
 "  float cy = cos(u_cam.y);",
-"  vec3 target = vec3(0.0, 0.500, 0.0);",
+"  vec3 target = u_ziel;   // folgt Noki; ohne Welt steht es auf (0, 0.500, 0)",
 "  vec3 ro = target + vec3(sin(u_cam.x) * cy, sin(u_cam.y), cos(u_cam.x) * cy) * u_cam.z;",
 "  vec3 ww = normalize(target - ro);",
 "  vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));",
@@ -917,6 +1190,31 @@
 "    // Rand und bleibt nahe an der bisherigen Flaeche. Am Aussehen der",
 "    // stehenden Figur aendert das nichts — wo nichts Schatten wirft, bleibt",
 "    // die Farbe gleich, wie weit die Ausblendung auch reicht.",
+"    if (u_welt > 0.5){",
+"      // --- Raumboden ---",
+"      vec3 ra = raumAt(fp.xz);",
+"      float innen = 1.0 - smoothstep(-0.02, 0.30, ra.y);   // Hausrand ausblenden",
+"      if (innen > 0.002){",
+"        vec3 falb = vec3(0.150, 0.155, 0.166) * (1.0 + ra.x);",
+"        // Die Fuge im Durchgang: nur dort sichtbar, sonst unter der Wand.",
+"        falb *= 1.0 - 0.30 * (1.0 - smoothstep(0.004, 0.016, ra.z));",
+"        // Verdunklung an den Waenden, aus dem Kantenabstand statt aus einem",
+"        // Schattenmarsch. Ein marschierter Schatten ueber die ganze Flaeche",
+"        // haette sechzehn Quader JE BODENPIXEL gekostet; diese eine",
+"        // Interpolation sieht an einer Wandfuge kaum anders aus.",
+"        falb *= mix(0.62, 1.0, smoothstep(0.0, 0.42, ra.z));",
+"        // Der geworfene Schatten der Figur bleibt marschiert — er ist der",
+"        // eine, der wirklich traegt, und nur in ihrer Naehe noetig.",
+"        float nah = 1.0 - smoothstep(0.55, 1.50, length(fp.xz - vec2(u_pos.x, u_pos.y)));",
+"        float fsha = 1.0;",
+"        if (nah > 0.004) fsha = mix(1.0, softShadow(fp + vec3(0.0, 0.006, 0.0), L1, 9.0), nah);",
+"        vec3 fn = vec3(0.0, 1.0, 0.0);",
+"        vec3 famb = mix(u_envBot, u_envTop, 0.75) * 0.60;",
+"        vec3 fcol = falb * (c1 * max(dot(fn, L1), 0.0) * fsha",
+"                          + c2 * max(dot(fn, L2), 0.0) + famb);",
+"        col = mix(col, fcol, innen * u_ground);",
+"      }",
+"    } else {",
 "    float fade = 1.0 - smoothstep(0.30, 1.45, length(fp.xz));",
 "    if (fade > 0.002){",
 "      float sha = softShadow(fp + vec3(0.0, 0.006, 0.0), L1, 9.0);",
@@ -931,16 +1229,17 @@
 "      band = smoothstep(0.35, 0.95, band);",
 "      col *= 1.0 - 0.085 * band * bfade * u_ground;",
 "    }",
+"    }",
 "  }",
 "",
 "  float t = 0.0, mat = 0.0;",
 "  bool hit = false;",
 "  for (int i = 0; i < 110; i++){",
 "    vec3 pos = ro + rd * t;",
-"    vec2 h = mapChar(pos);",
+"    vec2 h = mapSzene(pos);",
 "    if (h.x < 0.0006 * t + 0.00035){ mat = h.y; hit = true; break; }",
 "    t += h.x * 0.92;",
-"    if (t > 8.0) break;",
+"    if (t > 16.0) break;",   // das Haus ist 8.8 breit; 8.0 reichte nur fuer die Figur
 "  }",
 "",
 "  if (hit){",
@@ -963,6 +1262,16 @@
 "      } else if (mat < 4.5){",
 "        alb = vec3(0.42, 0.31, 0.17); rough = 0.32; metal = 0.0;",
 "        emis = u_eyeCol * 1.35 * u_glimm;",
+"      } else if (mat < 5.5){",
+"        // Wand: matt, ohne jeden Glanz. Sie soll die Buehne sein, nicht das",
+"        // Motiv — jede Spiegelung zoege den Blick von der Figur weg.",
+"        // Der Wert ist deutlich dunkler als er sich liest: das Grundlicht",
+"        // traegt hier rund 1.4, eine helle Wand liefe damit ins Weisse und",
+"        // waere vom Hintergrund nicht mehr zu unterscheiden.",
+"        alb = vec3(0.450, 0.462, 0.484); rough = 0.86; metal = 0.0;",
+"      } else if (mat < 6.5){",
+"        // Tuerpfosten: nur so viel dunkler, dass die Oeffnung als Tuer liest.",
+"        alb = vec3(0.260, 0.270, 0.292); rough = 0.80; metal = 0.0;",
 "      } else if (mat < 7.5){",
 "        alb = vec3(0.62, 0.64, 0.67); rough = 0.24; metal = 0.95;   // Metall",
 "      } else if (mat < 8.5){",
@@ -1453,6 +1762,63 @@
   var SCHWUNG = 0.42;         // Ausschlag je Bein
   var gehen = 0, gehenZ = 0, gehU = 0, bodenZ = 0, gehBis = 0, fzAlt = 0;
 
+  // ---------------------------------------------------------------
+  //  NOKI IN DER WELT
+  //
+  //  Bis hierher hatte Noki keinen Ort: er ging auf der Stelle, und
+  //  `bodenZ` verschob nur die Phase eines Streifenmusters. Genau diese
+  //  Zahl wird jetzt zur wirklichen Strecke — sie zaehlt bereits, wie weit
+  //  der abstossende Fuss relativ zum Boden wandert. Der Selbsttest sichert
+  //  daraus seit jeher zu, dass immer genau EIN Fuss stillsteht. Dieselbe
+  //  Zusicherung bedeutet ab jetzt: Noki rutscht nicht, waehrend er laeuft.
+  //
+  //  Deshalb skaliert der Joystick die SCHRITTFREQUENZ und nicht die
+  //  Strecke. Schneller heisst schneller treten. Wuerde stattdessen die
+  //  Strecke skaliert, glitte er bei halber Kraft ueber den Boden — und
+  //  die eine Zusicherung, die es hier schon gibt, waere hin.
+  // ---------------------------------------------------------------
+  var welt = {
+    an: true,          // #welt=0 stellt die alte leere Buehne wieder her
+    x: 0, z: 0,        // Standort
+    kurs: 0,           // Blickrichtung; 0 heisst nach +z
+    kursZ: 0,          // gewuenschte Blickrichtung
+    tempo: 0           // 0 … 1, kommt vom Joystick
+  };
+  var KURS_RATE = 3.2;         // rad je Sekunde, feste Rate statt Exponentialkurve
+  var zielIst = [0, 0.500, 0]; // Kameraziel, weich nachgefuehrt
+
+  function raumBei(x, z) {
+    for (var k in RAUM) {
+      var r = RAUM[k];
+      if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return k;
+    }
+    return null;
+  }
+
+  // Kreis gegen achsparallele Quader. Kein Physiksystem — eine Abfrage.
+  function frei(x, z, r) {
+    for (var i = 0; i < WAENDE.length; i++) {
+      var q = WAENDE[i];
+      var dx = Math.max(Math.abs(x - q.cx) - q.hx, 0);
+      var dz = Math.max(Math.abs(z - q.cz) - q.hz, 0);
+      if (dx * dx + dz * dz < r * r) return false;
+    }
+    return true;
+  }
+
+  // Bewegen mit Gleiten: geht der volle Schritt nicht, wird jede Achse
+  // einzeln versucht. Dadurch rutscht Noki an einer Wand entlang, statt
+  // davor stehen zu bleiben — ohne das bliebe er in jeder Ecke haengen,
+  // und genau davor warnt Punkt 12 der Aufgabe.
+  function schiebe(dx, dz) {
+    var r = FIGUR_R;
+    if (frei(welt.x + dx, welt.z + dz, r)) { welt.x += dx; welt.z += dz; return; }
+    if (frei(welt.x + dx, welt.z, r)) { welt.x += dx; return; }
+    if (frei(welt.x, welt.z + dz, r)) { welt.z += dz; return; }
+    // Beides blockiert: stehen bleiben. Ein Ausweichen „irgendwohin" waere
+    // ein Sprung, und ein Sprung durch eine Wand ist schlimmer als ein Halt.
+  }
+
   // Schrittprofil: eine zum Dreieck hin verzogene Sinuswelle. Die reine
   // Sinusform beschleunigt staendig — das liest sich als Schleichen. Mit
   // Dreiecksanteil laeuft der Abstoss mit gleichmaessiger Geschwindigkeit
@@ -1471,6 +1837,75 @@
     if (an && vomNutzer) { setHaltung("stehen"); ruhe = 0; }
     var b = document.getElementById("gehen");
     if (b) b.setAttribute("aria-pressed", String(an));
+  }
+
+  // ---------------------------------------------------------------
+  //  VIRTUELLER JOYSTICK
+  //
+  //  Er sitzt auf einem eigenen Element und faengt seine Zeiger mit
+  //  `setPointerCapture` ein. Das ist der ganze Grund, warum er sich nicht
+  //  mit dem Kamera-Ziehen streitet: der Zeiger gehoert ab dem Aufsetzen
+  //  dem Joystick, und das Canvas sieht ihn nie.
+  //
+  //  Die Richtung ist KAMERABEZOGEN, nicht weltbezogen: oben heisst „von
+  //  der Kamera weg". Weltbezogen muesste man beim Drehen der Ansicht
+  //  umdenken, und genau das tut niemand.
+  // ---------------------------------------------------------------
+  var STICK_TOT = 0.12;                 // Totzone, gemessen am Radius
+  var stickEl = document.getElementById("stick");
+  var stickKnopf = document.getElementById("stickKnopf");
+  var stickId = null;
+
+  function stickSetzen(nx, ny) {
+    // nx, ny liegen in [-1, 1]; ny zeigt auf dem Bildschirm nach unten.
+    var len = Math.sqrt(nx * nx + ny * ny);
+    if (len > 1) { nx /= len; ny /= len; len = 1; }
+    if (stickKnopf) stickKnopf.style.transform =
+      "translate(" + (nx * 35).toFixed(1) + "px," + (ny * 35).toFixed(1) + "px)";
+    if (len < STICK_TOT) { stickLos(); return; }
+    // Aus der Totzone heraus auf 0…1 dehnen, damit der erste wirksame
+    // Ausschlag nicht mit einem Sprung auf 0.12 beginnt.
+    welt.tempo = clamp((len - STICK_TOT) / (1 - STICK_TOT), 0, 1);
+    // Bildschirm nach oben (-ny) heisst „von der Kamera weg".
+    welt.kursZ = Math.atan2(nx, -ny) + cam.yaw;
+    if (gehenZ !== 1) { gehBis = 0; setGehen(true, true); }
+    touched();
+  }
+
+  function stickLos() {
+    welt.tempo = 0;
+    if (stickKnopf) stickKnopf.style.transform = "";
+    if (gehenZ === 1) setGehen(false);
+  }
+
+  if (stickEl) {
+    stickEl.addEventListener("pointerdown", function (ev) {
+      if (stickId !== null) return;
+      stickId = ev.pointerId;
+      stickEl.setPointerCapture(stickId);
+      stickEl.classList.add("an");
+      stickAus(ev);
+      ev.preventDefault();
+    });
+    stickEl.addEventListener("pointermove", function (ev) {
+      if (ev.pointerId !== stickId) return;
+      stickAus(ev);
+      ev.preventDefault();
+    });
+    var ende = function (ev) {
+      if (ev.pointerId !== stickId) return;
+      stickId = null;
+      stickEl.classList.remove("an");
+      stickLos();
+    };
+    stickEl.addEventListener("pointerup", ende);
+    stickEl.addEventListener("pointercancel", ende);
+  }
+
+  function stickAus(ev) {
+    var r = stickEl.getBoundingClientRect();
+    var rad = r.width / 2;
+    stickSetzen((ev.clientX - (r.left + rad)) / rad, (ev.clientY - (r.top + rad)) / rad);
   }
 
   var VIEWS = [
@@ -1538,7 +1973,8 @@
      "u_eye", "u_eyeCol", "u_glow", "u_look", "u_mouth",
      "u_body", "u_pose", "u_glimm", "u_leg", "u_boden", "u_objA", "u_objB", "u_hand",
      "u_handL", "u_finger", "u_finger2", "u_detail", "u_sitz", "u_hueft",
-     "u_envTop", "u_envBot", "u_bgTop", "u_bgBot", "u_ground"].forEach(function (n) {
+     "u_envTop", "u_envBot", "u_bgTop", "u_bgBot", "u_ground",
+     "u_pos", "u_ziel", "u_welt"].forEach(function (n) {
       U[n] = gl.getUniformLocation(prog, n);
     });
     return true;
@@ -1573,14 +2009,23 @@
   }
   if (hash.ui === "0") {
     // Nackte Bühne für Referenzbilder
-    ["plate", "readout", "controls", "hint", "griff"].forEach(function (id) {
+    ["plate", "readout", "controls", "hint", "griff", "stick"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
     });
   }
+  // Ohne Welt gibt es nichts zu begehen — dann waere ein Joystick eine
+  // Bedienung, die ins Leere greift.
+  if (hash.welt === "0") {
+    welt.an = false;
+    var stel = document.getElementById("stick");
+    if (stel) stel.style.display = "none";
+  }
 
   var PITCH_MAX = 1.40;   // ±80°, damit die Ansicht nicht überschlägt
-  var DIST_MIN = 1.25, DIST_MAX = 4.2;
+  // Der Bereich muss jetzt das ganze Haus fassen (8.8 breit), nicht nur die
+  // Figur. Das ist die eine Kamerazahl, die die Umgebung wirklich braucht.
+  var DIST_MIN = 1.25, DIST_MAX = 9.0;
 
   // Adressparameter dürfen die Kamera nicht in einen Zustand bringen, den
   // die Bedienung selbst nie erreichen kann.
@@ -1588,10 +2033,15 @@
     var n = parseFloat(v);
     return isFinite(n) ? n : fallback;
   }
+  // Mit Welt steht die Kamera etwas weiter weg und schaut staerker von oben:
+  // sonst fuellt Noki das Bild, und von dem Raum, in dem er steht, waere
+  // nichts zu sehen. Es sind genau zwei geaenderte Anfangswerte, keine neue
+  // Kameralogik — und `#dist=`/`#pitch=` haben weiter Vorrang.
+  var camVor = welt.an ? { pitch: 26.0, dist: 3.60 } : { pitch: 9.0, dist: 2.20 };
   var cam = {
     yaw:   num(hash.yaw,   -24.0) * Math.PI / 180,
-    pitch: clamp(num(hash.pitch, 9.0) * Math.PI / 180, -PITCH_MAX, PITCH_MAX),
-    dist:  clamp(num(hash.dist, 2.20), DIST_MIN, DIST_MAX)
+    pitch: clamp(num(hash.pitch, camVor.pitch) * Math.PI / 180, -PITCH_MAX, PITCH_MAX),
+    dist:  clamp(num(hash.dist, camVor.dist), DIST_MIN, DIST_MAX)
   };
   var camT = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist };
   var vel = { yaw: 0, pitch: 0 };
@@ -1858,6 +2308,13 @@
     if (!leiste || !griff) return;
     leiste.classList.toggle("zu", !auf);
     griff.setAttribute("aria-expanded", String(auf));
+    // Die Leiste ist auf dem Handy bildschirmbreit und wuerde den Joystick
+    // verdecken. Statt beide gegeneinander zu schieben, weicht der Joystick:
+    // die Leiste ist zum Einstellen da, der Joystick zum Laufen, und beides
+    // tut niemand gleichzeitig. Beim Anfassen der Figur schliesst sie sich
+    // ohnehin von selbst, und der Joystick ist sofort wieder da.
+    var st = document.getElementById("stick");
+    if (st && welt.an && hash.ui !== "0") st.classList.toggle("weg", auf);
   }
   if (griff) {
     griff.addEventListener("click", function () {
@@ -3294,7 +3751,25 @@
 
     // --- Gehen ---
     gehen = lerp(gehen, gehenZ, 1 - Math.pow(0.02, dt / 0.45));
-    if (!still && gehen > 0.005) gehU += dt * GANGF;
+    // Der Joystickausschlag setzt die SCHRITTFREQUENZ, nicht die Strecke.
+    //
+    // Warum so hoch: Nokis Bein misst von der Huefte bis zum Knoechel 0.083
+    // — 8.3 % seiner Hoehe. Seine Schrittlaenge ist damit 0.068, und bei der
+    // bisherigen Rate von 0.72 Zyklen/s kommt er auf 0.097 Einheiten je
+    // Sekunde. Fuer das Streifenmuster war das gleichgueltig; fuer einen Weg
+    // durch drei Raeume waeren es halbe Minuten. Bei vollem Ausschlag geht
+    // er deshalb 2.05 Zyklen/s — ein flinkes Aufziehspielzeug, und immer
+    // noch dieselbe Kurve.
+    //
+    // Die Strecke bleibt dabei unangetastet an den Fuss gekoppelt. Deshalb
+    // rutscht er bei keinem Tempo, und deshalb sind die Raeume nach seiner
+    // Schrittlaenge bemessen — nicht umgekehrt.
+    var GANG_LANGSAM = 0.55, GANG_SCHNELL = 2.05;
+    var gangHz = GANGF;                               // Gehen-Taste: wie bisher
+    if (welt.an && welt.tempo > 0) {
+      gangHz = GANG_LANGSAM + (GANG_SCHNELL - GANG_LANGSAM) * clamp(welt.tempo, 0, 1);
+    }
+    if (!still && gehen > 0.005) gehU += dt * gangHz;
     var gS  = schrittProfil(gehU) * gehen;
     var sw  = SCHWUNG * gS;
     // Die Hüfte sinkt genau so weit, wie die gespreizten Beine kürzer werden.
@@ -3306,9 +3781,22 @@
     // zuruecklegt. Dadurch steht er waehrend des Abstosses exakt still,
     // statt zu rutschen — vorher lief der Boden rund viermal zu schnell.
     var fz = 0.083 * Math.sin(sw);
-    if (!still) bodenZ += Math.abs(fz - fzAlt);
+    var schritt = Math.abs(fz - fzAlt);
+    if (!still) bodenZ += schritt;
     fzAlt = fz;
     rig.boden = bodenZ;
+
+    // --- Derselbe Weg, jetzt in der Welt ---
+    // `schritt` ist die Strecke, die der Standfuss relativ zum Boden
+    // zurueckgelegt hat. Genau um sie ruecken wir vor: dadurch IST der
+    // Gang rutschfrei, statt es nur zu scheinen.
+    if (welt.an && !still) {
+      var dk = welt.kursZ - welt.kurs;
+      while (dk >  Math.PI) dk -= 2 * Math.PI;
+      while (dk < -Math.PI) dk += 2 * Math.PI;
+      welt.kurs += clamp(dk, -KURS_RATE * dt, KURS_RATE * dt);
+      if (schritt > 0) schiebe(Math.sin(welt.kurs) * schritt, Math.cos(welt.kurs) * schritt);
+    }
 
     // --- 4 · Aktive Einlage, plus Ausblendung einer unterbrochenen ---
     var o = neuOff();
@@ -5055,6 +5543,205 @@
         + spitzeH.toFixed(3) + " (" + spitzeK + ") je Bild";
     })();
 
+    // =============================================================
+    //  RAUMPRUEFUNG
+    //  Die Umgebung wird gefahren, nicht betrachtet: derselbe Weg, den ein
+    //  Nutzer mit dem Joystick nimmt, laeuft hier Bild fuer Bild durch
+    //  `updateRig`. Was eine Sichtpruefung nicht zeigen kann, faellt genau
+    //  hier auf — ein Bild, in dem Noki in einer Wand steckt, dauert eine
+    //  sechzigstel Sekunde und ist auf keinem Standbild zu sehen.
+    // =============================================================
+    var raumBericht = "Raeume: nicht geprueft";
+    (function () {
+      var vorAn = welt.an, vorG = gehenZ;
+      welt.an = true;
+
+      function stelle(x, z, kurs) {
+        welt.x = x; welt.z = z; welt.kurs = welt.kursZ = kurs; welt.tempo = 0;
+        // Die Ruhe-Uhr steht nach 1200 s Leerlauf weit jenseits aller
+        // Schwellen: die Zeitkaskade wuerde Noki mitten im Weg hinsetzen.
+        // Wer den Joystick anfasst, setzt sie ohnehin zurueck.
+        ruhe = 0; gehBis = 0;
+        sitzWunsch = null; liegeWunsch = null; schlafWunsch = null;
+        sitzU = 0; sitzRi = 1; sitzRiIst = 1; sitzKontakt = 0;
+        liegeU = 0; liegeRi = 1; liegeRiIst = 1; liegeKontakt = 0;
+        schlafU = 0; schlafRi = 1; schlafRiIst = 1;
+        setHaltung("stehen");
+        for (var f in HALTUNG.stehen) hal[f] = HALTUNG.stehen[f];
+      }
+      // In einer Wand? Dieselbe Rechnung wie `frei`, nur ohne Radius: der
+      // Mittelpunkt darf nie IN einem Quader liegen, egal wie es dazu kam.
+      function inWand(x, z) {
+        for (var i = 0; i < WAENDE.length; i++) {
+          var q = WAENDE[i];
+          if (Math.abs(x - q.cx) < q.hx && Math.abs(z - q.cz) < q.hz) return i;
+        }
+        return -1;
+      }
+      // Einen Weg fahren: Kurs und Tempo setzen, dann Bilder rechnen.
+      // `welt.tempo` wirkt genauso wie am Joystick.
+      //
+      // Der Gang wird hier NICHT je Abschnitt gestoppt. `gehen` steigt mit
+      // 0.45 s Zeitkonstante an; ein Halt nach jedem Abschnitt haette den
+      // halben Weg im Anlauf verbracht, und die Pruefung haette einen zu
+      // langsamen Gang gemeldet statt einer zu langen Strecke. Genau das
+      // ist beim ersten Lauf passiert.
+      var besucht = [];
+      function merke() {
+        var r = raumBei(welt.x, welt.z);
+        if (r && besucht[besucht.length - 1] !== r) besucht.push(r);
+      }
+      function fahreWeg(kurs, n, wo) {
+        welt.kursZ = kurs; welt.tempo = 1;
+        setGehen(true);
+        for (var i = 0; i < n; i++) {
+          ruhe = 0; gehBis = 0;              // wie eine Hand am Joystick
+          time += 1 / 60; updateRig(1 / 60);
+          merke();
+          var w = inWand(welt.x, welt.z);
+          if (w >= 0) melde("raum-in-wand",
+            "Noki steckt in Wand " + w + " bei " + wo
+            + " (" + welt.x.toFixed(3) + ", " + welt.z.toFixed(3) + ")");
+          if (!frei(welt.x, welt.z, FIGUR_R - 1e-6)) melde("raum-zu-nah",
+            "Noki steht mit dem Rumpf in einer Wand bei " + wo);
+        }
+      }
+      function haltAn() {
+        welt.tempo = 0; setGehen(false);
+        for (var i = 0; i < 40; i++) { time += 1 / 60; updateRig(1 / 60); }
+      }
+      // Auf einen Punkt zufahren: je Bild den Kurs nachfuehren, wie es eine
+      // Hand am Joystick tut. Das ist KEIN Pathfinding — es wird nichts
+      // gesucht und nichts geplant, der Kurs zeigt einfach zum Ziel.
+      //
+      // Blind geradeaus zu fahren genuegte nicht, und das ist eine echte
+      // Erkenntnis dieser Pruefung: beim Wenden laeuft Noki einen Bogen und
+      // versetzt sich dabei quer um rund 0.17. Nach zwei Wendungen lag er
+      // neben der Tuer statt davor und rannte gegen die Wand. Wer zielt,
+      // kommt hindurch — und genau das muss die Pruefung nachstellen.
+      function fahreZu(zx, zz, n, wo) {
+        welt.tempo = 1; setGehen(true);
+        for (var i = 0; i < n; i++) {
+          ruhe = 0; gehBis = 0;
+          welt.kursZ = Math.atan2(zx - welt.x, zz - welt.z);
+          time += 1 / 60; updateRig(1 / 60);
+          merke();
+          if (inWand(welt.x, welt.z) >= 0) melde("raum-in-wand",
+            "Noki steckt in einer Wand bei " + wo
+            + " (" + welt.x.toFixed(3) + ", " + welt.z.toFixed(3) + ")");
+          var dd = Math.abs(zx - welt.x) + Math.abs(zz - welt.z);
+          if (dd < 0.10) return true;
+        }
+        return false;
+      }
+      function mitte(k) { return [(RAUM[k].x0 + RAUM[k].x1) / 2, (RAUM[k].z0 + RAUM[k].z1) / 2]; }
+      function tuerPunkt(t, seite) {
+        return [t.bei + seite * (WAND_D + FIGUR_R + 0.05), t.mitte];
+      }
+
+      // 1 · Er startet im Hauptbereich.
+      stelle(0, 0, 0);
+      if (raumBei(welt.x, welt.z) !== "main_room") melde("raum-start",
+        "Noki startet nicht im Hauptbereich, sondern in " + raumBei(welt.x, welt.z));
+
+      // 2 · Der Weg: Hauptbereich → Schlafzimmer → zurueck → Nebenraum.
+      //     Erst auf die Tuerhoehe, dann seitwaerts hindurch — genau so
+      //     faehrt es auch ein Mensch.
+      stelle(0, TUER[0].mitte, 0);
+      merke();
+      var tS = TUER[0], tN = TUER[1];
+      var wege = [
+        [tuerPunkt(tS,  1), "vor die Schlafzimmertuer"],
+        [tuerPunkt(tS, -1), "durch die Schlafzimmertuer"],
+        [mitte("bedroom"),  "ins Schlafzimmer"],
+        [tuerPunkt(tS, -1), "zurueck zur Tuer"],
+        [tuerPunkt(tS,  1), "zurueck in den Hauptbereich"],
+        [tuerPunkt(tN, -1), "vor die Nebenraumtuer"],
+        [tuerPunkt(tN,  1), "durch die Nebenraumtuer"],
+        [mitte("room_3"),   "in den Nebenraum"]
+      ];
+      for (var wi = 0; wi < wege.length; wi++) {
+        if (!fahreZu(wege[wi][0][0], wege[wi][0][1], 2400, wege[wi][1]))
+          melde("raum-weg-steckt", "Noki kommt nicht " + wege[wi][1]
+            + " — steht bei (" + welt.x.toFixed(2) + ", " + welt.z.toFixed(2) + ")");
+      }
+      haltAn();
+      if (besucht.indexOf("bedroom") < 0) melde("raum-weg",
+        "Der Weg nach links erreicht das Schlafzimmer nicht (" + besucht.join(" → ") + ")");
+      if (besucht.indexOf("room_3") < 0) melde("raum-weg",
+        "Der Weg nach rechts erreicht den Nebenraum nicht (" + besucht.join(" → ") + ")");
+      // Zurueck heisst zurueck: der Hauptbereich muss zwischen beiden liegen.
+      var iB = besucht.indexOf("bedroom"), iH = besucht.lastIndexOf("main_room"),
+          iN = besucht.indexOf("room_3");
+      if (iB >= 0 && iN >= 0 && !(iB < iH && iH < iN)) melde("raum-reihenfolge",
+        "Die Raumfolge ergibt keinen Weg durch den Hauptbereich: " + besucht.join(" → "));
+
+      // 3 · Gegen jede Wand und in jede Ecke fahren. Er muss draussen
+      //     bleiben — und er muss gleiten, statt sich festzufahren.
+      var richtungen = [0, Math.PI / 2, Math.PI, -Math.PI / 2,
+                        Math.PI / 4, 3 * Math.PI / 4, -Math.PI / 4, -3 * Math.PI / 4];
+      for (var rk in RAUM) {
+        for (var ri = 0; ri < richtungen.length; ri++) {
+          stelle((RAUM[rk].x0 + RAUM[rk].x1) / 2, (RAUM[rk].z0 + RAUM[rk].z1) / 2, richtungen[ri]);
+          fahreWeg(richtungen[ri], 420, rk + " gegen die Wand");
+          haltAn();
+        }
+      }
+
+      // 4 · Jeder Durchgang quer abgetastet: nirgends ein unsichtbares
+      //     Hindernis, und die freie Breite reicht fuer die Figur.
+      for (var ti = 0; ti < TUER.length; ti++) {
+        var t = TUER[ti], offen = 0, N = 400;
+        for (var q = 0; q <= N; q++) {
+          var zz = t.mitte - t.breite / 2 + t.breite * q / N;
+          if (frei(t.bei, zz, FIGUR_R)) offen++;
+        }
+        // Gemessen wird das Band, in dem Nokis MITTELPUNKT stehen darf. Es
+        // ist naturgemaess um seinen Durchmesser schmaler als die Oeffnung
+        // — eine 0.80 breite Tuer laesst 0.40 Mittelpunkte zu. Gefordert
+        // ist ein Spielraum von einem Radius: dann muss man nicht zielen.
+        var breiteFrei = t.breite * offen / (N + 1);
+        if (breiteFrei < FIGUR_R) melde("raum-tuer-eng",
+          t.id + ": nur " + breiteFrei.toFixed(3) + " Spielraum in der Mitte, "
+          + "gefordert " + FIGUR_R.toFixed(3) + " (Oeffnung " + t.breite + ")");
+        // Und wirklich hindurch: mittig anfahren, Wand passieren, drueben ankommen
+        var vorz = (t.bei < 0) ? -1 : 1;
+        stelle(t.bei + vorz * -0.55, t.mitte, vorz > 0 ? Math.PI / 2 : -Math.PI / 2);
+        var vonR = raumBei(welt.x, welt.z);
+        fahreWeg(vorz > 0 ? Math.PI / 2 : -Math.PI / 2, 700, t.id);
+        haltAn();
+        var nachR = raumBei(welt.x, welt.z);
+        if (nachR === vonR || nachR === null) melde("raum-tuer-zu",
+          t.id + ": der Durchgang fuehrt nicht hinueber (" + vonR + " → " + nachR + ")");
+      }
+
+      // 5 · Raumgroessen gegen das Mass der Figur.
+      for (var rg in RAUM) {
+        var r = RAUM[rg], br = r.x1 - r.x0, tf = r.z1 - r.z0;
+        if (Math.min(br, tf) < 6 * FIGUR_R) melde("raum-eng",
+          rg + " ist mit " + Math.min(br, tf).toFixed(2) + " zu eng zum Bewegen");
+        // Liegend misst Noki rund 0.85 — er muss sich in jedem Raum
+        // hinlegen koennen, ohne dass es rechnerisch schon nicht passt.
+        if (Math.min(br, tf) < 0.85 + 2 * FIGUR_R) melde("raum-liegen",
+          rg + " ist zu klein, um sich darin hinzulegen");
+      }
+
+      // 6 · Nullprobe: ohne Welt bleibt jeder neue Betrag null.
+      welt.an = false;
+      stelle(0, 0, 0);
+      for (var n0 = 0; n0 < 120; n0++) { time += 1 / 60; updateRig(1 / 60); }
+      if (welt.x !== 0 || welt.z !== 0 || welt.kurs !== 0) melde("raum-null",
+        "Ohne Welt bewegt sich Noki trotzdem (" + welt.x + ", " + welt.z + ", " + welt.kurs + ")");
+
+      welt.an = vorAn;
+      stelle(0, 0, 0);
+      setGehen(vorG === 1);
+      raumBericht = "Raeume: " + Object.keys(RAUM).length + " Raeume, "
+        + TUER.length + " Durchgaenge, Weg " + besucht.slice(0, 5).join(" → ")
+        + ", Wandfahrten aus " + (Object.keys(RAUM).length * richtungen.length)
+        + " Richtungen geprueft";
+    })();
+
     // Griffe: beruehrt jeder tragende Finger, dringt nichts ein, bleibt der
     // Gegenstand aus Arm, Rumpf und Kopf heraus? Die Rechnung, die die
     // Griffwerte bestimmt hat, prueft sie hier dauerhaft nach.
@@ -5129,6 +5816,7 @@
       + "\nAblaeufe A-D geprueft (Stehen, Hinlegen, Schlafen, Aufwachen, Aufstehen)"
       + "\n" + schlafBerichtGlobal
       + "\n" + huepfBericht
+      + "\n" + raumBericht
       + "\nFingerfedern: " + federn.n + " Bilder, groesste Aenderung je Bild "
       + federn.spitze.toFixed(4)
       + "\nEinlagen gezogen: " + gezogen.length
@@ -5173,6 +5861,7 @@
   var halEl = document.getElementById("ro-hal");
   var moodEl = document.getElementById("ro-mood");
   var clipEl = document.getElementById("ro-clip");
+  var raumEl = document.getElementById("ro-raum");
   var prev = 0, uiTick = 0;
 
   function frame(ms) {
@@ -5198,6 +5887,14 @@
 
     updateRig(dt);
 
+    // Kameraziel folgt Noki. Ohne das liefe er beim ersten Schritt aus dem
+    // Bild — die Kamera umkreiste bisher einen fest einkompilierten Punkt.
+    // Nachgefuehrt wird weich: die Ansicht soll ihm folgen, nicht an ihm
+    // kleben, sonst wirkt jeder Schritt wie ein Ruck der ganzen Welt.
+    var zz = welt.an ? [welt.x, 0.500, welt.z] : [0, 0.500, 0];
+    var zk = still ? 1 : 1 - Math.pow(0.0015, dt);
+    for (var zi = 0; zi < 3; zi++) zielIst[zi] = lerp(zielIst[zi], zz[zi], zk);
+
     // Detailabstufung. Fuenf Finger je Hand kosten Rechenzeit, und Noki laeuft
     // auch auf dem Handy. Zwei Gruende schalten sie zurueck: die Kamera ist so
     // weit weg, dass man sie ohnehin nicht sieht, oder die Bildrate bricht ein.
@@ -5216,6 +5913,15 @@
     var envBot = dark ? [0.020, 0.023, 0.030] : [0.150, 0.160, 0.175];
     var bgTop  = dark ? [0.055, 0.063, 0.078] : [0.845, 0.862, 0.885];
     var bgBot  = dark ? [0.020, 0.024, 0.030] : [0.700, 0.720, 0.752];
+    // Im hellen Thema ist der Hintergrund so hell, dass eine helle Wand
+    // davor verschwindet — beide landen nach ACES und Gamma bei 0.71.
+    // Fuer die Umgebung wird er deshalb auf ein mittleres Grau abgesenkt:
+    // erst dadurch liest sich das Modell als heller Koerper vor einem
+    // Grund. Im dunklen Thema ist der Hintergrund ohnehin dunkel, und ohne
+    // Welt bleibt beides unberuehrt — die alten Bilder aendern sich nicht.
+    if (welt.an && !dark) {
+      for (var bi = 0; bi < 3; bi++) { bgTop[bi] *= 0.40; bgBot[bi] *= 0.40; }
+    }
 
     gl.uniform2f(U.u_res, w, h);
     gl.uniform3f(U.u_cam, cam.yaw, cam.pitch, cam.dist);
@@ -5248,7 +5954,13 @@
     gl.uniform3f(U.u_envBot, envBot[0], envBot[1], envBot[2]);
     gl.uniform3f(U.u_bgTop, bgTop[0], bgTop[1], bgTop[2]);
     gl.uniform3f(U.u_bgBot, bgBot[0], bgBot[1], bgBot[2]);
-    gl.uniform1f(U.u_ground, clamp(cam.pitch / 0.14, 0, 1));
+    // Ohne Welt bleibt der Boden an die Kamerahoehe gekoppelt wie bisher.
+    // MIT Welt ist er der Fussboden eines Raumes und darf nicht verschwinden,
+    // sobald man waagerecht schaut.
+    gl.uniform1f(U.u_ground, welt.an ? 1 : clamp(cam.pitch / 0.14, 0, 1));
+    gl.uniform3f(U.u_pos, welt.x, welt.z, welt.kurs);
+    gl.uniform3f(U.u_ziel, zielIst[0], zielIst[1], zielIst[2]);
+    gl.uniform1f(U.u_welt, welt.an ? 1 : 0);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     window.__nokiReady = true;
@@ -5261,6 +5973,13 @@
       pitchEl.textContent = Math.round(cam.pitch * 180 / Math.PI) + "°";
       if (halEl)  halEl.textContent = HALTUNG_LABEL[haltung];
       if (moodEl) moodEl.textContent = (stimmung >= 0 ? "+" : "") + stimmung.toFixed(2);
+      // In welchem Raum steht Noki? Punkt 7 der Aufgabe verlangt, dass sich
+      // das auf einen Blick erkennen laesst — im Bild an Boden und Waenden,
+      // hier zusaetzlich beim Namen.
+      if (raumEl) {
+        var rk = welt.an ? raumBei(welt.x, welt.z) : null;
+        raumEl.textContent = rk ? RAUM[rk].label : "—";
+      }
       if (clipEl) clipEl.textContent = clip ? EINLAGE[clip.key].label : "—";
       zeichneSitzKnopf();
       zeichneLiegeKnopf();
@@ -5316,6 +6035,16 @@
   if (hash.huepf !== undefined) {
     huepfStand = clamp(num(hash.huepf, 0), 0, 1);
     huepfU = huepfStand;
+  }
+  // Standort im Standbild: `#pos=x,z,kurs`. Ohne das liesse sich kein Bild
+  // eines anderen Raumes reproduzieren — die Kamera folgt Noki, und Noki
+  // steht ohne Zutun immer im Hauptbereich.
+  if (hash.pos !== undefined) {
+    var pv = String(hash.pos).split(",");
+    welt.x = num(pv[0], 0);
+    welt.z = num(pv[1], 0);
+    welt.kurs = welt.kursZ = num(pv[2], 0);
+    zielIst = [welt.x, 0.500, welt.z];
   }
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
   if (hash.obj !== undefined) {
