@@ -2978,8 +2978,12 @@
     // Kette: Aufwachen geht dem Aufrichten immer voraus.
     var lieZiel = ((liegeWunsch === "liegen" || schlafU > 0.0005)
                    && sitzU <= 0.0005) ? 1 : 0;
-    if (lieZiel > liegeU + 1e-4) liegeRi = 1;
-    else if (lieZiel < liegeU - 1e-4) liegeRi = -1;
+    // Wie beim Schlafen: im Standbild mit gesetztem Fortschritt gibt `liegri`
+    // die Kurvenrichtung vor.
+    if (!(still && liegeStand !== null)) {
+      if (lieZiel > liegeU + 1e-4) liegeRi = 1;
+      else if (lieZiel < liegeU - 1e-4) liegeRi = -1;
+    }
     if (still) liegeU = (liegeStand === null) ? lieZiel : liegeStand;
     else liegeU = clamp(liegeU + liegeRi * dt / (liegeRi > 0 ? 2.20 : 2.00), 0, 1);
     // Hinlegen dauert laenger als Hinsetzen: der Weg ist weiter, und die
@@ -3012,8 +3016,16 @@
     // setzt sie bei jeder Eingabe zurueck.
     var schlafZiel = (liegeU >= 0.9995 && schlafWunsch !== "wach"
                       && (schlafWunsch === "schlafen" || ruhe > SCHLAF_NACH)) ? 1 : 0;
-    if (schlafZiel > schlafU + 1e-4) schlafRi = 1;
-    else if (schlafZiel < schlafU - 1e-4) schlafRi = -1;
+    // Die Richtung folgt aus dem Ziel — ausser im Standbild mit gesetztem
+    // Fortschritt. Dort gibt `schlri` sie vor, und sie darf nicht
+    // ueberschrieben werden: sonst zeigte ein eingefrorener Zwischenstand des
+    // Aufwachens die Kurven des Einschlafens. Genau das ist passiert, und im
+    // Bild war es nicht zu sehen — erst die ausgelesenen Zahlen haben es
+    // gezeigt.
+    if (!(still && schlafStand !== null)) {
+      if (schlafZiel > schlafU + 1e-4) schlafRi = 1;
+      else if (schlafZiel < schlafU - 1e-4) schlafRi = -1;
+    }
     if (still) schlafU = (schlafStand === null) ? schlafZiel : schlafStand;
     else schlafU = clamp(schlafU + schlafRi * dt / (schlafRi > 0 ? 6.00 : 5.50), 0, 1);
     // Der Wach-Wunsch ist einmalig: sobald Noki wach ist, entscheidet wieder
