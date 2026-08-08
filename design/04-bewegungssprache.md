@@ -350,3 +350,73 @@ wackelt nicht.
 Das Knie kann höchstens `0.037` über der Hüfte stehen — mehr lässt eine Beinlänge von
 `0.083` bei aufsitzendem Rumpf nicht zu. Noki sitzt deshalb mit **leicht angewinkelten**
 Beinen und flach aufliegenden Sohlen, nicht mit hochgezogenen Knien.
+
+---
+
+## Hinlegen und Liegen
+
+Noki **fällt nicht um**. Er legt sich hin: mit sichtbarer Vorbereitung, mit
+Gewichtsverlagerung, mit Armen, die mitstützen, und mit einem Rücken, der abrollt statt
+aufzuschlagen. Der Ablauf dauert **2.2 s** — länger als das Hinsetzen, weil der Weg weiter
+ist und die letzte Handbreit vor dem Boden langsam sein muss.
+
+### Hinlegen — 2.2 s
+
+| Abschnitt | Anteil | Was geschieht |
+|---|---|---|
+| Orientierung | 0.00 – 0.14 | Das Gewicht geht nach hinten, die Arme lösen sich vom Körper. Ein kurzer Moment — er soll bewusst wirken, nicht zögerlich |
+| Absenken | 0.14 – 0.58 | Knie beugen bis in die **Hocke** — dieselben Beinwinkel wie beim Sitzen. Die Hüfte sinkt, die Hände gehen nach hinten und stützen mit |
+| Ablegen | 0.58 – 0.86 | Der Rumpf rollt über Gesäß und Rücken ab, die Beine strecken sich nach vorn, das Kinn geht zur Brust |
+| Auslegen | 0.86 – 1.00 | Der Kopf setzt auf und gibt kurz nach, die Glieder finden ihre Ruhelage |
+
+Dass Noki durch die Hocke geht, ist keine Verzierung: Ohne sie kippte er aus dem Stand nach
+hinten, und genau das soll die Bewegung nicht sein.
+
+Der **Kopf** bekommt besondere Behandlung, weil er hier am meisten schaden kann. Er neigt
+sich beim Zurücklegen nach vorn — Kinn zur Brust, wie jeder, der sich nicht den Hinterkopf
+anschlagen will — und richtet sich erst nach dem Aufsetzen in die Ruhelage.
+
+### Der Boden entscheidet, nicht die Kurve
+
+Die Kurve legt fest, wie sich Noki **dreht**. Wie hoch er dabei liegt, entscheidet die
+Bedingung *nichts unter `y = 0`* — je Bild neu, analytisch, aus der Drehkette des Shaders.
+Das Abrollen entsteht dadurch von selbst: Der zurückgelegte Rücken ist dicker als das
+Gesäß, also hebt die Bedingung den Rumpf beim Zurückneigen wieder an. Und der Kontaktpunkt
+wandert ohne Zutun vom Gesäß über den Rücken zum Kopf. Die Rechnung dazu steht in
+[03 · Rig und Animation](03-rig-und-animation.md).
+
+Dasselbe gilt für die Hände: Die Kurve drückt sie gegen den Boden, die Bedingung schneidet
+ab. Sie gleiten deshalb beim Abrollen am Boden entlang, statt einer eingetragenen Bahn zu
+folgen — und können weder hindurchgreifen noch darüber schweben.
+
+### Aufrichten
+
+Ein eigener Kurvensatz, kein Rückwärtsspielen: erst der Rumpf hoch, dann über die Hocke,
+dann stehen. Die **ausgearbeitete** Aufstehbewegung aus dem Liegen kommt später; dieser Satz
+sorgt vorerst dafür, dass das Liegen keine Sackgasse ist. Für die beiden Sätze gelten
+dieselben zwei Regeln wie beim Sitzen — Endpunktgleichheit und weicher Richtungswechsel —,
+und der Selbsttest erzwingt sie hier wie dort.
+
+### Liege-Leerlauf
+
+Noch kleiner als im Sitzen: Der Kopf sackt im Atemrhythmus minimal nach, die Arme atmen mit,
+Blinzeln und Blick laufen unverändert weiter. Die Endlage der Hinlegebewegung **ist** der
+Startzustand des Leerlaufs — kein Übergang, keine zweite Haltung, damit dazwischen nichts
+springen kann. Damit ist sie zugleich ein sauberer Anfang für eine spätere Schlafanimation.
+
+### Die Taste
+
+Dritte Taste im Reiter *Bewegung*, nach demselben Muster wie *Sitzen*: Umschalter, Symbol
+und Text wechseln mit dem Zustand, während der Bewegung gesperrt. Sitzt Noki gerade, **steht
+er erst vollständig auf** — die vorhandene Aufstehbewegung läuft dabei ganz durch, sie wird
+nicht abgekürzt. Solange er liegt, ist die Sitzen-Taste gesperrt: Aus dem Liegen setzt man
+sich nicht hin, man richtet sich auf.
+
+### Was die Proportionen nicht hergeben
+
+Noki liegt nicht flach. Sein Kopf ist mit `0.270` dicker als sein Rumpf mit `0.190`; bei
+`−90°` läge der Rücken auf und der Kopf hinge in der Luft. Die Figur liegt deshalb bei
+**`−78°`** leicht angestellt — dann berühren Kopf und Rumpf gleichzeitig den Boden. Und weil
+seine Beine mit `0.083` kurz sind gegenüber einem `0.190` dicken Rumpf, liegen sie nicht
+flach ausgestreckt, sondern kommen vorn aus dem Rumpf heraus und ruhen mit den Sohlen auf
+dem Boden. Beides ist Folge der Formensprache, nicht der Animation.

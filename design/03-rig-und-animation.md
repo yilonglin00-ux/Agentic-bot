@@ -47,14 +47,14 @@ Füße bleiben stehen. Das ist der Unterschied zwischen „schwebt" und „steht
 | `kopf_pivot` | Neigen (z) | 0 | −0.30 … +0.30 | die Nachdenk-Geste lebt hiervon |
 | `antenne_lang` | Nachlauf | 0 | ±0.06 | nie direkt keyframen, immer federn lassen |
 | `arm_*` | Ausschwenken (z) | 0.07 | −0.10 … +2.40 | ab ~2.4 taucht der Arm in den Kopf |
-| `arm_*` | Vorschwingen (x) | 0.17 | −0.20 … +0.60 | positiv = nach vorn |
+| `arm_*` | Vorschwingen (x) | 0.17 | −0.20 … +0.60, im Liegen bis **−0.80** | positiv = nach vorn. Im Liegen erreichen die Hände den Boden sonst nicht; der Liegeanteil liegt außerhalb der Klammer und wird von der Bodenbedingung abgeschnitten |
 | `koerper` | Heben (y) | 0 | ±0.010 | Atembewegung |
 | `koerper` | Stauchen | 0 | ±0.020 | volumenerhaltend gegengerechnet |
 | `koerper` | Seitlich (x) | 0 | ±0.015 | Gewicht verlagern, seitliches Lehnen |
 | `koerper` | Tiefe (z) | 0 | −0.020 … +0.050 | Heranlehnen, Zurückweichen |
 | `koerper.sprung` | Heben (y) | 0 | −0.020 … +0.050 | Hüpfen und das Absenken beim Gehen — **eigener Kanal**, addiert sich auf den Atemkanal |
 | `koerper` | Rollen (z) | 0 | ±0.050 | Gewichtsverlagerung, Verlegenheit |
-| `koerper` | Rumpfneigung (x) | 0 | −0.10 … +0.10 | Sitzhaltung |
+| `koerper` | Rumpfneigung (x) | 0 | −0.16 … +0.16, im Liegen bis **−1.45** | Sitzhaltung; der Liegeanteil liegt **außerhalb** der Klammer, damit jede stehende und sitzende Haltung millimetergenau bleibt |
 | `bein_*` | Beinwinkel (x) | 0 | 0 … −π/2 | Sitzstellung. **Dreht das Bein bei fester Länge `0.083`** — Stützpunkte einzeln zu interpolieren würde es dehnen. Die Hüfte wandert dabei nach vorn, sonst verschwindet das Bein im Rumpf |
 | `bein_*` | Schrittschwung (x) | 0 | ±0.42 | **je Bein getrennt**, gegenphasig — addiert sich auf den Beinwinkel |
 | `glimm` | Helligkeit | 1.0 | 0 … 2.0 | **eigener Kanal**, unabhängig von der Augenhelligkeit |
@@ -73,7 +73,7 @@ Füße bleiben stehen. Das ist der Unterschied zwischen „schwebt" und „steht
 | `hueft` | Hüftpunkt | `(0.085, 0.158, 0)` | — | kommt aus der Animation, nicht aus einer Formel: abgeleitet aus der Bedingung, dass die Fußsohle auf `y = 0.047` liegt |
 | `hueftwinkel` | Drehung (x) | 0 | `−2.5 … 0` | Beugung im Hüftgelenk, dazu addiert sich der Schrittschwung |
 | `knie` | Drehung (x) | 0 | `0 … 2.3` | Beugung im Knie, **nur nach hinten**; im Stand und im Gang null |
-| `senkung` | Höhe (y) | 0 | `−0.150 … 0` | senkt den ganzen Rumpf — der Anschluss, der jahrelang fehlte |
+| `senkung` | Höhe (y) | 0 | `−0.150 … 0` | senkt den ganzen Rumpf — der Anschluss, der jahrelang fehlte. Im Liegen wird der Wert nicht gesetzt, sondern **abgeleitet** (siehe unten) |
 
 Alle Kanäle dieser Tabelle sind in `noki.html` umgesetzt und werden vom eingebauten
 Selbsttest (`noki.html#selftest=1`) über 1200 simulierte Sekunden gegen genau diese Grenzen
@@ -325,3 +325,65 @@ Exponentialkurve springt im ersten Bild am weitesten, und genau dort tut es weh.
 Armhaltung. Gefüllt ist bisher `normal`; `entspannt`, `aufmerksam`, `gespraech`,
 `smartphone` und `tablet` zeigen darauf. Eine neue Variante ist damit eine Zeile und
 keine neue Animation.
+
+---
+
+## Liegen: die Höhe wird abgeleitet, nicht gesetzt
+
+Das Hinlegen läuft auf einer eigenen Zeitachse `liegeU` (0 … 1), nach demselben Muster wie
+das Sitzen — mit einem entscheidenden Unterschied: **Rumpfhöhe und Bodenkontakt sind keine
+Keyframes.** Sie folgen je Bild aus einer Bedingung: *Kein Punkt von Rumpf, Hals und Kopf
+darf unter `y = 0` liegen.*
+
+Für die gedrehten Grundkörper ist der tiefste Punkt geschlossen angebbar — es braucht keine
+Abtastung:
+
+| Körper | tiefster Punkt |
+|---|---|
+| Ellipsoid | `y_c − |diag(r) · Zeile_y(R)|` |
+| Rundbox | `y_c − (Halbmaße · |Zeile_y(R)|) − Rundung` |
+| Kapsel | tieferer Endpunkt, minus Radius |
+
+`R` ist dabei genau die Drehkette des Shaders, inklusive Kopfdrehung und Rumpfrollen — sonst
+rechnete die Bedingung an einer anderen Figur als der dargestellten. Aus der Ableitung fällt
+dreierlei von selbst ab:
+
+- **Die Figur kann in keiner Zwischenstellung schweben oder einsinken.** Das ist Bauart,
+  nicht Prüfung — dieselbe Idee trägt seit der Sitzstufe die Fußsohle.
+- **Der Bodenkontakt wird schrittweise.** Beim Zurücklegen berührt zuerst das Gesäß, dann
+  wandert der Kontaktpunkt über den Rücken nach oben, zuletzt kommt der Kopf. Diese
+  Reihenfolge muss niemand eintragen; sie ergibt sich daraus, wer gerade der tiefste ist.
+- **Das Zurückneigen wird zu einem Abrollen.** Der zurückgelegte Rücken ist mit `0.190`
+  dicker als das Gesäß mit `0.165`. Die Bedingung hebt den Rumpf beim Abrollen deshalb von
+  allein wieder an — genau das, was ein Körper tut, dessen Auflagepunkt wandert.
+
+Dieselbe Idee eine Ebene tiefer trägt die **Arme**: Statt einen Endwert einzutragen, drückt
+die Kurve den Vorschwung gegen den Boden, und `armFwFrei()` schneidet ihn auf den
+nächstgelegenen zulässigen Wert ab. Dadurch gleiten die Hände beim Abrollen von selbst am
+Boden entlang. Die Suche geht dabei **von der Wunschstellung aus nach oben** und nicht per
+Bisektion über den ganzen Bereich: Die Höhe der Hand ist über dem Vorschwung nicht monoton —
+weit zurückgeschwungen hebt sie wieder ab, und eine Bisektion hielt dieses zweite Stück für
+frei und ließ die Hand mitten im Ablauf durch den Boden.
+
+### Die Liegehaltung
+
+Auch sie ist gerechnet. Der Kopf ist mit Radius `0.270` dicker als der Rumpf mit `0.190`;
+über den Achsabstand `0.425` ergibt dieser Unterschied genau die Neigung, bei der Kopf **und**
+Rumpf gleichzeitig aufliegen: **`−1.3625 rad ≈ −78°`**, zusammen mit der ruhenden
+Kopfhaltung `hP = 0.05`. Noki liegt also nicht flach bei `−90°`, sondern leicht angestellt —
+und die Senkung beträgt dann nur `−0.0031`, weil sein Drehpunkt auf der Hüfte sitzt und der
+runde Rücken ihn beim Abrollen wieder anhebt.
+
+Die Beine folgen aus denselben Bedingungen wie die Sitzhaltung: Sohle auf dem Boden,
+Hüftpunkt im Rumpf, Schienbein möglichst frei, Bein nach vorn gestreckt, Knie leicht
+gebeugt. `LIEGEART` hält die Werte je Variante; gefüllt ist `normal`, `seite`, `schlaf` und
+`entspannt` zeigen darauf.
+
+### Was der Selbsttest hier prüft
+
+Über den gesamten Ablauf, in **beiden** Richtungen: nichts unter dem Boden (Rumpf, Hals,
+Kopf, beide Arme, beide Hände), Fußsohle aufliegend, Segmentlängen konstant, Knie nicht
+überstreckt, Sprungfreiheit je Kanal, monotone Aufsetzreihenfolge, kein Schweben in der
+Endlage, Endpunktgleichheit der beiden Kurvensätze und weicher Richtungswechsel. Dazu die
+Nullprobe: **bei `liegeU = 0` ist jeder neue Betrag exakt null** — das ist die Zusicherung,
+dass Stehen, Gehen und Sitzen unverändert geblieben sind.

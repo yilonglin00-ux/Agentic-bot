@@ -342,6 +342,7 @@
     <div class="blatt" id="bl-zeit" hidden>
       <div class="chips">
         <button class="chip" type="button" id="sitzen" aria-pressed="false"></button>
+        <button class="chip" type="button" id="liegen" aria-pressed="false"></button>
         <button class="chip" type="button" id="gehen" aria-pressed="false">Gehen</button>
         <button class="chip" type="button" id="raffer" aria-pressed="false">Zeitraffer &times;10</button>
         <button class="chip" type="button" id="wecken">Zur&uuml;cksetzen</button>
@@ -907,7 +908,14 @@
 "  if (u_ground > 0.002 && ro.y > 0.001 && rd.y < -0.0001){",
 "    float tf = -ro.y / rd.y;",
 "    vec3 fp = ro + rd * tf;",
-"    float fade = 1.0 - smoothstep(0.30, 1.05, length(fp.xz));",
+"    // Der Radius muss die liegende Figur fassen: ihr Kopf reicht bis z = -0.85,",
+"    // und bei 1.05 waere sein Schatten fast ganz weggeblendet gewesen. Weiter",
+"    // als noetig darf er trotzdem nicht: jeder Bodenpunkt innerhalb des Radius",
+"    // kostet einen weichen Schattenmarsch. 1.45 fasst die liegende Figur mit",
+"    // Rand und bleibt nahe an der bisherigen Flaeche. Am Aussehen der",
+"    // stehenden Figur aendert das nichts — wo nichts Schatten wirft, bleibt",
+"    // die Farbe gleich, wie weit die Ausblendung auch reicht.",
+"    float fade = 1.0 - smoothstep(0.30, 1.45, length(fp.xz));",
 "    if (fade > 0.002){",
 "      float sha = softShadow(fp + vec3(0.0, 0.006, 0.0), L1, 9.0);",
 "      col = mix(col, col * mix(0.30, 1.0, sha), fade * u_ground);",
@@ -1456,7 +1464,7 @@
 
   function setGehen(an, vomNutzer) {
     gehenZ = an ? 1 : 0;
-    if (an) sitzWunsch = null;          // wer geht, will nicht sitzen
+    if (an) { sitzWunsch = null; liegeWunsch = null; }   // wer geht, liegt nicht
     if (an && vomNutzer) { setHaltung("stehen"); ruhe = 0; }
     var b = document.getElementById("gehen");
     if (b) b.setAttribute("aria-pressed", String(an));
@@ -2008,14 +2016,18 @@
     // Waehrend des Uebergangs zeigt die Taste schon das Ziel — sonst wechselte
     // die Beschriftung erst auf halbem Weg und wirkte wie ein Fehler.
     var zeigtAufstehen = uebergang ? (sitzRi > 0) : sitzt;
-    var stand = (zeigtAufstehen ? "auf" : "sitz") + (uebergang ? "-sperr" : "");
+    // Wer liegt, setzt sich nicht aus dem Liegen hin — dafuer gibt es die
+    // Hinlegen-Taste. (Beim ersten Zeichnen ist `liegeU` noch nicht gesetzt;
+    // der Vergleich ist dann falsch, und das ist genau richtig: Noki steht.)
+    var sperr = uebergang || liegeU > 0.0005 || liegeWunsch === "liegen";
+    var stand = (zeigtAufstehen ? "auf" : "sitz") + (sperr ? "-sperr" : "");
     if (stand === sitzBtnStand) return;
     sitzBtnStand = stand;
     sitzBtn.innerHTML = (zeigtAufstehen ? STEH_ICON : SITZ_ICON)
       + "<span>" + (zeigtAufstehen ? "Aufstehen" : "Sitzen") + "</span>";
     sitzBtn.className = "chip mitIcon";
     sitzBtn.setAttribute("aria-pressed", String(zeigtAufstehen));
-    if (uebergang) sitzBtn.setAttribute("disabled", "");
+    if (sperr) sitzBtn.setAttribute("disabled", "");
     else sitzBtn.removeAttribute("disabled");
     sitzBtn.title = zeigtAufstehen ? "Noki steht wieder auf" : "Noki setzt sich hin";
   }
@@ -2023,6 +2035,7 @@
   if (sitzBtn) {
     sitzBtn.addEventListener("click", function () {
       if (sitzUebergang()) return;          // laeuft schon — Klick verfaellt
+      if (liegeU > 0.0005 || liegeWunsch === "liegen") return;
       touched();
       if (sitztGerade()) {
         sitzWunsch = "stehen";
@@ -2112,6 +2125,316 @@
     r.armSw  += 0.16 * nach;
     r.hP     += 0.030 * nach;
     return r;
+  }
+
+  // ---------------------------------------------------------------
+  //  HINLEGEN UND LIEGEN
+  //
+  //  Der Kern dieser Stufe ist NICHT die Kurve, sondern die Bodenhoehe:
+  //  sie wird nicht gesetzt, sondern je Bild aus einer Bedingung berechnet.
+  //  Kein Punkt von Rumpf, Hals und Kopf darf unter y = 0 liegen, und im
+  //  Liegen soll mindestens einer ihn beruehren.
+  //
+  //  Fuer gedrehte Grundkoerper ist der tiefste Punkt geschlossen angebbar,
+  //  es braucht keine Abtastung:
+  //     Ellipsoid  y_c - |diag(r) · Zeile_y(R)|
+  //     Rundbox    y_c - (Halbmasse · |Zeile_y(R)|) - Rundung
+  //     Kapsel     tieferer Endpunkt, minus Radius
+  //
+  //  Daraus faellt dreierlei von selbst ab:
+  //   · Die Figur kann in KEINER Zwischenstellung schweben oder einsinken.
+  //     Das ist Bauart, nicht Pruefung — dieselbe Idee traegt seit der
+  //     Sitzstufe die Fusssohle.
+  //   · Der Bodenkontakt wird von allein schrittweise: erst das Gesaess,
+  //     dann der untere Ruecken, dann die Schultern, zuletzt der Kopf.
+  //     Diese Reihenfolge muss niemand eintragen; sie ergibt sich daraus,
+  //     welcher Koerperteil gerade der tiefste ist.
+  //   · Der Aufsetzmoment ist bestimmbar statt geschaetzt.
+  // ---------------------------------------------------------------
+  var RUMPF_MITTE = [0.0, 0.315, 0.0], RUMPF_ACHSEN = [0.210, 0.165, 0.190];
+  var HALS_VON = [0.0, 0.420, 0.0], HALS_BIS = [0.0, 0.520, 0.0], HALS_R = 0.072;
+  var KOPF_URSPRUNG = 0.500, KOPF_MITTE = 0.240;
+  var KOPF_EXT = [0.115, 0.085, 0.095], KOPF_RUND = 0.175;
+  var DREH_HUEFT = 0.160;                 // Drehpunkt von toBody
+
+  function m3(a, b) {
+    var r = [0,0,0,0,0,0,0,0,0];
+    for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++)
+      r[i*3+j] = a[i*3]*b[j] + a[i*3+1]*b[3+j] + a[i*3+2]*b[6+j];
+    return r;
+  }
+  // Genau die Drehungen des Shaders, Zeile fuer Zeile — sonst rechnet die
+  // Bodenbedingung an einer anderen Figur als der dargestellten.
+  function mX(a) { var c=Math.cos(a), s=Math.sin(a); return [1,0,0, 0,c,-s, 0,s,c]; }
+  function mY(a) { var c=Math.cos(a), s=Math.sin(a); return [c,0,-s, 0,1,0, s,0,c]; }
+  function mZ(a) { var c=Math.cos(a), s=Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; }
+  function mV(m, v) {
+    return [m[0]*v[0] + m[1]*v[1] + m[2]*v[2],
+            m[3]*v[0] + m[4]*v[1] + m[5]*v[2],
+            m[6]*v[0] + m[7]*v[1] + m[8]*v[2]];
+  }
+
+  // Tiefster Punkt von Rumpf, Hals und Kopf, gemessen OHNE die Senkung —
+  // der Rueckgabewert ist also genau der Betrag, den die Senkung ausgleichen
+  // muss. `wer` haelt fest, welcher Teil gerade aufliegt; daraus liest der
+  // Selbsttest die Aufsetzreihenfolge.
+  function tiefsterKoerper(pitch, roll, kopf, squash) {
+    var Rb = m3(mZ(roll), mX(pitch));
+    function wy(b) {
+      return DREH_HUEFT + Rb[3]*b[0] + Rb[4]*(b[1] - DREH_HUEFT) + Rb[5]*b[2];
+    }
+    var sy = 1 + squash, sxz = 1 - 0.45 * squash;
+    var ra = RUMPF_ACHSEN[0]*sxz, rb = RUMPF_ACHSEN[1]*sy, rc = RUMPF_ACHSEN[2]*sxz;
+    var tr = wy(RUMPF_MITTE)
+           - Math.sqrt(ra*Rb[3]*ra*Rb[3] + rb*Rb[4]*rb*Rb[4] + rc*Rb[5]*rc*Rb[5]);
+    var tief = tr, wer = "gesaess";
+    var th = Math.min(wy(HALS_VON), wy(HALS_BIS)) - HALS_R;
+    if (th < tief) { tief = th; wer = "hals"; }
+    var Rhb = m3(mY(kopf[1]), m3(mX(kopf[0]), mZ(kopf[2])));
+    var Rk = m3(Rb, Rhb);
+    var kc = mV(Rhb, [0.0, KOPF_MITTE, 0.0]);
+    var tk = wy([kc[0], kc[1] + KOPF_URSPRUNG, kc[2]])
+           - (KOPF_EXT[0]*Math.abs(Rk[3]) + KOPF_EXT[1]*Math.abs(Rk[4])
+              + KOPF_EXT[2]*Math.abs(Rk[5]) + KOPF_RUND);
+    if (tk < tief) { tief = tk; wer = "kopf"; }
+    return { y: tief, wer: wer, rumpf: tr, hals: th, kopf: tk };
+  }
+
+  // Die Arme haengen am Rumpf und drehen mit ihm. Im Liegen zeigen sie damit
+  // in Richtung Boden — und wuerden ohne Gegenmassnahme hindurchgreifen.
+  // Statt einen Endwert einzutragen, wird auch hier eine BEDINGUNG geloest:
+  // wie weit darf der Arm hoechstens zurueckschwingen, ohne dass die Hand in
+  // den Boden faehrt? Die Animation drueckt gegen diese Grenze, und die
+  // Haende gleiten dadurch beim Abrollen von selbst am Boden entlang.
+  var ARM_TEILE = [
+    { p: [0.000,  0.000, 0.000], r: 0.042 },   // Schultergelenk
+    { p: [0.006, -0.018, 0.000], r: 0.050 },   // Oberarm oben
+    { p: [0.032, -0.112, 0.000], r: 0.050 },   // Oberarm unten
+    { p: [0.038, -0.140, 0.000], r: 0.043 },   // Gelenkband
+    { p: [0.048, -0.206, 0.004], r: 0.043 }    // Unterarm unten
+  ];
+  var HAND_TEILE = [
+    { p: [0.000,  0.004, 0.002], r: 0.031 },   // Ballen
+    { p: [0.000, -0.042, 0.010], r: 0.024 }    // Fingergruppe
+  ];
+  var SCHULTER = [0.205, 0.400, 0.018], HANDMITTE = [0.052, -0.238, 0.006];
+
+  function armTiefster(sgn, ax, af, Rb, gelenk) {
+    var Ra = m3(mZ(sgn * ax), mX(-af));
+    var Rw = m3(mX(gelenk[0]), m3(mY(gelenk[1]), mZ(gelenk[2])));
+    var tief = 1e9;
+    function pruefe(q, r) {
+      var b = mV(Ra, [sgn * q[0], q[1], q[2]]);
+      var y = DREH_HUEFT
+            + Rb[3]*(sgn*SCHULTER[0] + b[0])
+            + Rb[4]*(SCHULTER[1] + b[1] - DREH_HUEFT)
+            + Rb[5]*(SCHULTER[2] + b[2]);
+      if (y - r < tief) tief = y - r;
+    }
+    for (var i = 0; i < ARM_TEILE.length; i++) pruefe(ARM_TEILE[i].p, ARM_TEILE[i].r);
+    for (var j = 0; j < HAND_TEILE.length; j++) {
+      var h = mV(Rw, HAND_TEILE[j].p);
+      pruefe([HANDMITTE[0] + h[0], HANDMITTE[1] + h[1], HANDMITTE[2] + h[2]], HAND_TEILE[j].r);
+    }
+    return tief;
+  }
+
+  // Der naechstgelegene zulaessige Vorschwung. Steht die Hand frei — im
+  // Stehen, Gehen und Sitzen ist das immer so —, kommt der Wunschwert
+  // unveraendert zurueck.
+  //
+  // Bewusst KEINE Bisektion ueber den ganzen Bereich: die Hoehe der Hand ist
+  // ueber dem Vorschwung nicht monoton. Weit zurueckgeschwungen hebt sie
+  // wieder ab, und eine Bisektion haette dieses zweite Stueck fuer „frei"
+  // gehalten und die Hand mitten im Ablauf durch den Boden gelassen. Gesucht
+  // wird deshalb von der Wunschstellung aus nach oben: die KLEINSTE
+  // Aenderung, die die Hand aus dem Boden holt.
+  function armFwFrei(sgn, ax, af, Rb, gelenk, hoehe) {
+    if (armTiefster(sgn, ax, af, Rb, gelenk) + hoehe >= 0) return af;
+    var lo = af, hi = af;
+    for (var s = 0; s < 80 && hi < 0.60; s++) {
+      lo = hi;
+      hi = Math.min(0.60, hi + 0.025);
+      if (armTiefster(sgn, ax, hi, Rb, gelenk) + hoehe >= 0) break;
+    }
+    for (var i = 0; i < 18; i++) {
+      var mid = 0.5 * (lo + hi);
+      if (armTiefster(sgn, ax, mid, Rb, gelenk) + hoehe >= 0) hi = mid; else lo = mid;
+    }
+    return hi;
+  }
+
+  // ---------------------------------------------------------------
+  //  Die Liegehaltung ist gerechnet, nicht geschaetzt.
+  //  Neigung: der Winkel, bei dem Rumpf UND Kopf gleichzeitig aufliegen.
+  //  Der Kopf ist mit 0.270 dicker als der Rumpf mit 0.190; ueber den
+  //  Achsabstand 0.425 ergibt dieser Unterschied genau diese Neigung.
+  //  Beine: Sohle auf dem Boden, Hueftpunkt im Rumpf, Schienbein moeglichst
+  //  frei, Bein nach vorn gestreckt, Knie leicht gebeugt.
+  // ---------------------------------------------------------------
+  var LIEGEART = {
+    normal: { pitch: -1.3625, hueft: -1.151, knie: 0.163, hz: -0.028,
+              armSw: 0.16, armFw: -0.78, hP: 0.05, label: "auf dem Ruecken" }
+  };
+  // Platz fuer spaetere Varianten — Seitenlage, Schlafhaltung. Sie zeigen
+  // vorerst auf `normal`; eine neue Variante ist damit eine Zeile.
+  ["seite", "schlaf", "entspannt"].forEach(function (v) { LIEGEART[v] = LIEGEART.normal; });
+  var liegeArt = "normal";
+
+  var liegeU = 0, liegeRi = 1;              // Fortschritt und Richtung
+  var liegeRiIst = 1;                       // weich nachgefuehrte Richtung
+  var liegeKontakt = 0;                     // Nachgeben, wenn der Kopf aufsetzt
+  var liegeWunsch = null;                   // null heisst: Noki liegt nicht
+  var liegeStand = null;                    // Standbild: Fortschritt direkt setzen
+  // Welcher Koerperteil gerade aufliegt und wie tief er liegt. Der Selbsttest
+  // liest daraus die Aufsetzreihenfolge.
+  var liegeTief = null;
+
+  function liegtGerade() { return liegeU > 0.5; }
+  function liegeUebergang() { return liegeU > 0.0005 && liegeU < 0.9995; }
+
+  // Die Kurven. Aufgebaut wie beim Sitzen: eigener Fortschritt, jeder Kanal
+  // mit eigenem Zeitfenster, und ein eigener Satz je Richtung.
+  //
+  //  Hinlegen (u = 0 → 1)
+  //    0.00–0.14  Orientierung: Gewicht nach hinten, Arme loesen sich
+  //    0.14–0.58  Absenken: Knie beugen, Huefte sinkt, Haende stuetzen
+  //    0.58–0.86  Ablegen: Rumpf rollt ueber Gesaess und Ruecken ab,
+  //               Beine strecken sich nach vorn, Kinn geht zur Brust
+  //    0.86–1.00  Auslegen: Kopf setzt auf, alles laeuft weich aus
+  //
+  //  Die Zwischenstellung bei u = 0.58 ist die HOCKE — dieselben Beinwinkel
+  //  wie beim Sitzen. Dadurch geht Noki nicht rueckwaerts um, sondern setzt
+  //  sich erst hin und legt sich dann zurueck.
+  function liegeKurven(u, ri, dt) {
+    var la = LIEGEART[liegeArt] || LIEGEART.normal;
+    var sa = SITZART[sitzArt] || SITZART.normal;
+    var r = { pitch: 0, senkung: 0, hueft: 0, knie: 0, hz: 0,
+              armSw: 0, armFw: 0, hP: 0, bz: 0, squash: 0, w: 0 };
+    if (u <= 0.0001 && liegeKontakt < 0.0001) return r;
+
+    if (ri > 0) {
+      // ---- Hinlegen ----
+      // Vorbereitung als IMPULS, nicht als Stufe: bliebe ein Rest stehen,
+      // spraenge er beim Richtungswechsel. Genau das hat der Selbsttest
+      // beim Sitzen gefunden.
+      var vorb = Math.sin(Math.PI * fenster(u, 0.00, 0.28));
+      var hock = cTraege(fenster(u, 0.14, 0.58));      // stehen  → hocken
+      var flach = cTraege(fenster(u, 0.58, 0.92));     // hocken  → liegen
+      r.hueft = sa.hueft * hock + (la.hueft - sa.hueft) * flach;
+      r.knie  = sa.knie  * hock + (la.knie  - sa.knie)  * flach;
+      r.hz    = sa.hz    * hock + (la.hz    - sa.hz)    * flach;
+      // Die Senkung faehrt nur bis zur Sitzhoehe. Danach uebernimmt die
+      // Bodenbedingung: sie hebt den Rumpf beim Zurueckrollen von allein
+      // wieder an, weil der runde Ruecken dicker ist als das Gesaess.
+      r.senkung = sa.senkung * hock;
+      r.pitch = la.pitch * cTraege(fenster(u, 0.52, 0.90));
+      // Gewicht erst zurueck, dann folgt der Rumpf
+      r.bz = -0.020 * vorb + 0.026 * Math.sin(Math.PI * fenster(u, 0.16, 0.72));
+      // Arme: erst vom Koerper loesen, dann nach hinten stuetzen und
+      // schliesslich zum Boden. Der Endwert liegt bewusst UNTER dem
+      // Erreichbaren — die Bodengrenze schneidet ihn ab, und dadurch
+      // gleiten die Haende beim Abrollen am Boden entlang.
+      r.armSw = la.armSw * cTraege(fenster(u, 0.06, 0.62)) + 0.14 * vorb;
+      r.armFw = la.armFw * cTraege(fenster(u, 0.10, 0.80));
+      // Kinn zur Brust, solange der Ruecken abrollt — niemand legt den
+      // Hinterkopf voran ab. Danach findet der Kopf seine Ruhelage.
+      r.hP = la.hP * cTraege(fenster(u, 0.80, 1.00))
+           + 0.20 * Math.sin(Math.PI * fenster(u, 0.50, 0.94));
+      r.w = cTraege(fenster(u, 0.05, 0.25));
+    } else {
+      // ---- Aufrichten aus dem Liegen ----
+      // Eigener Satz, kein Rueckwaertsspielen: man richtet sich anders auf,
+      // als man sich hinlegt. Die ausgearbeitete Aufstehbewegung aus dem
+      // Liegen kommt spaeter — dieser Satz sorgt vorerst dafuer, dass das
+      // Liegen keine Sackgasse ist.
+      var v = 1 - u;
+      var auf = cTraege(fenster(v, 0.00, 0.46));       // liegen  → hocken
+      var steh = cTraege(fenster(v, 0.46, 0.94));      // hocken  → stehen
+      r.hueft = la.hueft + (sa.hueft - la.hueft) * auf - sa.hueft * steh;
+      r.knie  = la.knie  + (sa.knie  - la.knie)  * auf - sa.knie  * steh;
+      r.hz    = la.hz    + (sa.hz    - la.hz)    * auf - sa.hz    * steh;
+      r.senkung = sa.senkung * (1 - cTraege(fenster(v, 0.44, 0.94)));
+      r.pitch = la.pitch * (1 - cTraege(fenster(v, 0.02, 0.48)));
+      r.bz = 0.024 * Math.sin(Math.PI * fenster(v, 0.10, 0.80));
+      r.armSw = la.armSw * (1 - cTraege(fenster(v, 0.20, 0.86)));
+      r.armFw = la.armFw * (1 - cTraege(fenster(v, 0.04, 0.62)));
+      r.hP = la.hP * (1 - cTraege(fenster(v, 0.00, 0.30)))
+           + 0.16 * Math.sin(Math.PI * fenster(v, 0.06, 0.52));
+      r.w = 1 - cTraege(fenster(v, 0.75, 0.95));
+    }
+    return r;
+  }
+
+  // Der Kopf setzt auf: ein Ereignis, keine Kurve. Es steht deshalb
+  // ausserhalb von liegeKurven — die Funktion soll allein aus ihren
+  // Parametern antworten, damit sie pruefbar bleibt.
+  function liegeAufsetzen(u, ri, dt, r) {
+    if (ri > 0 && u >= 0.88 && liegeKontakt <= 0) liegeKontakt = 1;
+    if (ri < 0 && u < 0.78) liegeKontakt = 0;
+    if (liegeKontakt > 0) liegeKontakt = Math.max(0, liegeKontakt - dt / 0.70);
+    if (liegeKontakt <= 0) return r;
+    var k = liegeKontakt;
+    var nach = Math.sin(Math.PI * (1 - k)) * k;        // ein Ausschlag, gedaempft
+    r.squash += 0.005 * nach;
+    r.hP     += 0.045 * nach;
+    r.armSw  += 0.10 * nach;
+    return r;
+  }
+
+  // ---------------------------------------------------------------
+  //  Hinlegen-Taste — dasselbe Muster wie die Sitzen-Taste.
+  // ---------------------------------------------------------------
+  // Waagerechte Figur und aufgerichtete Figur; bei 15 px liest sich beides.
+  var LIEGE_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+    + '<path d="M2.1 11.4h11.8M4.4 11.4V9.2h7.2v2.2" stroke="currentColor"'
+    + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<circle cx="3.3" cy="7.6" r="1.5" stroke="currentColor" stroke-width="1.7"/></svg>';
+  var AUF_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+    + '<path d="M2.6 13.6h10.8M8 11.2V4.6M5.3 7.3L8 4.6l2.7 2.7" stroke="currentColor"'
+    + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  var liegeBtn = document.getElementById("liegen");
+  var liegeBtnStand = null;
+
+  function zeichneLiegeKnopf() {
+    if (!liegeBtn) return;
+    var uebergang = liegeUebergang();
+    // Waehrend des Uebergangs zeigt die Taste schon das Ziel — sonst
+    // wechselte die Beschriftung erst auf halbem Weg.
+    var zeigtAuf = uebergang ? (liegeRi > 0) : liegtGerade();
+    var sperr = uebergang || sitzUebergang()
+             || (liegeWunsch === "liegen" && liegeU <= 0.0005);
+    var stand = (zeigtAuf ? "auf" : "lieg") + (sperr ? "-sperr" : "");
+    if (stand === liegeBtnStand) return;
+    liegeBtnStand = stand;
+    liegeBtn.innerHTML = (zeigtAuf ? AUF_ICON : LIEGE_ICON)
+      + "<span>" + (zeigtAuf ? "Aufrichten" : "Hinlegen") + "</span>";
+    liegeBtn.className = "chip mitIcon";
+    liegeBtn.setAttribute("aria-pressed", String(zeigtAuf));
+    if (sperr) liegeBtn.setAttribute("disabled", "");
+    else liegeBtn.removeAttribute("disabled");
+    liegeBtn.title = zeigtAuf ? "Noki richtet sich wieder auf"
+                              : "Noki legt sich auf den Ruecken";
+  }
+
+  if (liegeBtn) {
+    liegeBtn.addEventListener("click", function () {
+      if (liegeUebergang() || sitzUebergang()) return;   // laeuft schon
+      touched();
+      if (liegtGerade() || liegeWunsch === "liegen") {
+        liegeWunsch = null;
+      } else {
+        liegeWunsch = "liegen";
+        // Aus dem Sitzen steht Noki erst vollstaendig auf; die vorhandene
+        // Aufstehbewegung laeuft dabei ganz durch, sie wird nicht abgekuerzt.
+        sitzWunsch = "stehen";
+        if (gehenZ === 1) { gehBis = 0; setGehen(false); }
+      }
+      zeichneLiegeKnopf();
+      zeichneSitzKnopf();
+    });
+    zeichneLiegeKnopf();
   }
 
   var haltung = "stehen";
@@ -2337,6 +2660,11 @@
     // Der Aufsteh-Wunsch ist einmalig: sobald Noki steht, entscheidet wieder
     // die Kaskade. Der Sitz-Wunsch bleibt, bis der Nutzer ihn zuruecknimmt.
     if (sitzWunsch === "stehen" && sitzU <= 0.0005) sitzWunsch = null;
+    // Liegen ist ein eigener Zustand neben der Kaskade. Solange Noki liegt
+    // oder sich hinlegen will, bleibt die Grundhaltung „stehen": die Beine
+    // und die Senkung kommen dann vollstaendig aus der Liegekurve, und die
+    // Kaskade kann ihn nicht mitten im Liegen zum Sitzen ziehen.
+    if (liegeWunsch === "liegen" || liegeU > 0.0005) stufe = "stehen";
     if (gehenZ === 1 && ruhe < 240) stufe = "stehen";   // wer geht, sitzt nicht
     if (gehenZ === 1 && ruhe >= 240) { gehBis = 0; setGehen(false); }
     setHaltung(stufe);
@@ -2408,6 +2736,34 @@
       sitzRoll = 0.011 * Math.sin(time * 0.57) * ruhig;
       sz.bz  += 0.0035 * Math.sin(time * 0.31 + 1.4) * ruhig;
       sz.hP  += 0.014 * Math.sin(time * 0.43 + 2.7) * ruhig;
+    }
+
+    // --- 2c · Hinlegen auf eigener Zeitachse ---
+    // Liegen kommt nicht aus der Zeitkaskade, sondern nur auf Wunsch — und
+    // es beginnt erst, wenn Noki wirklich steht: aus dem Sitzen laeuft die
+    // vorhandene Aufstehbewegung vorher vollstaendig durch.
+    var lieZiel = (liegeWunsch === "liegen" && sitzU <= 0.0005) ? 1 : 0;
+    if (lieZiel > liegeU + 1e-4) liegeRi = 1;
+    else if (lieZiel < liegeU - 1e-4) liegeRi = -1;
+    if (still) liegeU = (liegeStand === null) ? lieZiel : liegeStand;
+    else liegeU = clamp(liegeU + liegeRi * dt / (liegeRi > 0 ? 2.20 : 2.00), 0, 1);
+    // Hinlegen dauert laenger als Hinsetzen: der Weg ist weiter, und die
+    // letzte Handbreit vor dem Boden muss langsam sein.
+    if (still) liegeRiIst = liegeRi;
+    else liegeRiIst = liegeRiIst + clamp(liegeRi - liegeRiIst, -3.0 * dt, 3.0 * dt);
+    var lgH = liegeKurven(liegeU,  1, dt);
+    var lgA = liegeKurven(liegeU, -1, dt);
+    var mAufr = clamp(0.5 - 0.5 * liegeRiIst, 0, 1);   // 0 = hinlegen, 1 = aufrichten
+    var lz = {};
+    for (var lzk in lgH) lz[lzk] = lgH[lzk] + (lgA[lzk] - lgH[lzk]) * mAufr;
+    if (still) liegeKontakt = 0; else liegeAufsetzen(liegeU, liegeRi, dt, lz);
+    // Liege-Leerlauf: noch kleiner als im Sitzen. Wer liegt, bewegt fast
+    // nichts — der Kopf sackt im Atemrhythmus minimal nach, die Arme
+    // atmen mit. Alles Weitere (Atem, Blinzeln, Blick) laeuft unveraendert.
+    if (!still && liegeU > 0.02) {
+      var lRuhig = liegeU * (1 - liegeKontakt);
+      lz.hP    += 0.010 * Math.sin(time * 0.39 + 1.1) * lRuhig;
+      lz.armSw += 0.013 * Math.sin(time * 0.27 + 3.3) * lRuhig;
     }
 
     // --- 3 · Verhaltenstreiber ---
@@ -2696,7 +3052,8 @@
     rig.bob    = Math.sin(phAtem) * 0.0062 * brA;
     // Beim Aufsetzen gibt der Koerper kurz nach — dasselbe Stauchen, das
     // auch das Atmen traegt, nur einmalig und staerker.
-    rig.squash = clamp(Math.sin(phAtem + Math.PI) * 0.013 * brA - sz.squash, -0.026, 0.026);
+    rig.squash = clamp(Math.sin(phAtem + Math.PI) * 0.013 * brA - sz.squash, -0.026, 0.026)
+               - lz.squash;
 
     // Blinzeln — unregelmäßig, mit der Müdigkeit seltener
     var lidBasis = cur.lid * hal.lid;
@@ -2725,7 +3082,8 @@
     var look = 0.22 * drift(t * 0.5) * driftW;
     var camY = Math.atan2(Math.sin(cam.yaw), Math.cos(cam.yaw));
     var zuDir = achtung * clamp(-camY, -0.55, 0.55);   // er dreht sich zu dir
-    rig.head[0] = clamp(cur.hPitch + hal.hP + Math.sin(t * 0.83 + 2.0) * 0.020 * driftW + o.hP, -0.25, 0.30);
+    rig.head[0] = clamp(cur.hPitch + hal.hP + Math.sin(t * 0.83 + 2.0) * 0.020 * driftW + o.hP, -0.25, 0.30)
+                + lz.hP;
     rig.head[1] = clamp(cur.hYaw + look + zuDir + o.hY - 0.045 * gS, -0.55, 0.55);
     rig.head[2] = clamp(cur.hRoll + achtung * 0.08 + Math.sin(t * 0.47) * 0.018 * driftW + o.hR, -0.30, 0.30);
     rig.look    = [clamp(cur.look[0] + look * 0.9 + o.lx, -1, 1),
@@ -2750,10 +3108,12 @@
     var gArm  = 0.30 * gS;          // rechtes Bein vor, rechter Arm zurueck
     // Die Sitzversaetze liegen AUSSERHALB der alten Klammer: so bleibt jeder
     // bestehende Wert bei sz = 0 bitgleich, und die Grenzen halten trotzdem.
-    rig.armL = [clamp(clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40) + sz.armSw, -0.10, 2.40),
-                clamp(clamp(armFw + gArm + rig.armFwL, -0.20, 0.60) + sz.armFw, -0.20, 0.60)];
-    rig.armR = [clamp(clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40) + sz.armSw, -0.10, 2.40),
-                clamp(clamp(armFw - gArm, -0.20, 0.60) + sz.armFw, -0.20, 0.60)];
+    // Die Liegeversaetze liegen noch eine Lage weiter aussen: der Arm muss
+    // sich fuer den Boden weiter zurueckdrehen, als die Stehgrenzen zulassen.
+    rig.armL = [clamp(clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40) + sz.armSw, -0.10, 2.40) + lz.armSw,
+                clamp(clamp(armFw + gArm + rig.armFwL, -0.20, 0.60) + sz.armFw, -0.20, 0.60) + lz.armFw];
+    rig.armR = [clamp(clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40) + sz.armSw, -0.10, 2.40) + lz.armSw,
+                clamp(clamp(armFw - gArm, -0.20, 0.60) + sz.armFw, -0.20, 0.60) + lz.armFw];
     if (cur.wave > 0.01) {   // Ausdruck „Winken" aus der Bibliothek
       var w = 2.00 + Math.sin(t * 6.4) * 0.28;
       rig.armR = [clamp(lerp(rig.armR[0], w, cur.wave), -0.10, 2.40),
@@ -2776,21 +3136,54 @@
     // Rumpf — Ebene 4 (Gewicht) plus Einlagenversätze
     var gz = still ? 0 : gewichtSeite * (1 - hal.sit) * (1 - gehen);
     gewichtIst = lerp(gewichtIst, gz, 1 - Math.pow(0.02, dt / 1.8));
+    var rollGes  = clamp(gewichtIst * 0.030 + o.br + sitzRoll + 0.030 * gS, -0.050, 0.050);
+    var pitchGes = clamp(hal.pitch + 0.045 * gehen + sz.pitch, -0.16, 0.16) + lz.pitch;
+    var bodyYGes = clamp(o.by + senk, -0.020, 0.050);
+
+    // --- Bodenhoehe: abgeleitet, nicht gesetzt ---
+    // Die Animation faehrt die Senkung nur bis zur Sitzhoehe. Von da an
+    // entscheidet die Bedingung „kein Punkt unter y = 0", wie tief der
+    // Rumpf liegt — und weil der zurueckgelegte Ruecken dicker ist als das
+    // Gesaess, hebt sie ihn beim Abrollen von selbst wieder an. Genau das
+    // macht aus dem Zurueckneigen ein Abrollen.
+    var senkAnim = sz.senkung + lz.senkung;
+    var senkGes = senkAnim;
+    liegeTief = null;
+    if (lz.w > 1e-6) {
+      liegeTief = tiefsterKoerper(pitchGes, rollGes, rig.head, rig.squash);
+      var sMin = -(rig.bob + bodyYGes) - liegeTief.y;
+      senkGes = senkAnim + lz.w * Math.max(0, sMin - senkAnim);
+    }
+
+    // --- Bodengrenze der Arme ---
+    // Dieselbe Idee eine Ebene tiefer: die Kurve drueckt die Haende gegen
+    // den Boden, die Grenze schneidet ab. Dadurch koennen sie weder
+    // hindurchgreifen noch darueber schweben, und beim Abrollen gleiten sie
+    // von selbst am Boden entlang, statt einer eingetragenen Bahn zu folgen.
+    if (lz.w > 1e-6) {
+      var Rb = m3(mZ(rollGes), mX(pitchGes));
+      var hoehe = rig.bob + bodyYGes + senkGes;
+      rig.armR[1] = armFwFrei( 1, rig.armR[0], rig.armR[1], Rb, rig.hand,  hoehe);
+      rig.armL[1] = armFwFrei(-1, rig.armL[0], rig.armL[1], Rb, rig.handL, hoehe);
+    }
+
     rig.body[0] = clamp(gewichtIst * 0.012 + o.bx + 0.007 * gS, -0.015, 0.015);
-    rig.body[1] = clamp(o.by + senk, -0.020, 0.050);
-    rig.body[2] = clamp(o.bz, -0.020, 0.050) + sz.bz;
-    rig.body[3] = clamp(gewichtIst * 0.030 + o.br + sitzRoll + 0.030 * gS, -0.050, 0.050);
-    rig.pose[0] = clamp(hal.pitch + 0.045 * gehen + sz.pitch, -0.16, 0.16);
+    rig.body[1] = bodyYGes;
+    rig.body[2] = clamp(o.bz, -0.020, 0.050) + sz.bz + lz.bz;
+    rig.body[3] = rollGes;
+    rig.pose[0] = pitchGes;
     rig.pose[1] = hal.sit;
     rig.pose[2] = hal.posY;        // historisch; die Senkung laeuft ueber u_sitz.z
 
-    // --- Beinstellung aus der Sitzkurve ---
+    // --- Beinstellung aus der Sitz- und der Liegekurve ---
     // Der Hueftpunkt folgt aus der Bodenbedingung: die Fusssohle liegt auf.
     // Dadurch kann kein Fuss einsinken und keiner schweben — in keiner
-    // Zwischenstellung, ohne dass es jemand nachrechnen muesste.
-    var bk = beinKette(sz.hueft, sz.knie);
-    rig.sitz  = [sz.hueft, sz.knie, sz.senkung];
-    rig.hueft = [0.085, BODEN_FUSS - bk.fussY, sz.hz];
+    // Zwischenstellung, ohne dass es jemand nachrechnen muesste. Sitzen und
+    // Liegen schliessen einander aus, ihre Betraege addieren sich deshalb
+    // gefahrlos.
+    var bk = beinKette(sz.hueft + lz.hueft, sz.knie + lz.knie);
+    rig.sitz  = [sz.hueft + lz.hueft, sz.knie + lz.knie, senkGes];
+    rig.hueft = [0.085, BODEN_FUSS - bk.fussY, sz.hz + lz.hz];
 
     // Glimm — eigener Kanal, pulst auch bei geschlossenen Augen weiter
     var pf = cur.puls * hal.pulsMul;
@@ -3168,6 +3561,7 @@
     // Fehler werden nach Art zusammengefasst, damit eine Ursache nicht
     // die Ausgabe flutet und die späteren Prüfungen nie laufen.
     var arten = {}, dt = 1 / 60, schritte = Math.round(1200 / dt);
+    var liegeBericht = "Liegen: nicht geprueft";
     function melde(art, text) {
       if (!arten[art]) arten[art] = { n: 0, erst: text };
       arten[art].n++;
@@ -3326,6 +3720,170 @@
       sitzKontakt = 0;
     })();
 
+    // =============================================================
+    //  HINLEGEN UND LIEGEN
+    //  Die Bodenhoehe wird abgeleitet — genau deshalb ist sie pruefbar:
+    //  eine Zahl, die aus einer Bedingung faellt, muss die Bedingung
+    //  erfuellen, und wenn nicht, ist die Ableitung falsch und nicht die
+    //  Kurve. Geprueft wird ueber den GANZEN Ablauf, in beiden Richtungen.
+    // =============================================================
+    (function () {
+      function rX(v, a) {
+        var c = Math.cos(a), s2 = Math.sin(a);
+        return [v[0], c*v[1] - s2*v[2], s2*v[1] + c*v[2]];
+      }
+      // Der Zustand eines Bildes, gerechnet wie in updateRig — aber ohne
+      // Atem, Einlagen und Gewicht, damit allein die Liegekurve zur
+      // Verantwortung gezogen wird.
+      function zustand(u, ri) {
+        var z = liegeKurven(u, ri, 1 / 60);
+        var kopf = [z.hP, 0, 0];                 // im Stehen ist hal.hP = 0
+        var squash = -z.squash;
+        var tief = tiefsterKoerper(z.pitch, 0, kopf, squash);
+        var senk = z.senkung;
+        if (z.w > 1e-6) senk += z.w * Math.max(0, -tief.y - senk);
+        var Rb = m3(mZ(0), mX(z.pitch));
+        var arm = [1, -1].map(function (sgn) {
+          var gel = sgn > 0 ? [0, 0.75, 0] : [0, 0.75, -0.04];
+          var af = z.armFw;
+          if (z.w > 1e-6) af = armFwFrei(sgn, z.armSw, af, Rb, gel, senk);
+          return { af: af, tief: armTiefster(sgn, z.armSw, af, Rb, gel) + senk };
+        });
+        return { z: z, senk: senk, tief: tief, arm: arm };
+      }
+
+      // Bei liegeU = 0 ist JEDER neue Betrag null. Das ist die Zusicherung,
+      // dass Stehen, Gehen und Sitzen unveraendert geblieben sind.
+      [1, -1].forEach(function (ri) {
+        var n = liegeKurven(0, ri, 1 / 60);
+        for (var k in n) if (Math.abs(n[k]) > 1e-12)
+          melde("liege-null", "Bei liegeU = 0 ist " + k + " = " + n[k].toFixed(6)
+            + " statt 0 (Richtung " + (ri > 0 ? "hinlegen" : "aufrichten") + ")");
+      });
+
+      // Die beiden Kurvensaetze muessen an BEIDEN Endpunkten uebereinstimmen.
+      // Beim Sitzen hat genau diese Zusicherung einen echten Fehler gefunden.
+      [0, 1].forEach(function (u) {
+        var h = liegeKurven(u, 1, 1 / 60), a = liegeKurven(u, -1, 1 / 60);
+        for (var k in h) if (Math.abs(h[k] - a[k]) > 1e-9)
+          melde("liege-endpunkt", "Kurvensaetze weichen bei u=" + u + " ab: " + k
+            + " " + h[k].toFixed(5) + " gegen " + a[k].toFixed(5));
+      });
+
+      var reihe = { gesaess: 0, hals: 1, kopf: 2 };
+      [1, -1].forEach(function (ri) {
+        var rich = ri > 0 ? "hinlegen" : "aufrichten";
+        var vor = null, stufeMax = -1, kontaktAb = null;
+        for (var q = 0; q <= 300; q++) {
+          var u = ri > 0 ? q / 300 : 1 - q / 300;
+          var s = zustand(u, ri);
+
+          // 1 · Nichts unter dem Boden — Rumpf, Hals, Kopf
+          if (s.tief.y + s.senk < -1e-6) melde("liege-boden",
+            "Koerper im Boden (" + (s.tief.y + s.senk).toFixed(5) + ", " + s.tief.wer
+            + ") bei " + rich + " u=" + u.toFixed(2));
+
+          // 2 · Nichts unter dem Boden — Arme und Haende
+          s.arm.forEach(function (a, i) {
+            if (a.tief < -1e-4) melde("liege-arm-boden",
+              "Arm " + (i ? "links" : "rechts") + " im Boden (" + a.tief.toFixed(5)
+              + ") bei " + rich + " u=" + u.toFixed(2));
+          });
+
+          // 3 · Beinkette wie im Shader nachgerechnet: die Segmente behalten
+          //     ihre Laenge, und die Fusssohle liegt auf.
+          var bk = beinKette(s.z.hueft, s.z.knie);
+          var ober = rX([0.157, -0.988, 0.0], s.z.hueft);
+          var unter = rX(ober, s.z.knie);
+          var hue = [0.085, BODEN_FUSS - bk.fussY, s.z.hz];
+          var kni = [hue[0] + ober[0]*L_OBER, hue[1] + ober[1]*L_OBER, hue[2] + ober[2]*L_OBER];
+          var kno = [kni[0] + unter[0]*L_UNTER, kni[1] + unter[1]*L_UNTER, kni[2] + unter[2]*L_UNTER];
+          var fus = [kno[0] + 0.007, kno[1] - 0.029, kno[2] + 0.020];
+          if (Math.abs(Math.hypot(kni[0]-hue[0], kni[1]-hue[1], kni[2]-hue[2]) - L_OBER) > 1e-4)
+            melde("liege-oberschenkel", "Oberschenkel gedehnt bei " + rich + " u=" + u.toFixed(2));
+          if (Math.abs(Math.hypot(kno[0]-kni[0], kno[1]-kni[1], kno[2]-kni[2]) - L_UNTER) > 1e-4)
+            melde("liege-unterschenkel", "Unterschenkel gedehnt bei " + rich + " u=" + u.toFixed(2));
+          if (Math.abs(fus[1] - BODEN_FUSS) > 1e-6) melde("liege-fuss",
+            "Fusssohle nicht am Boden (" + fus[1].toFixed(5) + ") bei " + rich
+            + " u=" + u.toFixed(2));
+          if (s.z.knie < -1e-6) melde("liege-knie",
+            "Knie ueberstreckt (" + s.z.knie.toFixed(3) + ") bei " + rich
+            + " u=" + u.toFixed(2));
+
+          // 4 · Sprungfreiheit der neuen Kanaele
+          if (vor) {
+            var grenzen = { pitch: 0.045, senkung: 0.012, hueft: 0.075, knie: 0.075,
+                            hz: 0.012, armSw: 0.030, armFw: 0.045, hP: 0.030,
+                            bz: 0.006, squash: 0.004, w: 0.040 };
+            for (var k2 in grenzen) {
+              var d2 = Math.abs(s.z[k2] - vor.z[k2]);
+              if (d2 > grenzen[k2]) melde("liege-sprung:" + k2,
+                "Sprung " + k2 + " um " + d2.toFixed(4) + " je Schritt bei " + rich
+                + " u=" + u.toFixed(2));
+            }
+            if (Math.abs(s.senk - vor.senk) > 0.014) melde("liege-sprung:senkung-ist",
+              "Abgeleitete Senkung springt um " + Math.abs(s.senk - vor.senk).toFixed(4)
+              + " bei " + rich + " u=" + u.toFixed(2));
+          }
+
+          // 5 · Aufsetzreihenfolge: der Kontaktpunkt wandert vom Gesaess zum
+          //     Kopf und springt nicht zurueck. Als Kontakt zaehlt, was
+          //     hoechstens einen Millimeter ueber dem Boden liegt — am Ende
+          //     setzen Rumpf und Kopf naemlich gleichzeitig auf, und ein
+          //     strenges Minimum wuerde diesen Gleichstand willkuerlich
+          //     entscheiden.
+          if (ri > 0 && s.z.w > 0.999 && Math.abs(s.tief.y + s.senk) < 1e-6) {
+            var st = -1;
+            if (s.tief.rumpf + s.senk < 0.001) st = Math.max(st, reihe.gesaess);
+            if (s.tief.hals  + s.senk < 0.001) st = Math.max(st, reihe.hals);
+            if (s.tief.kopf  + s.senk < 0.001) st = Math.max(st, reihe.kopf);
+            if (st < stufeMax) melde("liege-reihenfolge",
+              "Kontakt springt zurueck auf " + s.tief.wer + " bei u=" + u.toFixed(2));
+            stufeMax = Math.max(stufeMax, st);
+            if (kontaktAb === null) kontaktAb = u;
+          }
+          vor = s;
+        }
+
+        // 6 · In der Liegehaltung beruehrt mindestens ein Punkt den Boden
+        var e = zustand(1, ri);
+        if (Math.abs(e.tief.y + e.senk) > 1e-4) melde("liege-schweben",
+          "Liegehaltung schwebt oder sinkt ein (" + (e.tief.y + e.senk).toFixed(5)
+          + ") bei " + rich);
+        var handTief = Math.min(e.arm[0].tief, e.arm[1].tief);
+        if (handTief > 0.012) melde("liege-hand-schwebt",
+          "Haende schweben im Liegen " + (handTief * 1000).toFixed(1) + " mm ueber dem Boden");
+        if (ri > 0 && stufeMax < reihe.kopf) melde("liege-kopf-kontakt",
+          "Der Kopf erreicht den Boden nicht");
+        if (ri > 0) liegeBericht = "Hinlegen: Bodenkontakt ab u=" + (kontaktAb === null ? "-" : kontaktAb.toFixed(2))
+          + ", Senkung im Liegen " + e.senk.toFixed(4)
+          + ", Kopf " + ((e.tief.kopf + e.senk) * 1000).toFixed(1) + " mm"
+          + " und Rumpf " + ((e.tief.rumpf + e.senk) * 1000).toFixed(1) + " mm ueber dem Boden"
+          + ", Haende " + (handTief * 1000).toFixed(1) + " mm";
+      });
+
+      // Richtungswechsel MITTEN in der Bewegung. Dieselbe Pruefung wie beim
+      // Sitzen — dort hat sie einen Kopfsprung von 0.098 je Bild gefunden.
+      for (var uf = 0; uf <= 1.0001; uf += 0.1) {
+        var vorW = null, schlimm = {};
+        for (var fi = 0; fi < 40; fi++) {
+          var rIst = (fi < 8) ? 1 : Math.max(-1, 1 - 3.0 * (fi - 7) / 60);
+          var h1 = liegeKurven(uf, 1, 1 / 60), a1 = liegeKurven(uf, -1, 1 / 60);
+          var m1 = clamp(0.5 - 0.5 * rIst, 0, 1), w1 = {};
+          for (var k1 in h1) w1[k1] = h1[k1] + (a1[k1] - h1[k1]) * m1;
+          if (vorW) for (var k2b in w1) {
+            var dd = Math.abs(w1[k2b] - vorW[k2b]);
+            if (dd > (schlimm[k2b] || 0)) schlimm[k2b] = dd;
+          }
+          vorW = w1;
+        }
+        for (var k3 in schlimm) if (schlimm[k3] > 0.055)
+          melde("liege-richtungswechsel", "Richtungswechsel bei u=" + uf.toFixed(1)
+            + " springt: " + k3 + " um " + schlimm[k3].toFixed(4) + " je Bild");
+      }
+      liegeKontakt = 0;
+    })();
+
     // Haende ueber dem Boden. Im Sitzen liegt der Rumpf 0.150 tiefer, die
     // Arme sind aber gleich lang geblieben — ohne Gegenmassnahme stehen die
     // Finger im Fussboden. Genau das war in der Seitenansicht zu sehen.
@@ -3423,6 +3981,69 @@
       sitzWunsch = vorher; ruhe = vorRuhe;
     })();
 
+    // Die Hinlegen-Taste. Zusaetzlich zum Muster der Sitzen-Taste ist hier
+    // zu zeigen, dass Noki aus dem SITZEN erst vollstaendig aufsteht, bevor
+    // das Hinlegen beginnt — sonst kippte er aus der Hocke nach hinten.
+    (function () {
+      function klick() {
+        if (liegeUebergang() || sitzUebergang()) return false;   // gesperrt
+        if (liegtGerade() || liegeWunsch === "liegen") liegeWunsch = null;
+        else { liegeWunsch = "liegen"; sitzWunsch = "stehen"; }
+        ruhe = 0;
+        return true;
+      }
+      function laufe(n, merk) {
+        for (var i = 0; i < n; i++) {
+          var v = liegeU;
+          time += 1 / 60; updateRig(1 / 60);
+          var d = liegeU - v;
+          if (Math.abs(d) > 0.010) melde("liege-taste-sprung",
+            "liegeU springt um " + d.toFixed(4) + " je Bild (" + merk + ")");
+          if (merk === "hin" && d < -1e-9) melde("liege-taste-rueckwaerts",
+            "liegeU laeuft rueckwaerts beim Hinlegen");
+          if (merk === "auf" && d > 1e-9) melde("liege-taste-rueckwaerts",
+            "liegeU laeuft vorwaerts beim Aufrichten");
+        }
+      }
+      var vorLie = liegeWunsch, vorSitz = sitzWunsch, vorRuhe = ruhe;
+
+      // 1 · Aus dem Sitzen heraus: erst stehen, dann liegen
+      liegeWunsch = null; sitzWunsch = "sitzen"; setHaltung("sitzen"); ruhe = 0;
+      for (var i0 = 0; i0 < 160; i0++) { time += 1/60; updateRig(1/60); }
+      if (sitzU < 0.999) melde("liege-taste-sitz", "Noki sitzt nicht, bevor die Taste kommt");
+      if (!klick()) melde("liege-taste-klick", "Klick im Sitzen wurde verschluckt");
+      // Aufstehen dauert 1.25 s = 75 Bilder; erst danach beginnt das Liegen.
+      for (var i1 = 0; i1 < 70; i1++) {
+        time += 1/60; updateRig(1/60);
+        if (liegeU > 1e-9 && sitzU > 0.0005) melde("liege-taste-reihenfolge",
+          "Hinlegen beginnt, obwohl Noki noch sitzt (sitzU " + sitzU.toFixed(3) + ")");
+      }
+      for (var i2 = 0; i2 < 20; i2++) { time += 1/60; updateRig(1/60); }
+      if (sitzU > 0.001) melde("liege-taste-reihenfolge", "Noki steht nicht auf");
+
+      // 2 · Klicks mitten in der Bewegung verfallen
+      if (klick()) melde("liege-taste-sperre", "Klick mitten im Hinlegen wurde angenommen");
+      laufe(30, "hin");
+      if (klick()) melde("liege-taste-sperre", "Zweiter Klick mitten im Hinlegen wurde angenommen");
+      laufe(140, "hin");
+      if (liegeU < 0.999) melde("liege-taste-ziel",
+        "Hinlegen nicht fertig (liegeU " + liegeU.toFixed(3) + ")");
+
+      // 3 · Zurueck, und der Wunsch wird zurueckgenommen
+      if (!klick()) melde("liege-taste-klick", "Klick im Liegen wurde verschluckt");
+      laufe(40, "auf");
+      if (klick()) melde("liege-taste-sperre", "Klick mitten im Aufrichten wurde angenommen");
+      laufe(110, "auf");
+      if (liegeU > 0.001) melde("liege-taste-ziel",
+        "Aufrichten nicht fertig (liegeU " + liegeU.toFixed(3) + ")");
+      if (liegeWunsch !== null) melde("liege-taste-wunsch",
+        "Liege-Wunsch nicht zurueckgenommen — die Zeitkaskade bliebe blockiert");
+      liegeWunsch = vorLie; sitzWunsch = vorSitz; ruhe = vorRuhe;
+      liegeU = 0; liegeRi = 1; liegeRiIst = 1; liegeKontakt = 0;
+      sitzU = 0; sitzRi = 1; sitzRiIst = 1; sitzKontakt = 0;
+      setHaltung("stehen");
+    })();
+
     // Griffe: beruehrt jeder tragende Finger, dringt nichts ein, bleibt der
     // Gegenstand aus Arm, Rumpf und Kopf heraus? Die Rechnung, die die
     // Griffwerte bestimmt hat, prueft sie hier dauerhaft nach.
@@ -3492,7 +4113,8 @@
     }).join(", ");
     var text = (ok ? "SELBSTTEST BESTANDEN" : "SELBSTTEST FEHLGESCHLAGEN (" + schl.length + " Fehlerarten)")
       + "\n1200 s simuliert, 16 Kanaele geprueft, 5 Griffe in allen Phasen"
-      + "\nSitzen-Taste: Ablauf, Sperre und Rueckkehr geprueft"
+      + "\nSitzen- und Hinlegen-Taste: Ablauf, Sperre und Rueckkehr geprueft"
+      + "\n" + liegeBericht
       + "\nFingerfedern: " + federn.n + " Bilder, groesste Aenderung je Bild "
       + federn.spitze.toFixed(4)
       + "\nEinlagen gezogen: " + gezogen.length
@@ -3627,6 +4249,7 @@
       if (moodEl) moodEl.textContent = (stimmung >= 0 ? "+" : "") + stimmung.toFixed(2);
       if (clipEl) clipEl.textContent = clip ? EINLAGE[clip.key].label : "—";
       zeichneSitzKnopf();
+      zeichneLiegeKnopf();
     }
   }
 
@@ -3650,6 +4273,16 @@
     sitzRi = (num(hash.sitri, 1) < 0) ? -1 : 1;   // welche Kurvenrichtung zeigen?
     haltung = "__test";
     for (var tg in HALTUNG.__test) { hal[tg] = HALTUNG.__test[tg]; }
+  }
+  // Liegen im Standbild: der Fortschritt wird direkt gesetzt. Anders als
+  // beim Sitzen braucht es dafuer keine Ersatzhaltung — die Liegekurve
+  // haengt nicht an HALTUNG, sondern allein an `liegeU`.
+  if (hash.lieg !== undefined) {
+    liegeStand = clamp(num(hash.lieg, 1), 0, 1);
+    liegeU = liegeStand;
+    liegeWunsch = liegeStand > 0.5 ? "liegen" : null;
+    liegeRi = (num(hash.liegri, 1) < 0) ? -1 : 1;
+    liegeRiIst = liegeRi;
   }
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
   if (hash.obj !== undefined) {

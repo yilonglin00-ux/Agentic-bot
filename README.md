@@ -32,6 +32,7 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | Ausdrucks-Schaltflächen | neun Gefühlszustände und die Winkgeste |
 | Gehen | startet und stoppt den Watschelgang; der Boden zieht dabei unter ihm durch |
 | **Sitzen / Aufstehen** | eigene Taste im Reiter *Bewegung*: ein Klick startet den vollen Ablauf, während er läuft ist sie gesperrt. Ohne Klick setzt Noki sich nach 90 s von selbst — mit Zeitraffer ×10 nach neun Sekunden zu sehen. `#sitv=0…1` zeigt jeden Zwischenstand |
+| **Hinlegen / Aufrichten** | dritte Taste im Reiter *Bewegung*: Noki legt sich in 2.2 s auf den Rücken — Hocke, Abrollen über den Rücken, Kinn zur Brust, Kopf setzt zuletzt auf. Sitzt er gerade, steht er erst vollständig auf. `#lieg=0…1` zeigt jeden Zwischenstand |
 | Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
 
 Noki steht dabei nie still: Er atmet, blinzelt in unregelmäßigem Rhythmus, sieht sich um, und
@@ -87,13 +88,20 @@ noki.html#yaw=90&pitch=20&dist=2.0&e=denkend&still=1&t=0&ui=0
 `yaw`/`pitch` in Grad, `dist` Kameraabstand, `e` Ausdruckszustand, `still=1` friert jede
 Bewegung ein, `ui=0` blendet die Bedienoberfläche aus, `theme` erzwingt `dark` oder `light`.
 Dazu `pose=` (stehen · sitzen · doesen · schlaf), `clip=` mit `cu=` für eine Einlage an einem
-bestimmten Zeitpunkt, `achtung=1` für die Zuhör-Haltung und `geh=` für eine Schrittphase
-(`0 … 1` = ein voller Schritt).
+bestimmten Zeitpunkt, `achtung=1` für die Zuhör-Haltung, `geh=` für eine Schrittphase
+(`0 … 1` = ein voller Schritt), `sitv=`/`sitri=` für jeden Zwischenstand des Hinsetzens und
+`lieg=`/`liegri=` für jeden Zwischenstand des Hinlegens.
 
 **Selbsttest:** `noki.html#selftest=1` fährt das Rig über 1200 simulierte Sekunden und prüft
 alle 16 Kanäle gegen ihre Grenzen, die Reihenfolge der Zeitkaskade, die Anti-Wiederholung der
 Idle-Einlagen, die Sprungfreiheit jedes Kanals, den Verlauf der Stimmung, die konstante
 Beinlänge über den Sitzübergang und dass beim Gehen stets ein Fuß still auf dem Boden steht.
+
+Dazu die **Liegeprüfung**: Über den gesamten Hinlege-Ablauf, in beiden Richtungen, wird
+nachgerechnet, dass kein Punkt von Rumpf, Hals, Kopf, Armen und Händen unter den Boden gerät,
+dass die Figur in der Endlage weder schwebt noch einsinkt, dass der Kontaktpunkt monoton vom
+Gesäß zum Kopf wandert — und dass bei `liegeU = 0` jeder neue Betrag exakt null ist, Stehen,
+Gehen und Sitzen also unverändert geblieben sind.
 
 Dazu die **Griffprüfung**: Für jeden der fünf Gegenstände wird nachgerechnet, ob jeder
 tragende Finger die Grifffläche wirklich berührt, ob die nicht tragenden Finger wegbleiben,
@@ -123,6 +131,9 @@ ursprünglich bestimmt; sie wacht seither über sie.
       Handwurzel, Pronation der leeren Hand
 - [x] **Sitzen und Aufstehen** — Kniegelenk, gerechnete Sitzhaltung, eigener
       Bewegungsablauf mit Vorbereitung, Absenken, Aufsetzen und Aufrichten
+- [x] **Hinlegen und Liegen** — abgeleitete Bodenhöhe statt Keyframes: der Rumpf rollt
+      über den Rücken ab, der Kontaktpunkt wandert von selbst vom Gesäß zum Kopf,
+      die Hände gleiten am Boden entlang
 - [ ] Stufe 3: die seltenen Momente, dreizehn weitere Gegenstände, Gegenstände mit Platz in der Welt
 - [ ] Anbindung als interaktiver Begleiter
 
