@@ -6,22 +6,67 @@
 
 ---
 
-## Die Ausgangslage, ehrlich benannt
+## Die Ausgangslage — und wie sie sich erledigt hat
 
-Die Aufgabenstellung verlangt „welche Finger liegen wo" und „die Finger dürfen nicht durch
-Objekte hindurchgehen" — und im selben Atemzug, das Design der Figur nicht zu ändern.
+Als dieses Dokument entstand, hatte Noki keine Finger. Seine Hand war eine Kugel mit Radius
+`0.032`, und „welcher Finger liegt wo" ließ sich deshalb nicht beantworten. Der damalige
+Ausweg war ein **Handgelenk**: an einer Kugel unsichtbar, am gehaltenen Gegenstand sofort
+sichtbar. Es bleibt und trägt weiterhin jede Nutzbewegung.
 
-**Noki hat keine Finger.** Seine Hand ist eine Kugel mit Radius `0.032`, festgelegt in
-[02](02-formensprache-material.md) als Teil seiner Formensprache. Beides zusammen geht nicht.
+**Inzwischen hat Noki Finger** — vier und einen Daumen je Hand, in derselben Formensprache,
+ohne Kante und ohne Fuge (Maße in [02](02-formensprache-material.md)). Damit ist die Frage
+nach der Fingerlage wieder eine echte Frage, und sie wird unten für jede Griffart
+beantwortet.
 
-Die getroffene Entscheidung: **Die Kugelhand bleibt. Ein Handgelenk kommt dazu.** An einer
-Kugel ist es unsichtbar — am gehaltenen Gegenstand sieht man es sofort. Damit werden
-Eindrehen, Kippen und Drehen echte Bewegungen, ohne dass die Silhouette sich um einen
-Millimeter ändert.
+Drei Dinge mussten dafür nachgeben, und alle drei waren Fehler, die man an einer Kugelhand
+nicht sehen konnte:
 
-Aus „welcher Finger liegt wo" wird dadurch eine andere, aber gleichwertige Frage:
-**Wo liegt der Griffpunkt, und welche Fläche des Gegenstands berührt die Hand?** Genau das
-ist unten je Gegenstand festgelegt.
+1. **Die Finger waren zu kurz.** Der Kreisbogen, den sie beim Krümmen beschreiben, hatte
+   einen freien Innenradius von `0.0071`. Damit lässt sich ein Bleistift halten und sonst
+   nichts. Um den Faktor `1.30` verlängert sind es `0.0108` — und die Finger etwa so lang,
+   wie der Ballen hoch ist.
+2. **Die Gegenstände waren zu groß.** Alle wurden mit demselben festen Faktor `1.55`
+   vergrößert. Der Schraubenzieher war damit `0.28` lang — auf Nokis Körpergröße umgerechnet
+   ein **48-cm-Werkzeug mit einem Griff so dick wie die Handfläche breit**. Das kann keine
+   Hand fassen, gleich wie gut die Finger sind. Jeder Gegenstand hat jetzt seine eigene
+   Größe.
+3. **Die Gegenstände zeigten in die falsche Richtung.** Rechnet man die alten Griffdrehungen
+   durch, wies die Schraubenzieherklinge nach hinten, zum Körper.
+
+## Die Griffwerte sind gerechnet, nicht geschätzt
+
+Größe, Griffversatz, beide Griffdrehungen und die Fingerhaltung jeder Griffart stammen aus
+einer Suche, die Handgeometrie und Gegenstands-Distanzfeld gegeneinander rechnet. Sie muss
+vier Bedingungen gleichzeitig erfüllen:
+
+1. **Jeder tragende Finger berührt** — Abstand zur Oberfläche im Band `−1.5 mm … +1.3 mm`.
+   Mehr heißt schweben, weniger heißt durchgreifen.
+2. **Nicht tragende Finger bleiben weg.** Beim Präzisionsgriff dürfen Mittel-, Ring- und
+   kleiner Finger den Schlüssel nicht berühren, sonst ist es kein Zangengriff mehr.
+3. **Nichts dringt ein** — weder in den Ballen noch in den eigenen Unterarm.
+4. **Der Gegenstand zeigt richtig** — Klinge nach vorn-unten, Tassenöffnung nach oben,
+   Schirm zum Gesicht, Schlüsselbart zum Schloss.
+
+Zwei Einsichten aus dieser Rechnung, die vorher niemand hätte sehen können:
+
+- **Es genügt nicht, den Abstand zum ganzen Gegenstand zu messen.** Die erste Fassung
+  erfüllte alle Bedingungen — und die Faust schloss sich um den *Schaft* des
+  Schraubenziehers, weil der zufällig am nächsten lag. Seither weiß die Rechnung, welches
+  Teil gegriffen werden soll.
+- **Der eigene Unterarm ist ein Hindernis.** Noki hat praktisch kein Handgelenk; der
+  Unterarm sitzt fast auf dem Ballen. Ohne diese Bedingung schob die Suche den Griffknauf
+  bereitwillig in den Arm.
+
+Dieselbe Rechnung läuft im Selbsttest (`#selftest=1`) weiter und prüft jeden Griff und jede
+Phase erneut. Was die Werte bestimmt hat, wacht seither über sie.
+
+## Warum Kontakt nicht vom Handgelenk abhängt
+
+Hand und Gegenstand durchlaufen **dieselbe** Handgelenkdrehung — die Hand in `handTeil`, der
+Gegenstand in `zuGriff`. Ihre Lage zueinander kann sich dadurch bauartbedingt nicht ändern.
+Der Gegenstand kann in der Hand weder rutschen noch zittern; das ist keine Einstellungssache.
+Zu prüfen bleibt nur, ob etwas eindringt — und wo der Gegenstand relativ zum **Körper**
+landet, denn das ändert das Handgelenk sehr wohl.
 
 ---
 
@@ -53,6 +98,43 @@ Griffart zugewiesen — mehr braucht es nicht, damit er sich richtig verhält.
 | **Zwei-Hand-Griff** | `−0.14 / 0` | beide vor | Schweres oder Großes: Tablet, Kiste |
 | **Zeigegriff** | `+0.30 / 0` | weit vor | Taschenlampe, alles Gerichtete |
 | **Traggriff** | `0 / −0.06` | hängend | Flasche, Pflanze, Koffer im Gehen |
+
+### Und welcher Finger dabei was tut
+
+Krümmung `0` heißt gestreckt, `1.3` heißt fest um etwas herum. Der Daumen hat zusätzlich
+seinen Oppositionswinkel, die Hand ihren Fingerabstand.
+
+| Griffart | Zeige | Mittel | Ring | klein | Daumen | Opp. | Abstand | Welche Finger tragen |
+|---|---|---|---|---|---|---|---|---|
+| **Kraftgriff** | 1.22 | 1.12 | 1.13 | 1.17 | 0.95 | 0.72 | 0.010 | alle fünf umschließen den Griff |
+| **Präzisionsgriff** | 1.06 | 0.96 | 1.06 | 1.12 | 1.01 | 0.80 | 0.006 | **nur Zeigefinger und Daumen** — die drei übrigen sind eingerollt und berühren nichts |
+| **Henkelgriff** | 1.32 | 1.22 | 0.72 | 0.56 | 0.48 | 0.55 | 0.008 | Zeige- und Mittelfinger haken durch den Henkel, Ring und klein hängen locker darunter |
+| **Flachgriff** | 0.99 | 0.98 | 1.04 | 1.04 | 0.36 | 0.51 | 0.012 | vier Finger hinter dem Gerät, Daumen fast gestreckt auf der Vorderseite |
+| **Zwei-Hand-Griff** | 0.88 | 0.93 | 0.96 | 0.92 | 0.19 | 0.44 | 0.014 | wie flach, weiter offen — beide Hände an gegenüberliegenden Rändern |
+| **Zeigegriff** | 0.08 | 1.29 | 1.33 | 1.31 | 0.72 | 0.62 | 0.006 | Zeigefinger gestreckt, die übrigen zur Faust |
+| **Traggriff** | 1.02 | 1.06 | 1.05 | 1.00 | 0.86 | 0.60 | 0.010 | gleichmäßiger Hakengriff, Daumen ohne Gegendruck |
+
+Beim Henkelgriff geht der Zeigefinger wirklich **durch** den Henkel: Bei der Tassengröße
+`0.720` hat der Ring ein Innenloch von `0.0126`, der Zeigefinger einen Radius von `0.0075`.
+Es bleiben `0.005` Luft.
+
+### Die leere Hand
+
+Eine entspannte Hand ist nie flach. Ohne Gegenstand steht sie auf
+`[0.28, 0.33, 0.36, 0.40]` mit Daumen `0.20`, Opposition `0.52` und dem größten
+Fingerabstand aller Haltungen (`0.016`) — leicht gekrümmt, ungleich, offen. Die
+Zielhaltung mischt zwischen dieser Ruhelage und der Signatur der Griffart; wie weit,
+sagt der Tragezustand. Der Griff entsteht dadurch **beim Fassen** und nicht davor.
+
+### Die Größen
+
+| Gegenstand | Größe | Was das heißt |
+|---|---|---|
+| Schraubenzieher | `0.599` | Griffradius `0.011` — ein Werkzeug, das in die Faust passt |
+| Tasse | `0.720` | Durchmesser `0.049`, Henkelloch `0.0126` |
+| Schlüssel | `0.800` | Schaft `0.042` lang |
+| Smartphone | `0.900` | `0.047 × 0.094` |
+| Tablet | `0.951` | `0.095 × 0.133` |
 
 ---
 

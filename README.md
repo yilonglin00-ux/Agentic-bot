@@ -28,13 +28,14 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | Reiter in der Leiste | Ansicht · Ereignis · Ausdruck · Ablauf · Gegenstand · Bewegung |
 | Ereignis-Schaltflächen | die acht Ereignisse, die später die KI-Seite meldet |
 | Ablauf-Schaltflächen | mehrstufige Sequenzen: Aufgabe, Wiedersehen, Erklären, Dankbarkeit … |
-| Gegenstand-Schaltflächen | fünf Gegenstände, sieben Griffarten und die Nutzungsfolgen Trinken, Bedienen, Schrauben |
+| Gegenstand-Schaltflächen | fünf Gegenstände, sieben Griffarten und die Nutzungsfolgen Trinken, Bedienen, Schrauben — jeder Griff mit eigener Fingerhaltung |
 | Ausdrucks-Schaltflächen | neun Gefühlszustände und die Winkgeste |
 | Gehen | startet und stoppt den Watschelgang; der Boden zieht dabei unter ihm durch |
 | Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
 
 Noki steht dabei nie still: Er atmet, blinzelt in unregelmäßigem Rhythmus, sieht sich um, und
-seine Stimmungsantenne schwingt jeder Kopfbewegung nach.
+seine Stimmungsantenne schwingt jeder Kopfbewegung nach. Auch seine Hände ruhen nie ganz —
+jeder Finger hat seine eigene Feder, und alle paar Sekunden legt sich einer neu an.
 
 **Er verhält sich auch, wenn du nichts tust.** Nach 20 s lässt seine Aufmerksamkeit nach, nach
 90 s setzt er sich hin und beschäftigt sich selbst, nach 4 Minuten döst er, nach 15 Minuten
@@ -93,6 +94,13 @@ alle 16 Kanäle gegen ihre Grenzen, die Reihenfolge der Zeitkaskade, die Anti-Wi
 Idle-Einlagen, die Sprungfreiheit jedes Kanals, den Verlauf der Stimmung, die konstante
 Beinlänge über den Sitzübergang und dass beim Gehen stets ein Fuß still auf dem Boden steht.
 
+Dazu die **Griffprüfung**: Für jeden der fünf Gegenstände wird nachgerechnet, ob jeder
+tragende Finger die Grifffläche wirklich berührt, ob die nicht tragenden Finger wegbleiben,
+und ob der Gegenstand in Ballen, Unterarm, Rumpf oder Kopf eindringt — letzteres in **jeder**
+Greifphase. Anschließend laufen alle Gegenstände durch alle Phasen, damit ein Aufschwingen
+der Fingerfedern auffällt, bevor man es sieht. Dieselbe Rechnung hat die Griffwerte
+ursprünglich bestimmt; sie wacht seither über sie.
+
 ---
 
 ## Stand
@@ -105,6 +113,8 @@ Beinlänge über den Sitzübergang und dass beim Gehen stets ein Fuß still auf 
 - [x] **Stufe 1 umgesetzt** — 13 Animationen inkl. Gehen, Verhaltensmodell, Zeitkaskade, Stimmung
 - [x] **Stufe 2 umgesetzt** — Sequenzsystem, zehn neue Einlagen, zwei Ausdrücke, neun Abläufe, Greifsystem mit vier Gegenständen
 - [x] **Greifsystem** — Handgelenk, sieben Griffarten, Gewichtswirkung, drei volle Nutzungsfolgen
+- [x] **Hände mit Fingern** — vier Finger und ein Daumen je Hand, jeder mit eigener Feder;
+      gerechnete Griffwerte statt geschätzter, Griffprüfung im Selbsttest
 - [ ] Stufe 3: die seltenen Momente, dreizehn weitere Gegenstände, Gegenstände mit Platz in der Welt
 - [ ] Anbindung als interaktiver Begleiter
 

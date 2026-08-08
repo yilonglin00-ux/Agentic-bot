@@ -69,9 +69,38 @@ Weltkoordinaten.
 | Oberarm ×2 | Kapsel | lokal `(0.006, −0.018, 0)` → `(0.032, −0.112, 0)` | Radius `0.050` | Perlweiß |
 | Gelenkband ×2 | Kapsel | lokal `(0.033, −0.116, 0)` → `(0.037, −0.134, 0)` | Radius `0.046` | Graphit |
 | Unterarm ×2 | Kapsel | lokal `(0.038, −0.140, 0)` → `(0.048, −0.206, 0.004)` | Radius `0.043` | Perlweiß |
-| Hand ×2 | Kugel | lokal `(0.052, −0.238, 0.006)` | Radius `0.032` | Graphit |
+| **Handballen ×2** | Ellipsoid | lokal `(0.052, −0.238, 0.006)`, Mitte `(0, 0.004, 0.002)` | Radien `(0.0290, 0.0300, 0.0235)` | Graphit |
+| **Handteller ×2** | Ellipsoid | lokal in der Innenfläche, `(0, −0.0020, 0.0113)` | Radien `(0.0230, 0.0245, 0.0140)` — bündig, deshalb ein Farbfeld und keine Beule | Kontaktfläche |
 | Bein ×2 | Kapsel | `(±0.085, 0.158, 0)` → `(±0.098, 0.076, 0)` | Radius `0.044` | Graphit |
 | Fuß ×2 | Box mit Rundung | `(±0.105, 0.047, 0.020)` | Halbmaße `(0.032, 0.004, 0.050)`, Radius `0.042` → **L 0.184 · B 0.148** | Perlweiß |
+
+### Finger
+
+Aus der frühen Handkugel sind vier Finger und ein Daumen geworden — dieselbe Formensprache,
+keine Kante, keine Fuge. Jeder Finger besteht aus zwei Kapseln und einer Kuppe und krümmt
+sich um zwei Gelenke: das Grundglied um `c · 0.95`, das Mittelglied zusätzlich um `c · 1.15`.
+Der stärker gekrümmte zweite Abschnitt ist der Grund, warum die Hand einen Haken bildet und
+nicht nur eine Schaufel.
+
+Alle Werte lokal zur Handmitte. `Spreizung` ist der Faktor, mit dem der Fingerabstands-Kanal
+auf diesen Finger wirkt.
+
+| Finger | Wurzel | Grundglied | Mittelglied | Radius | Spreizung |
+|---|---|---|---|---|---|
+| Zeigefinger | `(−0.0165, −0.0195, 0.0075)` | `0.0228` | `0.0176` | `0.0075` | `+1.5` |
+| Mittelfinger | `(−0.0055, −0.0215, 0.0080)` | `0.0247` | `0.0189` | `0.0077` | `+0.5` |
+| Ringfinger | `(0.0055, −0.0205, 0.0075)` | `0.0234` | `0.0179` | `0.0074` | `−0.5` |
+| kleiner Finger | `(0.0160, −0.0180, 0.0065)` | `0.0195` | `0.0150` | `0.0069` | `−1.5` |
+| **Daumen** | `(−0.0230, −0.0020, 0.0130)` | `0.0202` | `0.0163` | `0.0083` | eigener Oppositionswinkel |
+
+Die Fingerlänge ist **nicht frei gewählt**. Die gekrümmten Glieder beschreiben einen
+Kreisbogen, und dessen freier Innenradius ist alles, was die Hand umschließen kann. Bei
+kürzeren Fingern läge er bei `0.0071` — Noki könnte einen Bleistift halten und sonst nichts.
+Mit den Werten oben sind es `0.0108`, und die Finger sind etwa so lang, wie der Ballen hoch
+ist. Das ist zugleich menschliche Proportion.
+
+Der Daumen hat einen eigenen Kanal, den **Oppositionswinkel**: eine Drehung um `z` um seine
+Wurzel. Er unterscheidet den Zangengriff vom Faustgriff deutlicher als jede Krümmung.
 
 Die Armteile sind lokal zum jeweiligen Schultergelenk und werden für die linke Seite an der
 `x`-Achse gespiegelt. Der eingebaute Versatz nach außen (`x` wächst nach unten) gibt den
@@ -104,7 +133,7 @@ Silhouette, wenn Noki im Profil steht.
 
 ## Materialien
 
-Vier Materialien, mehr nicht. Jede weitere Oberfläche verwässert die Figur.
+Fünf Materialien an der Figur, mehr nicht. Jede weitere Oberfläche verwässert sie.
 
 | Material | Grundfarbe | Rauheit | Metallanteil | Wo |
 |---|---|---|---|---|
@@ -112,6 +141,7 @@ Vier Materialien, mehr nicht. Jede weitere Oberfläche verwässert die Figur.
 | **Graphit-Chrom** | `#151719` | 0.18 | 0.90 | Hals, Ohrkapseln, Antennen, Gelenke, Hände, Beine |
 | **Visierglas** | `#060708` | 0.07 | 0.10 | Visier. Umgebungsspiegelung auf 35 % gedämpft |
 | **Glimm** | `#6B4F2B` | 0.32 | 0.00 | Antennenperle. Emission = Stimmungsfarbe × 1.35 |
+| **Kontaktfläche** | `#2F3135` | 0.62 | 0.05 | Handteller und Fingerkuppen. Matt statt glänzend — dort sieht man den Druckpunkt und kein Spiegelbild |
 
 Die Beleuchtung ist ein Studio-Setup: warmes Hauptlicht von links oben vorn, kühles
 Aufhelllicht von rechts, Kantenlicht von hinten, dazu zwei weiche Flächenlichter in der
@@ -163,7 +193,7 @@ Farbreiz im Bild bleibt.
 **Nein**
 
 - Keine scharfen Kanten, keine Fasen, keine Facetten
-- Keine dritte Farbfläche, keine Muster, keine Aufkleber
+- Keine weitere Farbfläche, keine Muster, keine Aufkleber
 - Keine sichtbaren Schrauben, Nieten, Kabel oder Lüftungsgitter
 - Keine zweite lange Antenne — die Asymmetrie ist der Charakter
 - Kein kaltes Cyan, auch nicht als Akzent

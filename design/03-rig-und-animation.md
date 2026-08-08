@@ -59,6 +59,16 @@ Füße bleiben stehen. Das ist der Unterschied zwischen „schwebt" und „steht
 | `bein_*` | Schrittschwung (x) | 0 | ±0.42 | **je Bein getrennt**, gegenphasig — addiert sich auf den Beinwinkel |
 | `glimm` | Helligkeit | 1.0 | 0 … 2.0 | **eigener Kanal**, unabhängig von der Augenhelligkeit |
 | `boden` | Versatz (z) | 0 | frei laufend | Bodenbänder ziehen beim Gehen durch |
+| `handgelenk_r` | Beugen (x) | 0 | −1.70 … +1.70 | Trinken, Tippen, Ansetzen |
+| `handgelenk_r` | Drehen (y) | 0 | ±1.90 | **Unterarmdrehung** — hieran hängt jedes Schrauben und Aufschließen |
+| `handgelenk_r` | Kippen (z) | 0 | ±1.70 | seitliche Feinlage |
+| `handgelenk_l` | x, y, z | 0 | wie rechts | eigener Kanal, damit die leere linke Hand nicht die Griffhaltung der rechten nachmacht |
+| `finger_r` ×4 | Krümmung | 0.28 … 0.40 | −0.15 … +1.66 | Zeige-, Mittel-, Ring-, kleiner Finger, **je ein eigener Kanal** |
+| `daumen_r` | Krümmung | 0.20 | −0.15 … +1.66 | |
+| `daumen_r` | Opposition (z) | 0.52 | 0.03 … 1.32 | unterscheidet Zangen- von Faustgriff deutlicher als jede Krümmung |
+| `hand_r` | Fingerabstand | 0.016 | 0 … 0.065 | fächert die vier Finger; Zeigefinger `+1.5`, kleiner `−1.5` |
+| `finger_l` | Krümmung | 0.30 | wie rechts | eine Zahl für die ganze linke Hand, mit leicht ungleichen Faktoren je Finger |
+| `detail` | Fingerdetails | 1 | 0 … 1 | Abstufung nach Kameraabstand und Bildrate; die Finger schrumpfen stetig in den Ballen |
 
 Alle Kanäle dieser Tabelle sind in `noki.html` umgesetzt und werden vom eingebauten
 Selbsttest (`noki.html#selftest=1`) über 1200 simulierte Sekunden gegen genau diese Grenzen
@@ -210,6 +220,38 @@ noki.html#yaw=90&pitch=20&dist=2.0&e=denkend&still=1&t=0&ui=0&theme=dark
 | `t` | Zeitpunkt im eingefrorenen Zustand |
 | `ui=0` | blendet die Bedienoberfläche aus |
 | `theme` | `dark` oder `light` erzwingen |
+
+---
+
+## Die Finger federn, sie werden nicht keygeframt
+
+Jeder der zehn Fingerkanäle hängt an einer eigenen gedämpften Feder. Das ist kein Zierrat,
+sondern der Grund, warum die Hand nicht roboterhaft wirkt:
+
+| | Zeige | Mittel | Ring | klein | Daumen |
+|---|---|---|---|---|---|
+| Steifigkeit `ω` | 25.0 | 22.0 | 19.5 | 17.0 | 23.0 |
+
+Die Dämpfung liegt bei `ζ = 0.68`, also **unter** dem aperiodischen Fall. Daraus folgen zwei
+Dinge von selbst, die man sonst mühsam eintragen müsste:
+
+- Die Hand schließt sich **als Welle**, nicht als Block — der Zeigefinger ist zuerst da, der
+  kleine zuletzt.
+- Beim Zupacken **gibt jeder Finger kurz nach** und legt sich dann an. Das ist der Überschwung
+  der unterdämpften Feder, keine eigene Animation.
+
+Ein schwerer Gegenstand senkt `ω` um bis zu 22 % — die Hand wird träger — und vertieft die
+Krümmung um `0.13 · Gewicht`: der Druckpunkt, den man sieht.
+
+Dieselbe Umstellung gilt für die Griffkanäle des Arms. Vorher zog eine Exponentialkurve nach
+(`1 − 0.02^(dt/0.55)`). Die beginnt mit ihrer **höchsten** Geschwindigkeit und bremst nur
+noch ab; ihr fehlt die Beschleunigung, und genau daher kam der maschinelle Eindruck. Die
+Feder (`ω = 9.6`, `ζ = 0.80`) beginnt bei null, holt aus, läuft durch und schwingt leicht
+über. Sie ist nebenbei auch **sicherer**: Ihre Spitzengeschwindigkeit liegt unter der der
+Exponentialkurve, die bei großen Sprüngen die Grenze von 0.160 rad je Bild gerissen hätte.
+
+Ausgenommen ist der Tragezustand `gr`. Er darf nicht über 1 hinausschwingen, sonst wüchse der
+Gegenstand über seine Größe hinaus — er zieht weiter exponentiell nach.
 
 ---
 
