@@ -96,8 +96,11 @@ Beinlänge über den Sitzübergang und dass beim Gehen stets ein Fuß still auf 
 
 Dazu die **Griffprüfung**: Für jeden der fünf Gegenstände wird nachgerechnet, ob jeder
 tragende Finger die Grifffläche wirklich berührt, ob die nicht tragenden Finger wegbleiben,
-und ob der Gegenstand in Ballen, Unterarm, Rumpf oder Kopf eindringt — letzteres in **jeder**
-Greifphase. Anschließend laufen alle Gegenstände durch alle Phasen, damit ein Aufschwingen
+ob der Daumen dem Griff **gegenüber** liegt statt nur daneben, ob ein Fingerende durch die
+Handfläche läuft, und ob der Gegenstand in Ballen, Unterarm, Rumpf oder Kopf eindringt —
+letzteres in **jeder** Greifphase. Geprüft wird außerdem, dass der Daumen an **beiden**
+Händen auf der Außenseite sitzt: Genau dieser Fehler steckte einmal im Modell, sauber
+symmetrisch auf beiden Seiten. Anschließend laufen alle Gegenstände durch alle Phasen, damit ein Aufschwingen
 der Fingerfedern auffällt, bevor man es sieht. Dieselbe Rechnung hat die Griffwerte
 ursprünglich bestimmt; sie wacht seither über sie.
 
@@ -115,6 +118,8 @@ ursprünglich bestimmt; sie wacht seither über sie.
 - [x] **Greifsystem** — Handgelenk, sieben Griffarten, Gewichtswirkung, drei volle Nutzungsfolgen
 - [x] **Hände mit Fingern** — vier Finger und ein Daumen je Hand, jeder mit eigener Feder;
       gerechnete Griffwerte statt geschätzter, Griffprüfung im Selbsttest
+- [x] **Handanatomie korrigiert** — Daumen außen statt innen, drei Fingergelenke,
+      Handwurzel, Pronation der leeren Hand
 - [ ] Stufe 3: die seltenen Momente, dreizehn weitere Gegenstände, Gegenstände mit Platz in der Welt
 - [ ] Anbindung als interaktiver Begleiter
 

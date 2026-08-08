@@ -102,21 +102,44 @@ Griffart zugewiesen — mehr braucht es nicht, damit er sich richtig verhält.
 ### Und welcher Finger dabei was tut
 
 Krümmung `0` heißt gestreckt, `1.3` heißt fest um etwas herum. Der Daumen hat zusätzlich
-seinen Oppositionswinkel, die Hand ihren Fingerabstand.
+seinen Oppositionswinkel, die Hand ihren Fingerabstand. Alle Werte gerechnet, nicht
+geschätzt.
 
 | Griffart | Zeige | Mittel | Ring | klein | Daumen | Opp. | Abstand | Welche Finger tragen |
 |---|---|---|---|---|---|---|---|---|
-| **Kraftgriff** | 1.22 | 1.12 | 1.13 | 1.17 | 0.95 | 0.72 | 0.010 | alle fünf umschließen den Griff |
-| **Präzisionsgriff** | 1.06 | 0.96 | 1.06 | 1.12 | 1.01 | 0.80 | 0.006 | **nur Zeigefinger und Daumen** — die drei übrigen sind eingerollt und berühren nichts |
+| **Kraftgriff** | 1.16 | 0.99 | 1.03 | 1.12 | 1.05 | 0.69 | 0.010 | alle fünf; der Griff liegt quer durch die Faust, der Knauf im Ballen |
+| **Präzisionsgriff** | 1.03 | 0.96 | 1.06 | 1.12 | 1.00 | 0.80 | 0.006 | **nur Zeigefinger und Daumen** — die drei übrigen sind eingerollt und berühren nichts |
 | **Henkelgriff** | 1.32 | 1.22 | 0.72 | 0.56 | 0.48 | 0.55 | 0.008 | Zeige- und Mittelfinger haken durch den Henkel, Ring und klein hängen locker darunter |
-| **Flachgriff** | 0.99 | 0.98 | 1.04 | 1.04 | 0.36 | 0.51 | 0.012 | vier Finger hinter dem Gerät, Daumen fast gestreckt auf der Vorderseite |
-| **Zwei-Hand-Griff** | 0.88 | 0.93 | 0.96 | 0.92 | 0.19 | 0.44 | 0.014 | wie flach, weiter offen — beide Hände an gegenüberliegenden Rändern |
+| **Flachgriff** | 0.60 | 0.59 | 0.62 | 0.70 | 0.18 | 0.46 | 0.014 | vier Finger flach hinter dem Gerät, Daumen fast gestreckt auf der Vorderseite |
+| **Zwei-Hand-Griff** | 0.49 | 0.50 | 0.52 | 0.60 | 0.15 | 0.42 | 0.017 | wie flach, weiter offen |
 | **Zeigegriff** | 0.08 | 1.29 | 1.33 | 1.31 | 0.72 | 0.62 | 0.006 | Zeigefinger gestreckt, die übrigen zur Faust |
 | **Traggriff** | 1.02 | 1.06 | 1.05 | 1.00 | 0.86 | 0.60 | 0.010 | gleichmäßiger Hakengriff, Daumen ohne Gegendruck |
 
-Beim Henkelgriff geht der Zeigefinger wirklich **durch** den Henkel: Bei der Tassengröße
-`0.720` hat der Ring ein Innenloch von `0.0126`, der Zeigefinger einen Radius von `0.0075`.
-Es bleiben `0.005` Luft.
+Beim Flachgriff sind die Finger **bewusst nur halb gekrümmt**. Eine Fläche hält man nicht
+mit gehakten Fingern — der erste Versuch mit `1.0` ließ den Zeigefinger 4 mm durch das
+Smartphone greifen.
+
+### Der Daumen muss gegenhalten
+
+Neu als Bedingung: Der Daumen darf den Gegenstand nicht nur streifen. Sein Kontaktpunkt
+muss dem der Finger **gegenüberliegen** — geprüft am Winkel zwischen den Richtungen
+Griffmitte → Daumenkontakt und Griffmitte → mittlerer Fingerkontakt. Liegt der Kosinus
+über `0.35`, hält der Daumen nichts, er liegt nur daneben.
+
+Eine Ausnahme, und sie ist keine Nachlässigkeit: **Der Henkelgriff ist davon
+ausgenommen.** Dort liegt der Daumen zu Recht neben den Fingern oben auf dem Henkel —
+den Gegenhalt leistet der Henkel selbst, nicht der Daumen.
+
+### Und der Daumen darf nicht durch die Handfläche laufen
+
+Mit der schrägen Beugeebene (siehe [02](02-formensprache-material.md)) läuft die
+Daumenkuppe beim Krümmen quer über den Ballen — und bei zu großer Krümmung mitten
+hindurch. Der Selbsttest fand genau das beim Schraubenzieher: 6.5 mm.
+
+Gemessen wird dabei **nur das Endglied**. Die Fingerwurzeln stecken naturgemäß im Ballen,
+das ist der Ansatz und keine Durchdringung; ein Fingerende in der Handfläche dagegen ist
+immer falsch. Die erste Fassung der Prüfung maß den ganzen Finger und schlug deshalb bei
+allen fünf gleichzeitig an — ein Messfehler, kein Modellfehler.
 
 ### Die leere Hand
 
@@ -126,15 +149,25 @@ Fingerabstand aller Haltungen (`0.016`) — leicht gekrümmt, ungleich, offen. D
 Zielhaltung mischt zwischen dieser Ruhelage und der Signatur der Griffart; wie weit,
 sagt der Tragezustand. Der Griff entsteht dadurch **beim Fassen** und nicht davor.
 
-### Die Größen
+### Die Größen und Grifflagen
 
-| Gegenstand | Größe | Was das heißt |
-|---|---|---|
-| Schraubenzieher | `0.599` | Griffradius `0.011` — ein Werkzeug, das in die Faust passt |
-| Tasse | `0.720` | Durchmesser `0.049`, Henkelloch `0.0126` |
-| Schlüssel | `0.800` | Schaft `0.042` lang |
-| Smartphone | `0.900` | `0.047 × 0.094` |
-| Tablet | `0.951` | `0.095 × 0.133` |
+| Gegenstand | Größe | Griffversatz | drehX | drehZ |
+|---|---|---|---|---|
+| Schraubenzieher | `0.583` | `( 0.0050, −0.0112, 0.0500)` | `−0.969` | `+1.070` |
+| Tasse | `0.713` | `( 0.0613, −0.0307, −0.0066)` | `−2.687` | `+3.140` |
+| Schlüssel | `0.792` | `( 0.0290, −0.0261, 0.0362)` | `−1.065` | `+0.181` |
+| Smartphone | `0.900` | `( 0.0187, −0.0291, 0.0453)` | `−0.426` | `−0.822` |
+| Tablet | `0.932` | `( 0.0844, −0.0448, 0.0381)` | `−0.340` | `+1.861` |
+
+Beim Tablet ist der Eintrag um die festen Zwei-Hand-Versätze (`−0.062` in x, `+0.010`
+in z) vorgehalten, damit die **gehaltene** Lage exakt die gerechnete ist.
+
+Die Tasse fällt aus der Reihe: Ihr Henkel sitzt fest auf einer Seite des Bechers. Als
+die Hand seitenrichtig gespiegelt wurde, landete er auf der Daumenseite statt bei den
+Fingern — sie hätte ihn nicht mehr fassen können. Erst mit voll geöffneten
+Drehbereichen fand die Rechnung die Lösung: `drehZ = π`, der Becher steht auf dem Kopf
+im Griffraum und wird durch `drehX = −2.687` wieder aufgerichtet. Von außen sieht man
+davon nichts — die Öffnung zeigt auf `0.1°` genau nach oben.
 
 ---
 

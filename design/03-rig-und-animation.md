@@ -68,6 +68,7 @@ Füße bleiben stehen. Das ist der Unterschied zwischen „schwebt" und „steht
 | `daumen_r` | Opposition (z) | 0.52 | 0.03 … 1.32 | unterscheidet Zangen- von Faustgriff deutlicher als jede Krümmung |
 | `hand_r` | Fingerabstand | 0.016 | 0 … 0.065 | fächert die vier Finger; Zeigefinger `+1.5`, kleiner `−1.5` |
 | `finger_l` | Krümmung | 0.30 | wie rechts | eine Zahl für die ganze linke Hand, mit leicht ungleichen Faktoren je Finger |
+| `pronation` | abgeleitet | — | — | kein eigener Kanal: eine Eindrehung, die **nur auf die leere Hand** addiert wird (siehe unten) |
 | `detail` | Fingerdetails | 1 | 0 … 1 | Abstufung nach Kameraabstand und Bildrate; die Finger schrumpfen stetig in den Ballen |
 
 Alle Kanäle dieser Tabelle sind in `noki.html` umgesetzt und werden vom eingebauten
@@ -252,6 +253,37 @@ Exponentialkurve, die bei großen Sprüngen die Grenze von 0.160 rad je Bild ger
 
 Ausgenommen ist der Tragezustand `gr`. Er darf nicht über 1 hinausschwingen, sonst wüchse der
 Gegenstand über seine Größe hinaus — er zieht weiter exponentiell nach.
+
+
+---
+
+## Pronation — warum die leere Hand sich eindreht
+
+Nokis Handfläche zeigt konstruktionsbedingt nach `+z`, also nach vorn. Ohne
+Gegenmaßnahme hat das zwei Folgen, die kein Mensch nachmacht: Er steht mit offenen
+Handflächen da, und beim Vorstrecken **klappen sie nach oben auf** — der Vorschwung ist
+eine Drehung um `x`, bei `0.6 rad` steht die Flächennormale auf `(0, 0.57, 0.83)`.
+
+Der Unterarm dreht deshalb ein:
+
+```
+hand.y  +=  (1 − traegt) · (0.75 + 0.55 · max(arm_vor, 0))
+```
+
+Im Stand sind das etwa 43°, die Handfläche wendet sich dem Bein zu. Beim Vorstrecken
+kommt bis zu 32° dazu, sodass sie nach unten statt nach oben zeigt.
+
+Der Faktor `(1 − traegt)` ist der entscheidende Teil: **Die Eindrehung wirkt nur auf die
+leere Hand.** Ein gehaltener Gegenstand hängt am Handgelenk und würde sonst mitkippen —
+die Tasse liefe aus, der Bildschirm drehte sich weg. Beide Hände bekommen dieselbe
+Regel über ihren jeweiligen Kanal.
+
+## Die Handwurzel
+
+Zwischen Unterarm und Ballen sitzt eine kurze Kapsel, die auf dem **halben**
+Handgelenkwinkel steht. Ohne sie dreht sich die Hand als Ganzes weg und wirkt an den
+Arm angesteckt; mit ihr läuft die Drehung über zwei Stufen. Sie ist die kleinste
+mögliche Antwort auf die Frage, wo der Unterarm aufhört und die Hand anfängt.
 
 ---
 

@@ -471,19 +471,25 @@
 "// Fingerkapseln und ein Daumen wachsen — dieselbe Formensprache, keine",
 "// Kante, keine Fuge. Aus der Ferne bleibt die Silhouette fast gleich,",
 "// aus der Naehe greifen echte Finger zu.",
-"// Ein Finger aus zwei Gliedern. Das Mittelglied kruemmt sich staerker als das",
-"// Grundglied — daher der Haken, mit dem eine Hand ueberhaupt erst fasst. Die",
-"// Kuppe traegt das Kontaktmaterial: dort liegt der Druckpunkt.",
-"vec2 fingerTeil(vec3 q, vec3 basis, float l1, float l2, float r, float c, float sp){",
+"// Ein Finger aus drei Gliedern — Grund-, Mittel- und Endgelenk beugen",
+"// unterschiedlich stark, wie an einer echten Hand. Der staerker gebeugte",
+"// Mittelabschnitt macht den Haken, mit dem eine Hand ueberhaupt erst fasst.",
+"// Die Kuppe traegt das Kontaktmaterial: dort liegt der Druckpunkt.",
+"// l3 = 0 ergibt einen zweigliedrigen Finger — genau das ist der Daumen.",
+"vec2 fingerTeil(vec3 q, vec3 basis, float l1, float l2, float l3, float r,",
+"                float c, float sp){",
 "  vec3 p1 = q - basis;",
-"  p1 = rotZ(p1, -sp);                            // Spreizung faechert die Finger",
-"  p1 = rotX(p1, c * 0.95);                       // Grundglied kruemmt sich",
+"  p1 = rotZ(p1, -sp);                            // Spreizung und Konvergenz",
+"  p1 = rotX(p1, c * 0.80);                       // Grundgelenk",
 "  float d = sdCapsule(p1, vec3(0.0), vec3(0.0, -l1, 0.0), r);",
 "  vec3 p2 = p1 - vec3(0.0, -l1, 0.0);",
-"  p2 = rotX(p2, c * 1.15);                       // Mittelglied kruemmt staerker",
-"  d = min(d, sdCapsule(p2, vec3(0.0), vec3(0.0, -l2, 0.0), r * 0.90));",
+"  p2 = rotX(p2, c * 0.95);                       // Mittelgelenk, beugt am staerksten",
+"  d = min(d, sdCapsule(p2, vec3(0.0), vec3(0.0, -l2, 0.0), r * 0.92));",
+"  vec3 p3 = p2 - vec3(0.0, -l2, 0.0);",
+"  p3 = rotX(p3, c * 0.50);                       // Endgelenk, beugt am wenigsten",
+"  d = min(d, sdCapsule(p3, vec3(0.0), vec3(0.0, -l3, 0.0), r * 0.84));",
 "  vec2 res = vec2(d, M_DARK);",
-"  return opU(res, vec2(sdSphere(p2 - vec3(0.0, -l2, 0.0), r * 0.88), M_HAUT));",
+"  return opU(res, vec2(sdSphere(p3 - vec3(0.0, -l3, 0.0), r * 0.80), M_HAUT));",
 "}",
 "",
 "// Die ganze Hand. Sie bekommt ihr Handgelenk und ihre Fingerstellung von",
@@ -499,26 +505,44 @@
 "  // Handteller: buendig in der Innenflaeche, deshalb ein Farbfeld und keine",
 "  // Beule. Er zeigt, wo der Gegenstand aufliegt.",
 "  r = opU(r, vec2(sdEllipsoid(h - vec3(0.0,-0.0020, 0.0113), vec3(0.0230, 0.0245, 0.0140)), M_HAUT));",
+"  // Handwurzel: steht auf dem HALBEN Handgelenkwinkel. Dadurch laeuft die",
+"  // Drehung ueber zwei Stufen statt ueber eine Kante — die Hand haengt nicht",
+"  // mehr abgekoppelt am Unterarm, sondern geht in ihn ueber.",
+"  vec3 hw = rotX(hl, -gelenk.x * 0.5);",
+"  hw = rotY(hw, -gelenk.y * 0.5);",
+"  hw = rotZ(hw, -gelenk.z * 0.5);",
+"  r = opU(r, vec2(sdCapsule(hw, vec3(0.0, 0.040, 0.0), vec3(0.0, 0.012, 0.0), 0.0345), M_DARK));",
 "",
 "  // Abstufung: aus der Ferne oder bei knapper Bildrate bleibt die einfache",
 "  // Handform. Die Finger schrumpfen dabei stetig in den Ballen, es ploppt nichts.",
 "  if (u_detail < 0.02) return r;",
 "  // Huellkugel: fuer alle Strahlen, die nicht in Handnaehe laufen, kostet die",
 "  // Hand damit genau eine Kugelauswertung statt fuenf Fingern.",
-"  float huell = sdSphere(h - vec3(-0.002,-0.030, 0.016), 0.055);",
+"  float huell = sdSphere(h - vec3(0.002,-0.030, 0.016), 0.055);",
 "  if (huell > 0.006) return opU(r, vec2(huell, M_DARK));",
 "",
+"  // Seitigkeit: Die Handflaeche zeigt nach +z, also in die anatomische",
+"  // Grundstellung. Darin liegt der Daumen AUSSEN (+x, von der Koerpermitte",
+"  // weg) und der kleine Finger innen. Weil armPart die ganze Baugruppe",
+"  // spiegelt, gilt das mit demselben Aufbau fuer beide Haende.",
+"  //",
+"  // Konvergenz: Eine sich schliessende Hand fuehrt die Kuppen zur Daumenseite",
+"  // zusammen, sie fallen nicht parallel nach unten. Der kleine Finger legt",
+"  // dabei den weitesten Weg zurueck — daher der groesste Faktor.",
 "  float g = u_detail;",
-"  r = opU(r, fingerTeil(h, vec3(-0.0165,-0.0195, 0.0075), 0.0228*g, 0.0176*g, 0.0075, c4.x,  1.5*spreiz));",
-"  r = opU(r, fingerTeil(h, vec3(-0.0055,-0.0215, 0.0080), 0.0247*g, 0.0189*g, 0.0077, c4.y,  0.5*spreiz));",
-"  r = opU(r, fingerTeil(h, vec3( 0.0055,-0.0205, 0.0075), 0.0234*g, 0.0179*g, 0.0074, c4.z, -0.5*spreiz));",
-"  r = opU(r, fingerTeil(h, vec3( 0.0160,-0.0180, 0.0065), 0.0195*g, 0.0150*g, 0.0069, c4.w, -1.5*spreiz));",
-"  // Daumen: sitzt hoeher und seitlich und stellt sich den Fingern entgegen.",
-"  // Die Opposition ist ein eigener Kanal — sie unterscheidet den Zangengriff",
-"  // vom Faustgriff mehr als jede Kruemmung.",
-"  vec3 dm = h - vec3(-0.0230,-0.0020, 0.0130);",
-"  dm = rotZ(dm, -opp);",
-"  r = opU(r, fingerTeil(dm, vec3(0.0), 0.0202*g, 0.0163*g, 0.0083, cD, 0.0));",
+"  r = opU(r, fingerTeil(h, vec3( 0.0165,-0.0195, 0.0075), 0.0182*g, 0.0133*g, 0.0089*g, 0.0075, c4.x,  1.5*spreiz + 0.02*c4.x));",
+"  r = opU(r, fingerTeil(h, vec3( 0.0055,-0.0215, 0.0080), 0.0196*g, 0.0144*g, 0.0096*g, 0.0077, c4.y,  0.5*spreiz + 0.05*c4.y));",
+"  r = opU(r, fingerTeil(h, vec3(-0.0055,-0.0205, 0.0075), 0.0186*g, 0.0136*g, 0.0091*g, 0.0074, c4.z, -0.5*spreiz + 0.09*c4.z));",
+"  r = opU(r, fingerTeil(h, vec3(-0.0160,-0.0180, 0.0065), 0.0155*g, 0.0114*g, 0.0076*g, 0.0069, c4.w, -1.5*spreiz + 0.14*c4.w));",
+"  // Daumen: aussen, hoeher angesetzt, zwei Glieder statt drei — so ist eine",
+"  // Hand gebaut. Die Opposition dreht ihn den Fingern entgegen, und seine",
+"  // Beugeebene steht schraeg zur Handflaeche: dadurch laeuft die Kuppe beim",
+"  // Kruemmen nach vorn UND quer, statt neben den Fingern herzufallen. Das",
+"  // ist der Unterschied zwischen einem Daumen und einem fuenften Finger.",
+"  vec3 dm = h - vec3(0.0230,-0.0020, 0.0130);",
+"  dm = rotZ(dm, opp);",
+"  dm = rotY(dm, -0.55);",
+"  r = opU(r, fingerTeil(dm, vec3(0.0), 0.0202*g, 0.0163*g, 0.0, 0.0083, cD, 0.0));",
 "  return r;",
 "}",
 "",
@@ -1056,15 +1080,15 @@
   //   spreiz Fingerabstand; der Zeigefinger faechert nach aussen
   var GRIFFART = {
     kraft:     { label:"Kraftgriff",     aS: 0.02, aF: 0.00, hgX: 0.10, hgZ: 0.00, zwei:0,
-                 fi:[1.149,1.068,1.143,1.169,0.974], opp:0.721, spreiz:0.0104 },
+                 fi:[1.147,1.026,1.055,1.102,1.081], opp:0.765, spreiz:0.0096 },
     praezision:{ label:"Präzisionsgriff",aS: 0.06, aF: 0.06, hgX: 0.24, hgZ: 0.10, zwei:0,
-                 fi:[1.060,0.959,1.060,1.120,1.000], opp:0.801, spreiz:0.0059 },
+                 fi:[1.031,0.962,1.060,1.120,1.000], opp:0.799, spreiz:0.0063 },
     henkel:    { label:"Henkelgriff",    aS:-0.02, aF: 0.02, hgX: 0.00, hgZ:-0.14, zwei:0,
-                 fi:[1.339,1.151,0.721,0.562,0.567], opp:0.565, spreiz:0.0079 },
+                 fi:[1.321,1.222,0.719,0.559,0.480], opp:0.550, spreiz:0.0084 },
     flach:     { label:"Flachgriff",     aS: 0.04, aF: 0.10, hgX:-0.22, hgZ: 0.00, zwei:0,
-                 fi:[0.593,0.584,0.610,0.691,0.186], opp:0.459, spreiz:0.0143 },
+                 fi:[0.597,0.591,0.617,0.702,0.184], opp:0.460, spreiz:0.0141 },
     zwei:      { label:"Zwei-Hand-Griff",aS: 0.00, aF: 0.14, hgX:-0.14, hgZ: 0.00, zwei:1,
-                 fi:[0.502,0.508,0.532,0.609,0.145], opp:0.420, spreiz:0.0161 },
+                 fi:[0.494,0.500,0.524,0.602,0.145], opp:0.419, spreiz:0.0168 },
     zeigen:    { label:"Zeigegriff",     aS: 0.10, aF: 0.16, hgX: 0.30, hgZ: 0.00, zwei:0,
                  fi:[0.080,1.290,1.330,1.310,0.720], opp:0.620, spreiz:0.0060 },
     tragen:    { label:"Traggriff",      aS:-0.06, aF:-0.06, hgX: 0.00, hgZ:-0.06, zwei:0,
@@ -1085,23 +1109,23 @@
   //          So etwas kann keine Hand fassen, gleich wie gut die Finger sind.
   var GEGENSTAND = {
     schraubenzieher: { typ:1, art:"kraft",      label:"Schraubenzieher", gewicht:0.25,
-                       skala:0.597, off:[-0.0115,-0.0128, 0.0561], drehX:-0.789, drehZ:-0.897,
+                       skala:0.583, off:[ 0.0050,-0.0112, 0.0500], drehX:-0.969, drehZ: 1.070,
                        nutz:"schrauben" },
     tasse:           { typ:3, art:"henkel",     label:"Tasse",           gewicht:0.35,
-                       skala:0.719, off:[-0.0452,-0.0005, 0.0488], drehX: 0.455, drehZ: 0.001,
+                       skala:0.713, off:[ 0.0613,-0.0307,-0.0066], drehX:-2.687, drehZ: 3.140,
                        nutz:"trinken" },
     smartphone:      { typ:5, art:"flach",      label:"Smartphone",      gewicht:0.15,
-                       skala:0.900, off:[ 0.0027,-0.0410, 0.0511], drehX:-0.433, drehZ: 1.000,
+                       skala:0.900, off:[ 0.0187,-0.0291, 0.0453], drehX:-0.426, drehZ:-0.822,
                        nutz:"bedienen" },
     // Beim Tablet ruecken die vorhandenen Zwei-Hand-Versaetze (-0.062 in x,
     // +0.010 in z) den Gegenstand zur Koerpermitte. Der Eintrag hier ist
     // deshalb um genau diese Betraege vorgehalten, damit die gehaltene Lage
     // exakt die gerechnete ist.
     tablet:          { typ:2, art:"zwei",       label:"Tablet",          gewicht:0.55,
-                       skala:0.951, off:[ 0.0242,-0.0432, 0.0388], drehX:-0.360, drehZ:-1.900,
+                       skala:0.932, off:[ 0.0844,-0.0448, 0.0381], drehX:-0.340, drehZ: 1.861,
                        nutz:"bedienen" },
     schluessel:      { typ:4, art:"praezision", label:"Schlüssel",       gewicht:0.08,
-                       skala:0.800, off:[-0.0409,-0.0299, 0.0430], drehX:-1.061, drehZ:-0.181,
+                       skala:0.792, off:[ 0.0290,-0.0261, 0.0362], drehX:-1.065, drehZ: 0.181,
                        nutz:"drehen" }
   };
 
@@ -2474,6 +2498,19 @@
                   clamp(lerp(rig.armR[1], 0.16, cur.wave), -0.20, 0.60)];
     }
 
+    // --- Pronation der leeren Hand ---
+    // Die Handflaeche zeigt konstruktionsbedingt nach vorn. Ohne Gegenmassnahme
+    // steht Noki also mit offenen Handflaechen da, und beim Vorstrecken klappen
+    // sie nach oben auf — beides tut kein Mensch. Der Unterarm dreht deshalb
+    // ein: im Stand etwa 45 Grad zum Bein, beim Vorschwingen weiter.
+    //
+    // Ausdruecklich nur bei LEERER Hand. Ein gehaltener Gegenstand haengt am
+    // Handgelenk und wuerde sonst mitkippen — die Tasse liefe aus.
+    var leerR = 1 - traegt;
+    var leerL = 1 - Math.max(traegt * art.zwei, 0);
+    rig.hand[1]  += leerR * (0.75 + 0.55 * Math.max(rig.armR[1], 0));
+    rig.handL[1] += leerL * (0.75 + 0.55 * Math.max(rig.armL[1], 0));
+
     // Rumpf — Ebene 4 (Gewicht) plus Einlagenversätze
     var gz = still ? 0 : gewichtSeite * (1 - hal.sit) * (1 - gehen);
     gewichtIst = lerp(gewichtIst, gz, 1 - Math.pow(0.02, dt / 1.8));
@@ -2578,34 +2615,43 @@
       return sdBox(g, [0.026,0.052,0.0042], 0.006);
     }
 
-    // Handmasse — identisch zu handTeil() im Shader
+    // Handmasse — identisch zu handTeil() im Shader.
+    // Der Daumen sitzt AUSSEN (+x): bei nach vorn zeigender Handflaeche ist das
+    // die anatomische Grundstellung. sp = Spreizfaktor, kv = Konvergenz.
     var BALLEN = { c: [0, 0.004, 0.002], r: [0.0290, 0.0300, 0.0235] };
     var FINGER = [
-      { n:"Zeigefinger", w:[-0.0165,-0.0195,0.0075], l1:0.0228, l2:0.0176, r:0.0075, sp: 1.5 },
-      { n:"Mittelfinger",w:[-0.0055,-0.0215,0.0080], l1:0.0247, l2:0.0189, r:0.0077, sp: 0.5 },
-      { n:"Ringfinger",  w:[ 0.0055,-0.0205,0.0075], l1:0.0234, l2:0.0179, r:0.0074, sp:-0.5 },
-      { n:"kleiner F.",  w:[ 0.0160,-0.0180,0.0065], l1:0.0195, l2:0.0150, r:0.0069, sp:-1.5 },
-      { n:"Daumen",      w:[-0.0230,-0.0020,0.0130], l1:0.0202, l2:0.0163, r:0.0083, sp: 0 }
+      { n:"Zeigefinger", w:[ 0.0165,-0.0195,0.0075], l1:0.0182, l2:0.0133, l3:0.0089, r:0.0075, sp: 1.5, kv:0.02 },
+      { n:"Mittelfinger",w:[ 0.0055,-0.0215,0.0080], l1:0.0196, l2:0.0144, l3:0.0096, r:0.0077, sp: 0.5, kv:0.05 },
+      { n:"Ringfinger",  w:[-0.0055,-0.0205,0.0075], l1:0.0186, l2:0.0136, l3:0.0091, r:0.0074, sp:-0.5, kv:0.09 },
+      { n:"kleiner F.",  w:[-0.0160,-0.0180,0.0065], l1:0.0155, l2:0.0114, l3:0.0076, r:0.0069, sp:-1.5, kv:0.14 },
+      { n:"Daumen",      w:[ 0.0230,-0.0020,0.0130], l1:0.0202, l2:0.0163, l3:0.0,    r:0.0083, sp: 0,   kv:0 }
     ];
     var HANDMITTE = [0.052, -0.238, 0.006];
 
-    // Abtastpunkte eines Fingers, gleiche Kette wie fingerTeil()
-    function fPunkte(f, c, dreh) {
-      var a1 = c * 0.95, a2 = c * 2.10, N = 10, pts = [];
-      var d1 = [0, -Math.cos(a1), Math.sin(a1)], d2 = [0, -Math.cos(a2), Math.sin(a2)];
-      function leg(v, r) {
-        var w = rZ(v, dreh);
-        pts.push({ p: [w[0]+f.w[0], w[1]+f.w[1], w[2]+f.w[2]], r: r });
+    // Abtastpunkte eines Fingers, gleiche Kette wie fingerTeil():
+    // drei Glieder mit 0.80c, +0.95c, +0.50c. l3 = 0 ergibt den Daumen.
+    function fPunkte(f, c, dreh, opp) {
+      var a = [c * 0.80, c * 1.75, c * 2.25];
+      var l = [f.l1, f.l2, f.l3 || 0];
+      var rf = [1.0, 0.92, 0.84];
+      var pts = [], hier = [0, 0, 0], N = 8;
+      function leg(v, r, endglied) {
+        var w;
+        if (opp === undefined) { w = rZ(v, dreh); }
+        else { w = rZ(rY(v, 0.55), -opp); }      // Daumen: schraege Beugeebene
+        pts.push({ p: [w[0]+f.w[0], w[1]+f.w[1], w[2]+f.w[2]], r: r, endglied: !!endglied });
       }
-      for (var i = 0; i <= N; i++) {
-        var t = i / N * f.l1;
-        leg([0, d1[1]*t, d1[2]*t], f.r);
+      var letzt = (f.l3 && f.l3 > 0) ? 2 : 1;
+      for (var k = 0; k < 3; k++) {
+        if (l[k] <= 0) continue;
+        var d = [0, -Math.cos(a[k]), Math.sin(a[k])];
+        for (var i = 1; i <= N; i++) {
+          var t = i / N * l[k];
+          leg([hier[0], hier[1] + d[1]*t, hier[2] + d[2]*t], f.r * rf[k], k === letzt);
+        }
+        hier = [hier[0], hier[1] + d[1]*l[k], hier[2] + d[2]*l[k]];
       }
-      var kn = [0, d1[1]*f.l1, d1[2]*f.l1];
-      for (var j = 1; j <= N; j++) {
-        var u = j / N * f.l2;
-        leg([0, kn[1]+d2[1]*u, kn[2]+d2[2]*u], f.r * (j === N ? 0.88 : 0.90));
-      }
+      leg(hier.slice(), f.r * 0.80, true);        // Kuppe
       return pts;
     }
 
@@ -2664,9 +2710,33 @@
              zuHand:zuHand, zuRumpf:zuRumpf, sdArm:sdArm };
   })();
 
+  // Seitigkeit: Sitzt der Daumen an BEIDEN Haenden auf der Aussenseite?
+  // Genau dieser Fehler steckte in der ersten Fassung der Finger — Daumen und
+  // kleiner Finger waren vertauscht, und weil armPart die Baugruppe spiegelt,
+  // trugen beide Haende die Fingerreihenfolge der jeweils anderen Seite.
+  function pruefeSeitigkeit(melde) {
+    var P = GRIFFPRUEF;
+    var daumen = P.FINGER[4].w, klein = P.FINGER[3].w;
+    [1, -1].forEach(function (sgn) {
+      var seite = (sgn > 0) ? "rechte" : "linke";
+      function weltX(g) {
+        // Handraum -> Rumpfraum in Ruhehaltung (Arm 0.07 aus, 0.17 vor)
+        var p = [sgn * (g[0] + P.HANDMITTE[0]), g[1] + P.HANDMITTE[1], g[2] + P.HANDMITTE[2]];
+        p = P.rX(p, -0.17);
+        p = P.rZ(p, sgn * 0.07);
+        return p[0] + sgn * 0.205;
+      }
+      var dx = Math.abs(weltX(daumen)), kx = Math.abs(weltX(klein));
+      if (dx <= kx) melde("hand-seitigkeit", "Die " + seite + " Hand hat den Daumen innen: "
+        + "Abstand zur Koerpermitte Daumen " + dx.toFixed(3) + " vs. kleiner Finger "
+        + kx.toFixed(3) + " — Daumen und kleiner Finger sind vertauscht");
+    });
+  }
+
   // Fuehrt die Griffpruefung aus und meldet jeden Verstoss.
   function pruefeGriffe(melde) {
     var P = GRIFFPRUEF;
+    pruefeSeitigkeit(melde);
     // Welche Finger tragen — der Rest darf und soll wegbleiben.
     var TRAEGT = {
       kraft:      [1,1,1,1,1], praezision: [1,0,0,0,1], henkel: [1,1,0,0,1],
@@ -2685,24 +2755,68 @@
                         geg0.off[2] + 0.010 * art.zwei] };
 
       // --- 1 · Finger am Gegenstand ---
+      var kontakt = [];
       for (var i = 0; i < 5; i++) {
         var f = P.FINGER[i];
-        var dreh = (i === 4) ? art.opp : f.sp * art.spreiz;
-        var pts = P.fPunkte(f, art.fi[i], dreh);
-        var dG = 1e9, dA = 1e9;
+        var pts = (i === 4)
+          ? P.fPunkte(f, art.fi[i], 0, art.opp)
+          : P.fPunkte(f, art.fi[i], f.sp * art.spreiz + f.kv * art.fi[i]);
+        var dG = 1e9, dA = 1e9, nah = null;
         for (var j = 0; j < pts.length; j++) {
           var g = P.sub(pts[j].p, geg.off);
           g = P.rX(g, -geg.drehX); g = P.rZ(g, -geg.drehZ);
           g = [g[0]/geg.skala, g[1]/geg.skala, g[2]/geg.skala];
-          dG = Math.min(dG, P.sdGriff(g, geg.typ) * geg.skala - pts[j].r);
+          var dg = P.sdGriff(g, geg.typ) * geg.skala - pts[j].r;
+          if (dg < dG) { dG = dg; nah = pts[j].p; }
           dA = Math.min(dA, P.sdGeg(g, geg.typ)   * geg.skala - pts[j].r);
         }
+        kontakt[i] = nah;
         if (dA < -0.0030) melde("griff-durch", lbl + ": " + f.n
           + " greift " + (-dA*1000).toFixed(2) + " mm durch den Gegenstand");
         if (tr[i] && dG > 0.0030) melde("griff-schwebt", lbl + ": " + f.n
           + " beruehrt nicht (" + (dG*1000).toFixed(2) + " mm Luft)");
         if (!tr[i] && dG < -0.0005) melde("griff-fremd", lbl + ": " + f.n
           + " traegt mit, obwohl er nicht soll (" + (dG*1000).toFixed(2) + " mm)");
+      }
+
+      // --- 1b · Der Daumen muss gegenhalten, nicht nur streifen ---
+      // Sein Kontaktpunkt soll dem der Finger gegenueberliegen. Ein Daumen, der
+      // von derselben Seite anliegt, haelt nichts — er liegt nur daneben.
+      (function () {
+        var sf = [0, 0, 0], nf = 0;
+        for (var q = 0; q < 4; q++) {
+          if (!tr[q] || !kontakt[q]) continue;
+          sf[0] += kontakt[q][0]; sf[1] += kontakt[q][1]; sf[2] += kontakt[q][2]; nf++;
+        }
+        if (!nf || !kontakt[4]) return;
+        function nrm(v) { var L = P.bet(v) || 1; return [v[0]/L, v[1]/L, v[2]/L]; }
+        var vT = nrm(P.sub(kontakt[4], geg.off));
+        var vF = nrm(P.sub([sf[0]/nf, sf[1]/nf, sf[2]/nf], geg.off));
+        var kos = vT[0]*vF[0] + vT[1]*vF[1] + vT[2]*vF[2];
+        // Beim Henkelgriff liegt der Daumen zu Recht neben den Fingern auf dem
+        // Henkel — dort haelt der Henkel gegen, nicht der Daumen.
+        if (geg0.art === "henkel") return;
+        if (kos > 0.35) melde("griff-gegenhalt", lbl
+          + ": Daumen haelt nicht gegen, er liegt auf derselben Seite wie die Finger"
+          + " (cos " + kos.toFixed(2) + ")");
+      })();
+
+      // --- 1c · Kein Fingerglied darf in den Ballen laufen ---
+      for (var fi2 = 0; fi2 < 5; fi2++) {
+        var f2 = P.FINGER[fi2];
+        var pt2 = (fi2 === 4)
+          ? P.fPunkte(f2, art.fi[fi2], 0, art.opp)
+          : P.fPunkte(f2, art.fi[fi2], f2.sp * art.spreiz + f2.kv * art.fi[fi2]);
+        // Nur das ENDGLIED zaehlt. Die Fingerwurzeln stecken naturgemaess im
+        // Ballen — das ist der Ansatz, keine Durchdringung. Ein Fingerende in
+        // der Handflaeche dagegen ist immer falsch.
+        var tief = 1e9;
+        for (var k2 = 0; k2 < pt2.length; k2++) {
+          if (!pt2[k2].endglied) continue;
+          tief = Math.min(tief, P.sdEll(P.sub(pt2[k2].p, P.BALLEN.c), P.BALLEN.r) - pt2[k2].r * 0.55);
+        }
+        if (tief < -0.0030) melde("finger-ballen", lbl + ": " + f2.n
+          + " laeuft " + (-tief*1000).toFixed(1) + " mm durch die Handflaeche");
       }
 
       // --- 2 · Ballen ---

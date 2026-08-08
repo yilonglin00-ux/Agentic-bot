@@ -71,27 +71,53 @@ Weltkoordinaten.
 | Unterarm ×2 | Kapsel | lokal `(0.038, −0.140, 0)` → `(0.048, −0.206, 0.004)` | Radius `0.043` | Perlweiß |
 | **Handballen ×2** | Ellipsoid | lokal `(0.052, −0.238, 0.006)`, Mitte `(0, 0.004, 0.002)` | Radien `(0.0290, 0.0300, 0.0235)` | Graphit |
 | **Handteller ×2** | Ellipsoid | lokal in der Innenfläche, `(0, −0.0020, 0.0113)` | Radien `(0.0230, 0.0245, 0.0140)` — bündig, deshalb ein Farbfeld und keine Beule | Kontaktfläche |
+| **Handwurzel ×2** | Kapsel | lokal `(0, 0.040, 0)` → `(0, 0.012, 0)` | Radius `0.0345`, steht auf dem **halben** Handgelenkwinkel | Graphit |
 | Bein ×2 | Kapsel | `(±0.085, 0.158, 0)` → `(±0.098, 0.076, 0)` | Radius `0.044` | Graphit |
 | Fuß ×2 | Box mit Rundung | `(±0.105, 0.047, 0.020)` | Halbmaße `(0.032, 0.004, 0.050)`, Radius `0.042` → **L 0.184 · B 0.148** | Perlweiß |
 
 ### Finger
 
 Aus der frühen Handkugel sind vier Finger und ein Daumen geworden — dieselbe Formensprache,
-keine Kante, keine Fuge. Jeder Finger besteht aus zwei Kapseln und einer Kuppe und krümmt
-sich um zwei Gelenke: das Grundglied um `c · 0.95`, das Mittelglied zusätzlich um `c · 1.15`.
-Der stärker gekrümmte zweite Abschnitt ist der Grund, warum die Hand einen Haken bildet und
-nicht nur eine Schaufel.
+keine Kante, keine Fuge. Jeder Finger hat **drei Glieder** und beugt in jedem Gelenk
+unterschiedlich stark, wie eine echte Hand:
+
+| Gelenk | Beugung |
+|---|---|
+| Grundgelenk | `c · 0.80` |
+| Mittelgelenk | zusätzlich `c · 0.95` (aufaddiert `1.75`) |
+| Endgelenk | zusätzlich `c · 0.50` (aufaddiert `2.25`) |
+
+Das stärker gebeugte Mittelgelenk ist der Grund, warum die Hand einen Haken bildet und
+nicht nur eine Schaufel. Der **Daumen hat nur zwei Glieder** — auch das ist Anatomie,
+kein Sparen.
+
+Dazu die **Konvergenz**: Eine sich schließende Hand führt die Kuppen zur Daumenseite
+zusammen; sie fallen nicht parallel nach unten. Jeder Finger dreht dafür mit wachsender
+Krümmung um `z`, der kleine Finger am stärksten (Faktor `0.14`), der Zeigefinger kaum
+(`0.02`). Das unterscheidet eine Faust von vier zugeklappten Stäben.
 
 Alle Werte lokal zur Handmitte. `Spreizung` ist der Faktor, mit dem der Fingerabstands-Kanal
 auf diesen Finger wirkt.
 
-| Finger | Wurzel | Grundglied | Mittelglied | Radius | Spreizung |
-|---|---|---|---|---|---|
-| Zeigefinger | `(−0.0165, −0.0195, 0.0075)` | `0.0228` | `0.0176` | `0.0075` | `+1.5` |
-| Mittelfinger | `(−0.0055, −0.0215, 0.0080)` | `0.0247` | `0.0189` | `0.0077` | `+0.5` |
-| Ringfinger | `(0.0055, −0.0205, 0.0075)` | `0.0234` | `0.0179` | `0.0074` | `−0.5` |
-| kleiner Finger | `(0.0160, −0.0180, 0.0065)` | `0.0195` | `0.0150` | `0.0069` | `−1.5` |
-| **Daumen** | `(−0.0230, −0.0020, 0.0130)` | `0.0202` | `0.0163` | `0.0083` | eigener Oppositionswinkel |
+| Finger | Wurzel | Grundglied | Mittelglied | Endglied | Radius | Spreizung | Konvergenz |
+|---|---|---|---|---|---|---|---|
+| Zeigefinger | `(0.0165, −0.0195, 0.0075)` | `0.0182` | `0.0133` | `0.0089` | `0.0075` | `+1.5` | `0.02` |
+| Mittelfinger | `(0.0055, −0.0215, 0.0080)` | `0.0196` | `0.0144` | `0.0096` | `0.0077` | `+0.5` | `0.05` |
+| Ringfinger | `(−0.0055, −0.0205, 0.0075)` | `0.0186` | `0.0136` | `0.0091` | `0.0074` | `−0.5` | `0.09` |
+| kleiner Finger | `(−0.0160, −0.0180, 0.0065)` | `0.0155` | `0.0114` | `0.0076` | `0.0069` | `−1.5` | `0.14` |
+| **Daumen** | `(0.0230, −0.0020, 0.0130)` | `0.0202` | `0.0163` | — | `0.0083` | Opposition + `rotY 0.55` | — |
+
+### Seitigkeit — die wichtigste Zeile dieses Dokuments
+
+**Die Handfläche zeigt nach `+z`.** Das ist die anatomische Grundstellung, und in ihr
+gehört der Daumen nach **außen**, weg von der Körpermitte: `x = +0.0230`. Der kleine
+Finger sitzt innen bei `−0.0160`.
+
+Eine frühere Fassung hatte das genau umgekehrt. Weil `armPart` die ganze Baugruppe an
+der `x`-Achse spiegelt, trugen dadurch **beide** Hände die Fingerreihenfolge der
+jeweils anderen Seite — zwei linke Hände, sauber symmetrisch. Der Selbsttest prüft
+diesen Punkt seither ausdrücklich: Der Abstand der Daumenwurzel zur Körpermitte muss
+größer sein als der der Wurzel des kleinen Fingers, auf beiden Seiten.
 
 Die Fingerlänge ist **nicht frei gewählt**. Die gekrümmten Glieder beschreiben einen
 Kreisbogen, und dessen freier Innenradius ist alles, was die Hand umschließen kann. Bei
@@ -100,7 +126,10 @@ Mit den Werten oben sind es `0.0108`, und die Finger sind etwa so lang, wie der 
 ist. Das ist zugleich menschliche Proportion.
 
 Der Daumen hat einen eigenen Kanal, den **Oppositionswinkel**: eine Drehung um `z` um seine
-Wurzel. Er unterscheidet den Zangengriff vom Faustgriff deutlicher als jede Krümmung.
+Wurzel, die ihn den Fingern entgegenstellt. Dazu steht seine Beugeebene um `rotY 0.55`
+schräg zur Handfläche — deshalb läuft seine Kuppe beim Krümmen nach vorn **und** quer
+über den Ballen, statt neben den Fingern herzufallen. Das ist der Unterschied zwischen
+einem Daumen und einem fünften Finger.
 
 Die Armteile sind lokal zum jeweiligen Schultergelenk und werden für die linke Seite an der
 `x`-Achse gespiegelt. Der eingebaute Versatz nach außen (`x` wächst nach unten) gibt den
