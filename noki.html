@@ -255,6 +255,15 @@
   /* Ereignisse, deren eigene Animation erst in Stufe 2 oder 3 kommt */
   button.chip.vorlaeufig { opacity: .62; border-style: dashed; border-color: var(--panel-edge); }
 
+  /* Knopf mit Symbol. Das Symbol erbt die Textfarbe und wechselt damit
+     im gedrueckten Zustand mit. */
+  button.chip.mitIcon { display: inline-flex; align-items: center; gap: 6px; }
+  button.chip.mitIcon svg { display: block; flex: 0 0 auto; }
+  /* Waehrend der Bewegung gesperrt: sichtbar, aber nicht anklickbar.
+     Ein zweiter Klick mitten im Hinsetzen wuerde die Bewegung zerreissen. */
+  button.chip[disabled] { opacity: .45; cursor: default; transform: none; }
+  button.chip[disabled]:hover { color: var(--ink-soft); transform: none; }
+
   #hint {
     position: absolute;
     left: 50%;
@@ -332,6 +341,7 @@
     </div>
     <div class="blatt" id="bl-zeit" hidden>
       <div class="chips">
+        <button class="chip" type="button" id="sitzen" aria-pressed="false"></button>
         <button class="chip" type="button" id="gehen" aria-pressed="false">Gehen</button>
         <button class="chip" type="button" id="raffer" aria-pressed="false">Zeitraffer &times;10</button>
         <button class="chip" type="button" id="wecken">Zur&uuml;cksetzen</button>
@@ -1446,6 +1456,7 @@
 
   function setGehen(an, vomNutzer) {
     gehenZ = an ? 1 : 0;
+    if (an) sitzWunsch = null;          // wer geht, will nicht sitzen
     if (an && vomNutzer) { setHaltung("stehen"); ruhe = 0; }
     var b = document.getElementById("gehen");
     if (b) b.setAttribute("aria-pressed", String(an));
@@ -1967,6 +1978,63 @@
   var sitzU = 0, sitzRi = 1;                 // Fortschritt und Richtung
   var sitzRoll = 0;                          // Gewichtsverlagerung im Sitzen
   var sitzRiIst = 1;                         // weich nachgefuehrte Richtung
+  // Wunsch des Nutzers. null heisst: die Zeitkaskade entscheidet wie bisher.
+  var sitzWunsch = null;
+
+  // ---------------------------------------------------------------
+  //  Sitzen-Taste
+  //  Sie schaltet nur um; die Bewegung selbst ist die vorhandene, mit ihrem
+  //  eigenen Ablauf. Waehrend sie laeuft, ist die Taste gesperrt: Ein zweiter
+  //  Klick mittendrin wuerde die Richtung kippen und den Ablauf zerreissen.
+  // ---------------------------------------------------------------
+  // Stuhl von der Seite und Pfeil nach oben — bei 15 px liest sich beides
+  // sofort, eine Figur waere in dieser Groesse nur ein Fleck.
+  var SITZ_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+    + '<path d="M3.6 2.6v6.4M3.6 9h9M3.6 9v4.4M11.9 9v4.4" stroke="currentColor"'
+    + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var STEH_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+    + '<path d="M8 13.4V3.4M4.5 6.9L8 3.4l3.5 3.5" stroke="currentColor"'
+    + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  var sitzBtn = document.getElementById("sitzen");
+  var sitzBtnStand = null;          // zuletzt gezeichneter Zustand
+  function sitztGerade() { return sitzU > 0.5; }
+  function sitzUebergang() { return sitzU > 0.0005 && sitzU < 0.9995; }
+
+  function zeichneSitzKnopf() {
+    if (!sitzBtn) return;
+    var uebergang = sitzUebergang();
+    var sitzt = sitztGerade();
+    // Waehrend des Uebergangs zeigt die Taste schon das Ziel — sonst wechselte
+    // die Beschriftung erst auf halbem Weg und wirkte wie ein Fehler.
+    var zeigtAufstehen = uebergang ? (sitzRi > 0) : sitzt;
+    var stand = (zeigtAufstehen ? "auf" : "sitz") + (uebergang ? "-sperr" : "");
+    if (stand === sitzBtnStand) return;
+    sitzBtnStand = stand;
+    sitzBtn.innerHTML = (zeigtAufstehen ? STEH_ICON : SITZ_ICON)
+      + "<span>" + (zeigtAufstehen ? "Aufstehen" : "Sitzen") + "</span>";
+    sitzBtn.className = "chip mitIcon";
+    sitzBtn.setAttribute("aria-pressed", String(zeigtAufstehen));
+    if (uebergang) sitzBtn.setAttribute("disabled", "");
+    else sitzBtn.removeAttribute("disabled");
+    sitzBtn.title = zeigtAufstehen ? "Noki steht wieder auf" : "Noki setzt sich hin";
+  }
+
+  if (sitzBtn) {
+    sitzBtn.addEventListener("click", function () {
+      if (sitzUebergang()) return;          // laeuft schon — Klick verfaellt
+      touched();
+      if (sitztGerade()) {
+        sitzWunsch = "stehen";
+      } else {
+        sitzWunsch = "sitzen";
+        if (gehenZ === 1) { gehBis = 0; setGehen(false); }   // erst anhalten
+      }
+      zeichneSitzKnopf();
+    });
+    zeichneSitzKnopf();
+  }
+
   var sitzKontakt = 0;                       // Nachgeben beim Aufsetzen
 
   // Die Kurven. Jede Zeile ist ein Kanal mit eigenem Zeitfenster — das ist
@@ -2262,6 +2330,13 @@
 
     // Zeitkaskade — 20 s · 90 s · 4 min · 15 min
     var stufe = ruhe < 90 ? "stehen" : ruhe < 240 ? "sitzen" : ruhe < 900 ? "doesen" : "schlaf";
+    // Der Nutzer hat Vorrang vor der Kaskade — aber nur, solange sie nicht
+    // ohnehin tiefer will: wer sich hinsetzt, darf danach von selbst doesen.
+    if (sitzWunsch === "stehen") stufe = "stehen";
+    else if (sitzWunsch === "sitzen" && stufe === "stehen") stufe = "sitzen";
+    // Der Aufsteh-Wunsch ist einmalig: sobald Noki steht, entscheidet wieder
+    // die Kaskade. Der Sitz-Wunsch bleibt, bis der Nutzer ihn zuruecknimmt.
+    if (sitzWunsch === "stehen" && sitzU <= 0.0005) sitzWunsch = null;
     if (gehenZ === 1 && ruhe < 240) stufe = "stehen";   // wer geht, sitzt nicht
     if (gehenZ === 1 && ruhe >= 240) { gehBis = 0; setGehen(false); }
     setHaltung(stufe);
@@ -3299,6 +3374,55 @@
           + " % der Bilder stand ein Fuß still");
     })();
 
+    // Sitzen-Taste: Ein Klick startet den vollen Ablauf, weitere Klicks
+    // waehrend der Bewegung verfallen, und sitzU laeuft ohne Sprung durch.
+    // Der Knopf selbst wird dabei nicht angefasst — geprueft wird der
+    // Zustand, den er setzt.
+    (function () {
+      function klick() {
+        if (sitzU > 0.0005 && sitzU < 0.9995) return false;   // gesperrt
+        sitzWunsch = (sitzU > 0.5) ? "stehen" : "sitzen";
+        ruhe = 0;
+        return true;
+      }
+      function laufe(n, merk) {
+        for (var i = 0; i < n; i++) {
+          var v = sitzU;
+          time += 1 / 60; updateRig(1 / 60);
+          var d = sitzU - v;
+          if (Math.abs(d) > 0.016) melde("sitz-taste-sprung",
+            "sitzU springt um " + d.toFixed(4) + " je Bild (" + merk + ")");
+          if (merk === "hin" && d < -1e-9) melde("sitz-taste-rueckwaerts",
+            "sitzU laeuft rueckwaerts beim Hinsetzen");
+          if (merk === "auf" && d > 1e-9) melde("sitz-taste-rueckwaerts",
+            "sitzU laeuft vorwaerts beim Aufstehen");
+        }
+      }
+      var vorher = sitzWunsch, vorRuhe = ruhe;
+      sitzWunsch = null; setHaltung("stehen"); ruhe = 0;
+      laufe(120, "vor");
+      if (sitzU > 0.001) melde("sitz-taste-start", "Noki steht nicht, bevor die Taste kommt");
+
+      if (!klick()) melde("sitz-taste-klick", "Erster Klick wurde verschluckt");
+      laufe(20, "hin");
+      if (klick()) melde("sitz-taste-sperre", "Klick mitten im Hinsetzen wurde angenommen");
+      laufe(20, "hin");
+      if (klick()) melde("sitz-taste-sperre", "Zweiter Klick mitten im Hinsetzen wurde angenommen");
+      laufe(80, "hin");
+      if (sitzU < 0.999) melde("sitz-taste-ziel",
+        "Hinsetzen nicht fertig (sitzU " + sitzU.toFixed(3) + ")");
+
+      if (!klick()) melde("sitz-taste-klick", "Klick im Sitzen wurde verschluckt");
+      laufe(25, "auf");
+      if (klick()) melde("sitz-taste-sperre", "Klick mitten im Aufstehen wurde angenommen");
+      laufe(70, "auf");
+      if (sitzU > 0.001) melde("sitz-taste-ziel",
+        "Aufstehen nicht fertig (sitzU " + sitzU.toFixed(3) + ")");
+      if (sitzWunsch !== null) melde("sitz-taste-wunsch",
+        "Aufsteh-Wunsch nicht zurueckgenommen — die Zeitkaskade bliebe blockiert");
+      sitzWunsch = vorher; ruhe = vorRuhe;
+    })();
+
     // Griffe: beruehrt jeder tragende Finger, dringt nichts ein, bleibt der
     // Gegenstand aus Arm, Rumpf und Kopf heraus? Die Rechnung, die die
     // Griffwerte bestimmt hat, prueft sie hier dauerhaft nach.
@@ -3368,6 +3492,7 @@
     }).join(", ");
     var text = (ok ? "SELBSTTEST BESTANDEN" : "SELBSTTEST FEHLGESCHLAGEN (" + schl.length + " Fehlerarten)")
       + "\n1200 s simuliert, 16 Kanaele geprueft, 5 Griffe in allen Phasen"
+      + "\nSitzen-Taste: Ablauf, Sperre und Rueckkehr geprueft"
       + "\nFingerfedern: " + federn.n + " Bilder, groesste Aenderung je Bild "
       + federn.spitze.toFixed(4)
       + "\nEinlagen gezogen: " + gezogen.length
@@ -3501,6 +3626,7 @@
       if (halEl)  halEl.textContent = HALTUNG_LABEL[haltung];
       if (moodEl) moodEl.textContent = (stimmung >= 0 ? "+" : "") + stimmung.toFixed(2);
       if (clipEl) clipEl.textContent = clip ? EINLAGE[clip.key].label : "—";
+      zeichneSitzKnopf();
     }
   }
 

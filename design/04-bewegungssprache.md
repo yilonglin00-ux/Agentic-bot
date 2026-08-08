@@ -325,6 +325,20 @@ Ereignis, kein Kurvenwert, und steht deshalb außerhalb. Solange es drinsteckte,
 Ergebnis am Zustand des Aufrufers, und dieselbe Eingabe lieferte zwei verschiedene
 Antworten.
 
+### Die Taste
+
+Im Reiter *Bewegung* steht eine eigene Taste neben *Gehen*. Sie schaltet nur um; die
+Bewegung ist dieselbe wie die selbsttätige. Drei Regeln:
+
+- Der Klick setzt einen **Wunsch**, der der Zeitkaskade vorgeht — aber nur, solange
+  diese nicht ohnehin tiefer will. Wer sich hinsetzt, darf danach von selbst dösen.
+- Der Aufsteh-Wunsch ist **einmalig**: Sobald Noki steht, entscheidet wieder die
+  Kaskade. Sonst bliebe sie für immer blockiert.
+- Während der Bewegung ist die Taste **gesperrt**. Ein zweiter Klick mittendrin würde
+  die Richtung kippen und den Ablauf zerreißen.
+
+Wer losgeht, nimmt den Sitzwunsch zurück — sonst zögen beide gegeneinander.
+
 ### Sitz-Leerlauf
 
 Sehr klein gehalten: eine langsame Gewichtsverlagerung (Periode ~11 s), ein minimales

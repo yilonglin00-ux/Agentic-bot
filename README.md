@@ -31,7 +31,7 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | Gegenstand-Schaltflächen | fünf Gegenstände, sieben Griffarten und die Nutzungsfolgen Trinken, Bedienen, Schrauben — jeder Griff mit eigener Fingerhaltung |
 | Ausdrucks-Schaltflächen | neun Gefühlszustände und die Winkgeste |
 | Gehen | startet und stoppt den Watschelgang; der Boden zieht dabei unter ihm durch |
-| Sitzen | nach 90 s von selbst — mit Zeitraffer ×10 nach neun Sekunden zu sehen. `#sitv=0…1` zeigt jeden Zwischenstand |
+| **Sitzen / Aufstehen** | eigene Taste im Reiter *Bewegung*: ein Klick startet den vollen Ablauf, während er läuft ist sie gesperrt. Ohne Klick setzt Noki sich nach 90 s von selbst — mit Zeitraffer ×10 nach neun Sekunden zu sehen. `#sitv=0…1` zeigt jeden Zwischenstand |
 | Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
 
 Noki steht dabei nie still: Er atmet, blinzelt in unregelmäßigem Rhythmus, sieht sich um, und
