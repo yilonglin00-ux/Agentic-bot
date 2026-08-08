@@ -389,6 +389,37 @@ Dasselbe gilt für die Hände: Die Kurve drückt sie gegen den Boden, die Beding
 ab. Sie gleiten deshalb beim Abrollen am Boden entlang, statt einer eingetragenen Bahn zu
 folgen — und können weder hindurchgreifen noch darüber schweben.
 
+### Warum die Arme zur Seite gehen und erst spät sinken
+
+Eine Bedingung, die abschneidet, ist nur so gut wie das, was sie abschneiden soll. Der
+erste Entwurf schickte die Arme von Anfang an nach unten, und in der Hocke wurde das zur
+Falle: Dort liegt die Hand bei der Abspreizung `0.16` für **jeden** sinnvollen Vorschwung
+unter dem Boden — von `−2 mm` bei `armFw = −0.60` bis `−43 mm` bei `armFw = 0`. Es gab
+keine nahe zulässige Stellung, also musste die Bodenbedingung über die ganze unzulässige
+Zone hinwegspringen: bis zu `0.33 rad` in einem Bild, acht Zentimeter Handweg.
+
+Zwei Dinge lösen das gemeinsam, und **nur** gemeinsam:
+
+| Variante | größter Sprung je Bild | Dauerkorrektur |
+|---|---|---|
+| Arme früh nach unten (erster Entwurf) | 0.610 | 1.115 |
+| nur stärker abspreizen | 0.655 | 0.662 |
+| nur später sinken lassen | 0.089 | 0.514 |
+| **beides** | **0.061** | **0.135** |
+
+Die Abspreizung allein verschiebt den Sprung nur an eine andere Stelle. Das späte Sinken
+allein lässt den Arm über weite Strecken der Zwangsbedingung statt der Kurve folgen.
+
+Noki nimmt die Arme beim Absenken deshalb **zur Seite** — dieselbe Lösung, die das Sitzen
+mit `armSw = 0.44` längst benutzt — und greift erst zum Boden, wenn der Rumpf schon fast
+flach liegt. Im Rig gemessen bleiben davon `0.068` bis `0.077 rad` je Bild, in derselben
+Klasse wie Hüfte und Knie.
+
+> **Die Lehre:** Eine Zwangsbedingung kann Durchdringung verhindern, aber sie kann keine
+> Bewegung erfinden. Wenn die Animation etwas Unmögliches verlangt, wird die Bedingung
+> unstetig — und keine bessere Suche behebt das. Zwei Versuche an der Suche sind hier
+> gescheitert, bevor die Ursache in der Kurve gefunden war.
+
 ### Aufrichten
 
 Ein eigener Kurvensatz, kein Rückwärtsspielen: erst der Rumpf hoch, dann über die Hocke,

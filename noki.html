@@ -2348,8 +2348,29 @@
       // schliesslich zum Boden. Der Endwert liegt bewusst UNTER dem
       // Erreichbaren — die Bodengrenze schneidet ihn ab, und dadurch
       // gleiten die Haende beim Abrollen am Boden entlang.
-      r.armSw = la.armSw * cTraege(fenster(u, 0.06, 0.62)) + 0.14 * vorb;
-      r.armFw = la.armFw * cTraege(fenster(u, 0.10, 0.80));
+      // Die Arme gehen fuer die Dauer von Hocke und Abrollen deutlich zur
+      // SEITE, und sie greifen erst zum Boden, wenn der Rumpf schon fast flach
+      // liegt. Beides zusammen ist noetig, und beides ist gemessen:
+      //
+      // In der Hocke liegt die Hand bei der Abspreizung 0.16 fuer JEDEN
+      // sinnvollen Vorschwung unter dem Boden — von -2 mm bei armFw = -0.60
+      // bis -43 mm bei armFw = 0. Es gibt dort keine nahe zulaessige Stellung,
+      // also musste die Bodengrenze springen; kein Suchverfahren kann das
+      // beheben. Ab etwa 0.50 Abspreizung bleibt die Hand ueber den ganzen
+      // Bereich frei — dieselbe Loesung, die das Sitzen mit armSw = 0.44
+      // laengst benutzt.
+      //
+      // Ueber alle 133 Bilder gerechnet:
+      //   heute                    groesster Sprung 0.610, Dauerkorrektur 1.115
+      //   nur Abspreizung          0.655 — verschiebt den Sprung nur
+      //   nur spaetes Absenken     0.089, aber 0.514 Dauerkorrektur
+      //   beides zusammen          0.061 und 0.135
+      //
+      // Bei u = 1 ist sin(pi) = 0 und cTraege(1) = 1: die Liegehaltung bleibt
+      // damit bitgleich, und die Endpunktgleichheit der Kurvensaetze haelt.
+      r.armSw = la.armSw * cTraege(fenster(u, 0.06, 0.62)) + 0.14 * vorb
+              + 0.40 * Math.sin(Math.PI * fenster(u, 0.14, 0.78));
+      r.armFw = la.armFw * cTraege(fenster(u, 0.82, 1.00));
       // Kinn zur Brust, solange der Ruecken abrollt — niemand legt den
       // Hinterkopf voran ab. Danach findet der Kopf seine Ruhelage.
       r.hP = la.hP * cTraege(fenster(u, 0.80, 1.00))
@@ -2370,8 +2391,11 @@
       r.senkung = sa.senkung * (1 - cTraege(fenster(v, 0.44, 0.94)));
       r.pitch = la.pitch * (1 - cTraege(fenster(v, 0.02, 0.48)));
       r.bz = 0.024 * Math.sin(Math.PI * fenster(v, 0.10, 0.80));
-      r.armSw = la.armSw * (1 - cTraege(fenster(v, 0.20, 0.86)));
-      r.armFw = la.armFw * (1 - cTraege(fenster(v, 0.04, 0.62)));
+      // Auf dem Rueckweg dasselbe, gespiegelt: die Haende loesen sich zuerst
+      // vom Boden, dann gehen die Arme durch die Seitenhaltung zurueck.
+      r.armSw = la.armSw * (1 - cTraege(fenster(v, 0.20, 0.86)))
+              + 0.40 * Math.sin(Math.PI * fenster(v, 0.22, 0.86));
+      r.armFw = la.armFw * (1 - cTraege(fenster(v, 0.00, 0.18)));
       r.hP = la.hP * (1 - cTraege(fenster(v, 0.00, 0.30)))
            + 0.16 * Math.sin(Math.PI * fenster(v, 0.06, 0.52));
       r.w = 1 - cTraege(fenster(v, 0.75, 0.95));
@@ -4355,28 +4379,14 @@
       // sind deshalb die gemessene Geschwindigkeit der vorhandenen
       // Bewegungen plus Rand, nicht ein Wunsch.
       //
-      // `armFw` faellt aus der Reihe, und zwar aus einem BEKANNTEN Grund,
-      // der nicht dieser Stufe gehoert: Mitten in der Hocke liegt die
-      // unzulaessige Armstellung als Tal um den Wunschwert — der Arm haengt
-      // dort senkrecht nach unten und ist am tiefsten, nach vorn wie nach
-      // hinten hebt sich die Hand. In dem Bild, in dem der Wunsch ins Tal
-      // geraet, springt die Bodengrenze einmal ueber das ganze Tal. Je
-      // nachdem, welches Bild die Kante trifft, sind das 0.12 bis 0.33 rad,
-      // also bis zu acht Zentimeter Handweg.
-      //
-      // Das gehoert der Hinlegestufe und wurde hier zum ersten Mal gemessen.
-      // Zwei Auswege wurden geprueft und wieder verworfen — eine Suche nach
-      // beiden Seiten laesst den Arm bis -1.37 nach hinten wandern und dann
-      // um 0.98 rad zurueckschlagen, mit oder ohne Gedaechtnis. Der saubere
-      // Weg ist, den Wunsch der Liegekurve waehrend der Hocke gar nicht erst
-      // in den Boden zu schicken — und das ist eine Aenderung AN DER
-      // HINLEGEBEWEGUNG, die hier nicht ansteht.
-      //
-      // Bis dahin wird der Wert gemessen und im Bericht genannt, statt
-      // unsichtbar zu bleiben. Die Schranke faengt jede Verschlechterung ab.
+      // `armFw` stand hier lange auf 0.450 — eine Notschranke fuer den
+      // Armsprung der Hinlegestufe. Der ist behoben (Abspreizung in der Hocke
+      // und spaetes Absenken der Arme): gemessen bleiben 0.068 bis 0.077 je
+      // nach Lauf, statt 0.12 bis 0.33. Die Schranke steht damit in derselben
+      // Klasse wie Huefte und Knie — schnell, aber im Rahmen der Bewegung.
       var sprung = { pitch:0.060, senkung:0.014, hueft:0.095, knie:0.095,
                      kopfN:0.060, kopfD:0.100, kopfR:0.060, armSw:0.170,
-                     armFw:0.450, auge:0.360, glimm:0.200, squash:0.010 };
+                     armFw:0.095, auge:0.360, glimm:0.200, squash:0.010 };
       var armFwSpitze = 0, armFwWo = "";
 
       function bild(wo) {
@@ -4506,8 +4516,8 @@
 
       anfang();
       schlafBerichtGlobal = schlafBericht
-        + "\nBekannt aus der Hinlegestufe: die Arm-Bodengrenze springt einmal um "
-        + armFwSpitze.toFixed(3) + " rad (" + armFwWo + ")";
+        + "\nArm-Bodengrenze: groesster Sprung " + armFwSpitze.toFixed(3)
+        + " rad je Bild (" + armFwWo + ")";
     })();
 
     // Haende ueber dem Boden. Im Sitzen liegt der Rumpf 0.150 tiefer, die
