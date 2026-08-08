@@ -343,6 +343,7 @@
       <div class="chips">
         <button class="chip" type="button" id="sitzen" aria-pressed="false"></button>
         <button class="chip" type="button" id="liegen" aria-pressed="false"></button>
+        <button class="chip" type="button" id="schlafen" aria-pressed="false"></button>
         <button class="chip" type="button" id="gehen" aria-pressed="false">Gehen</button>
         <button class="chip" type="button" id="raffer" aria-pressed="false">Zeitraffer &times;10</button>
         <button class="chip" type="button" id="wecken">Zur&uuml;cksetzen</button>
@@ -1464,7 +1465,8 @@
 
   function setGehen(an, vomNutzer) {
     gehenZ = an ? 1 : 0;
-    if (an) { sitzWunsch = null; liegeWunsch = null; }   // wer geht, liegt nicht
+    // wer geht, liegt nicht und schlaeft nicht
+    if (an) { sitzWunsch = null; liegeWunsch = null; schlafWunsch = "wach"; }
     if (an && vomNutzer) { setHaltung("stehen"); ruhe = 0; }
     var b = document.getElementById("gehen");
     if (b) b.setAttribute("aria-pressed", String(an));
@@ -1645,6 +1647,9 @@
   function touched() {
     lastInput = time;
     ruhe = 0;                 // jede Eingabe setzt die Zeitkaskade zurück
+    // …und weckt ihn. Weil das Einschlafen an derselben Uhr haengt, ist das
+    // Wecken damit keine eigene Mechanik, sondern faellt umsonst ab.
+    if (schlafWunsch === "schlafen") schlafWunsch = null;
     var h = document.getElementById("hint");
     if (h && !h.classList.contains("gone")) h.classList.add("gone");
   }
@@ -2247,8 +2252,16 @@
   // ueber dem Vorschwung nicht monoton. Weit zurueckgeschwungen hebt sie
   // wieder ab, und eine Bisektion haette dieses zweite Stueck fuer „frei"
   // gehalten und die Hand mitten im Ablauf durch den Boden gelassen. Gesucht
-  // wird deshalb von der Wunschstellung aus nach oben: die KLEINSTE
-  // Aenderung, die die Hand aus dem Boden holt.
+  // wird deshalb von der Wunschstellung aus NACH OBEN: die kleinste
+  // Aenderung dieser Richtung, die die Hand aus dem Boden holt.
+  //
+  // Nach oben, und ausdruecklich nicht nach beiden Seiten. Waehrend der
+  // Hocke liegt die unzulaessige Zone als Tal um den Wunschwert, und der
+  // untere Rand des Tals sieht kurz naeher aus. Wer ihn nimmt, schickt den
+  // Arm immer weiter nach hinten, bis er bei -1.40 aus dem Bereich faellt
+  // und in einem Bild um 0.98 rad zurueckschlaegt — beide Versuche damit
+  // gemessen und wieder verworfen. Nach oben ist der Weg beschraenkt und
+  // kann nicht davonlaufen.
   function armFwFrei(sgn, ax, af, Rb, gelenk, hoehe) {
     if (armTiefster(sgn, ax, af, Rb, gelenk) + hoehe >= 0) return af;
     var lo = af, hi = af;
@@ -2403,7 +2416,8 @@
     // Waehrend des Uebergangs zeigt die Taste schon das Ziel — sonst
     // wechselte die Beschriftung erst auf halbem Weg.
     var zeigtAuf = uebergang ? (liegeRi > 0) : liegtGerade();
-    var sperr = uebergang || sitzUebergang()
+    // Aus dem Schlaf richtet sich niemand auf — erst wachen, dann aufstehen.
+    var sperr = uebergang || sitzUebergang() || schlafUebergang()
              || (liegeWunsch === "liegen" && liegeU <= 0.0005);
     var stand = (zeigtAuf ? "auf" : "lieg") + (sperr ? "-sperr" : "");
     if (stand === liegeBtnStand) return;
@@ -2420,10 +2434,13 @@
 
   if (liegeBtn) {
     liegeBtn.addEventListener("click", function () {
-      if (liegeUebergang() || sitzUebergang()) return;   // laeuft schon
+      if (liegeUebergang() || sitzUebergang() || schlafUebergang()) return;
       touched();
       if (liegtGerade() || liegeWunsch === "liegen") {
         liegeWunsch = null;
+        // Schlaeft er, weckt ihn das erst. Aufgestanden wird danach: die
+        // Zeitachse des Liegens ist gesperrt, solange Schlaf uebrig ist.
+        schlafWunsch = "wach";
       } else {
         liegeWunsch = "liegen";
         // Aus dem Sitzen steht Noki erst vollstaendig auf; die vorhandene
@@ -2433,8 +2450,220 @@
       }
       zeichneLiegeKnopf();
       zeichneSitzKnopf();
+      zeichneSchlafKnopf();
     });
     zeichneLiegeKnopf();
+  }
+
+  // ---------------------------------------------------------------
+  //  EINSCHLAFEN, SCHLAFEN UND AUFWACHEN
+  //
+  //  Dritte eigene Zeitachse, nach dem Muster von `sitzU` und `liegeU`:
+  //  `schlafU` 0 = wach im Liegen, 1 = schlafend. Der eigene Kurvensatz je
+  //  Richtung ist hier nicht Beiwerk, sondern der Kern — Aufwachen ist
+  //  ausdruecklich nicht das rueckwaerts gespielte Einschlafen. Es hat
+  //  eigene Schlaege: halb geoeffnete Augen, ein Rueckfall, ein zweiter
+  //  Versuch, Orientieren, Strecken.
+  //
+  //  Die Kette wird STRUKTURELL erzwungen statt von Hand verdrahtet:
+  //   · `schlafU` steigt nur, wenn `liegeU >= 0.9995`. Damit IST die
+  //     Endlage des Hinlegens die Startlage des Schlafens — es gibt keinen
+  //     zweiten Ort, an dem der Schlaf beginnen koennte.
+  //   · `liegeU` faellt nur, wenn `schlafU <= 0.0005`. Im Schlaf steht
+  //     niemand auf; wer aufrichten will, weckt ihn erst.
+  // ---------------------------------------------------------------
+  var SCHLAFART = {
+    // hP/hR: der Kopf sinkt zurueck und legt sich zur Seite. Er darf das,
+    // weil die Rumpfneigung nachgefuehrt wird (siehe kopfAusgleich) — sonst
+    // wuerde einer von beiden abheben.
+    normal: { hP: -0.032, hR: 0.062, armSw: -0.055, finger: 0.085,
+              dunkel: 0.62, atemLangsam: 0.55, atemTief: 1.00,
+              mouth: -0.16, label: "ruhiger Schlaf" }
+  };
+  // Platz fuer spaetere Varianten. Sie zeigen vorerst auf `normal`; eine
+  // neue Schlafart ist damit eine Zeile und keine neue Animation.
+  ["tief", "nickerchen", "unruhig", "entspannt"].forEach(
+    function (v) { SCHLAFART[v] = SCHLAFART.normal; });
+  var schlafArt = "normal";
+
+  var SCHLAF_NACH = 20;                     // Sekunden ruhiges Liegen bis zur Muedigkeit
+  var schlafU = 0, schlafRi = 1;
+  var schlafRiIst = 1;
+  var schlafWunsch = null;                  // null = von selbst, "schlafen", "wach"
+  var schlafStand = null;                   // Standbild: Fortschritt direkt setzen
+
+  function schlaeftGerade() { return schlafU > 0.5; }
+  function schlafUebergang() { return schlafU > 0.0005 && schlafU < 0.9995; }
+
+  // Kopf und Rumpf sollen GEMEINSAM aufliegen. Dreht sich der Kopf im
+  // Schlaf, wird einer von beiden zum tiefsten Punkt und der andere schwebt —
+  // bei 0.03 rad Kopfneigung schon um gut fuenf Millimeter. Statt die
+  // Kopfbewegung deshalb winzig zu halten, wird die Rumpfneigung nachgefuehrt:
+  // gesucht ist der Zuschlag, bei dem beide gleich tief liegen. Dieselbe Idee
+  // wie die abgeleitete Bodenhoehe, nur eine Ebene hoeher — und sie macht die
+  // Kopfbewegung im Schlaf ueberhaupt erst frei.
+  function kopfAusgleich(pitch, roll, kopf, squash) {
+    function d(z) {
+      var t = tiefsterKoerper(pitch + z, roll, kopf, squash);
+      return t.kopf - t.rumpf;
+    }
+    var lo = -0.30, hi = 0.30, dl = d(lo);
+    if ((dl > 0) === (d(hi) > 0)) return 0;      // kein Vorzeichenwechsel
+    for (var i = 0; i < 16; i++) {
+      var mid = 0.5 * (lo + hi);
+      if ((d(mid) > 0) === (dl > 0)) lo = mid; else hi = mid;
+    }
+    return 0.5 * (lo + hi);
+  }
+
+  // Die Kurven.
+  //
+  //  Einschlafen (u = 0 → 1), rund 6 s
+  //    0.00–0.30  Muedigkeit: Blinzeln wird gedehnt, Lider auf ~0.75
+  //    0.30–0.62  Schwere Lider: auf ~0.35, Atem langsamer, Arme loesen sich
+  //    0.62–0.88  Augen schliessen: Lider zu, Glimm dimmt, Kopf sackt nach
+  //    0.88–1.00  Ankommen: der Koerper entspannt sichtbar, alles laeuft aus
+  //
+  //  Phase 1 der Vorgabe — „wach im Liegen" — ist der VORHANDENE
+  //  Liege-Leerlauf. Er wird nicht angefasst; die Kurve setzt bei Phase 2 an.
+  function schlafKurven(u, ri, dt) {
+    var sa = SCHLAFART[schlafArt] || SCHLAFART.normal;
+    var r = { lidZu: 0, blinkRuhe: 0, ruhig: 0, dunkel: 0,
+              atemLangsam: 0, atemTief: 0, hP: 0, hY: 0, hR: 0,
+              armSw: 0, armFw: 0, finger: 0, spreiz: 0,
+              hueft: 0, knie: 0, br: 0, squash: 0,
+              lx: 0, ly: 0, mouth: 0, gew: 0 };
+    if (u <= 0.0001) return r;
+
+    if (ri > 0) {
+      // ---- Einschlafen ----
+      // Die Lider sinken in drei Stufen statt in einer. Genau das ist der
+      // Unterschied zwischen „die Augen werden schwer" und „die Augen gehen
+      // aus": 1.00 → 0.75 → 0.35 → zu.
+      r.lidZu = 0.25 * cTraege(fenster(u, 0.00, 0.30))
+              + 0.40 * cTraege(fenster(u, 0.30, 0.62))
+              + 0.35 * cTraege(fenster(u, 0.62, 0.88));
+      // Das Blinzeln wird nicht abgeschaltet, sondern GEDEHNT: der Abstand
+      // waechst, die Dauer waechst, und die Augen bleiben nach jedem
+      // Blinzeln laenger zu.
+      r.blinkRuhe   = cTraege(fenster(u, 0.05, 0.80));
+      r.ruhig       = cTraege(fenster(u, 0.00, 0.42));   // Blick und Kopf beruhigen sich
+      r.dunkel      = sa.dunkel * cTraege(fenster(u, 0.55, 0.95));
+      r.atemLangsam = sa.atemLangsam * cTraege(fenster(u, 0.25, 0.85));
+      r.atemTief    = sa.atemTief * cTraege(fenster(u, 0.35, 0.92));
+      r.hP          = sa.hP * cTraege(fenster(u, 0.58, 1.00));
+      r.hR          = sa.hR * cTraege(fenster(u, 0.52, 1.00));
+      r.armSw       = sa.armSw * cTraege(fenster(u, 0.30, 0.90));
+      r.finger      = sa.finger * cTraege(fenster(u, 0.28, 0.88));
+      r.mouth       = sa.mouth * cTraege(fenster(u, 0.15, 0.70));
+      r.gew         = cTraege(fenster(u, 0.00, 0.12));
+    } else {
+      // ---- Aufwachen ----
+      //   0.00–0.14  erste Reaktion: tieferer Atem, Lidzittern, Augen noch zu
+      //   0.14–0.30  erster Versuch: Lider auf ~0.35
+      //   0.30–0.40  Rueckfall auf ~0.12, kurze Pause
+      //   0.40–0.58  zweiter Versuch: ganz auf, der Glimm kommt zurueck
+      //   0.52–0.80  Orientierung: links, rechts, nach vorn
+      //   0.62–0.92  Strecken: Arme, Finger, Beine — ein Ausschlag
+      //   0.92–1.00  Ankommen in der Wach-Liegehaltung
+      var v = 1 - u;
+      var l1 = cTraege(fenster(v, 0.14, 0.30));
+      var l2 = cTraege(fenster(v, 0.30, 0.40));
+      var l3 = cTraege(fenster(v, 0.40, 0.58));
+      r.lidZu = 1.00 - 0.35 * l1 + 0.23 * l2 - 0.88 * l3
+              - 0.030 * Math.sin(Math.PI * fenster(v, 0.02, 0.14));   // Lidzittern
+      r.blinkRuhe   = 1 - cTraege(fenster(v, 0.44, 0.72));
+      r.ruhig       = 1 - cTraege(fenster(v, 0.40, 0.78));
+      r.dunkel      = sa.dunkel * (1 - cTraege(fenster(v, 0.34, 0.62)));
+      r.atemLangsam = sa.atemLangsam * (1 - cTraege(fenster(v, 0.20, 0.75)));
+      // Ein tiefer Atemzug beim Erwachen, dann zurueck auf das Wachmass.
+      r.atemTief    = sa.atemTief * (1 - cTraege(fenster(v, 0.06, 0.40)))
+                    + 0.45 * Math.sin(Math.PI * fenster(v, 0.00, 0.26));
+      r.hP          = sa.hP * (1 - cTraege(fenster(v, 0.30, 0.76)));
+      r.hR          = sa.hR * (1 - cTraege(fenster(v, 0.26, 0.70)));
+      r.armSw       = sa.armSw * (1 - cTraege(fenster(v, 0.34, 0.80)));
+      r.finger      = sa.finger * (1 - cTraege(fenster(v, 0.30, 0.74)));
+      r.mouth       = sa.mouth * (1 - cTraege(fenster(v, 0.48, 0.92)));
+      r.gew         = 1 - cTraege(fenster(v, 0.86, 1.00));
+
+      // Orientierung — „wo bin ich?". Der Blick geht voraus, der Kopf folgt
+      // verzoegert; beides laeuft mit cPendelnd von selbst auf null aus.
+      var ori = fenster(v, 0.52, 0.80);
+      r.lx += 0.52 * cPendelnd(ori, 1);
+      r.hY += 0.15 * cPendelnd(fenster(v, 0.56, 0.86), 1);
+      r.ly += 0.26 * Math.sin(Math.PI * fenster(v, 0.44, 0.62));
+
+      // Strecken — ein Ausschlag, gedaempft. Der Arm drueckt dabei staerker
+      // gegen den Boden; die Bodengrenze schneidet ihn ab, und die Haende
+      // gleiten nach aussen, statt abzuheben.
+      var st = Math.sin(Math.PI * fenster(v, 0.62, 0.92));
+      var stW = st * st;
+      r.armSw  += 0.30 * stW;
+      r.armFw  -= 0.22 * stW;
+      r.finger -= 0.30 * stW;         // Finger oeffnen sich
+      r.spreiz += 0.013 * stW;
+      r.hueft  -= 0.050 * stW;        // Beine schieben nach vorn
+      r.knie   -= 0.080 * stW;        // und strecken sich
+      r.br     += 0.012 * stW;
+      r.squash -= 0.005 * stW;        // kurz laenger machen
+    }
+    return r;
+  }
+
+  // ---------------------------------------------------------------
+  //  Schlafen-Taste
+  // ---------------------------------------------------------------
+  // Mond und Sonne — bei 15 px liest sich beides sofort.
+  var SCHLAF_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+    + '<path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z" stroke="currentColor"'
+    + ' stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  var WACH_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+    + '<circle cx="8" cy="8" r="3.1" stroke="currentColor" stroke-width="1.6"/>'
+    + '<path d="M8 1.4v1.6M8 13v1.6M1.4 8h1.6M13 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1'
+    + 'M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.6"'
+    + ' stroke-linecap="round"/></svg>';
+
+  var schlafBtn = document.getElementById("schlafen");
+  var schlafBtnStand = null;
+
+  function zeichneSchlafKnopf() {
+    if (!schlafBtn) return;
+    var uebergang = schlafUebergang();
+    var zeigtWach = uebergang ? (schlafRi > 0) : schlaeftGerade();
+    var sperr = uebergang || liegeUebergang() || sitzUebergang()
+             || (schlafWunsch === "schlafen" && schlafU <= 0.0005);
+    var stand = (zeigtWach ? "wach" : "schlaf") + (sperr ? "-sperr" : "");
+    if (stand === schlafBtnStand) return;
+    schlafBtnStand = stand;
+    schlafBtn.innerHTML = (zeigtWach ? WACH_ICON : SCHLAF_ICON)
+      + "<span>" + (zeigtWach ? "Aufwachen" : "Einschlafen") + "</span>";
+    schlafBtn.className = "chip mitIcon";
+    schlafBtn.setAttribute("aria-pressed", String(zeigtWach));
+    if (sperr) schlafBtn.setAttribute("disabled", "");
+    else schlafBtn.removeAttribute("disabled");
+    schlafBtn.title = zeigtWach ? "Noki wacht auf und bleibt liegen"
+                                : "Noki wird muede und schlaeft ein";
+  }
+
+  if (schlafBtn) {
+    schlafBtn.addEventListener("click", function () {
+      if (schlafUebergang() || liegeUebergang() || sitzUebergang()) return;
+      touched();                       // setzt die Ruhe-Uhr und loescht „schlafen"
+      if (schlaeftGerade()) {
+        schlafWunsch = "wach";
+      } else {
+        schlafWunsch = "schlafen";
+        // Steht Noki noch, legt er sich erst hin — die vorhandene
+        // Hinlegebewegung laeuft dabei vollstaendig durch.
+        liegeWunsch = "liegen";
+        sitzWunsch = "stehen";
+        if (gehenZ === 1) { gehBis = 0; setGehen(false); }
+      }
+      zeichneSchlafKnopf();
+      zeichneLiegeKnopf();
+      zeichneSitzKnopf();
+    });
+    zeichneSchlafKnopf();
   }
 
   var haltung = "stehen";
@@ -2636,7 +2865,9 @@
     // werden häufiger, nicht seltener (Dokument 06, Fall 3). Erst im Dösen
     // wird es ruhiger.
     var f = ruhe < 90 ? 1.0 : ruhe < 240 ? 0.6 : 2.0;
-    return (20 + Math.random() * 20) * f;
+    // Ein Schlafender sieht sich nicht um. Rein mengenmaessig gedehnt — die
+    // Auswahl der Einlagen bleibt dieselbe, nur der Abstand waechst.
+    return (20 + Math.random() * 20) * f * (1 + 24 * schlafU);
   }
 
   function treiber(dt) {
@@ -2742,7 +2973,11 @@
     // Liegen kommt nicht aus der Zeitkaskade, sondern nur auf Wunsch — und
     // es beginnt erst, wenn Noki wirklich steht: aus dem Sitzen laeuft die
     // vorhandene Aufstehbewegung vorher vollstaendig durch.
-    var lieZiel = (liegeWunsch === "liegen" && sitzU <= 0.0005) ? 1 : 0;
+    // Solange Schlaf uebrig ist, bleibt er liegen — auch wenn der Wunsch
+    // schon auf Aufstehen steht. Das ist die zweite Haelfte der erzwungenen
+    // Kette: Aufwachen geht dem Aufrichten immer voraus.
+    var lieZiel = ((liegeWunsch === "liegen" || schlafU > 0.0005)
+                   && sitzU <= 0.0005) ? 1 : 0;
     if (lieZiel > liegeU + 1e-4) liegeRi = 1;
     else if (lieZiel < liegeU - 1e-4) liegeRi = -1;
     if (still) liegeU = (liegeStand === null) ? lieZiel : liegeStand;
@@ -2769,6 +3004,51 @@
     // --- 3 · Verhaltenstreiber ---
     if (!still) treiber(dt);
     var muede = clamp(ruhe / 90, 0, 1);
+
+    // --- 3b · Einschlafen, Schlafen und Aufwachen ---
+    // Steht nach dem Treiber, weil die Ruhe-Uhr `ruhe` das Einschlafen
+    // ausloest: liegt Noki vollstaendig und ist es lange genug still, wird er
+    // von selbst muede. Dieselbe Uhr weckt ihn auch wieder — `touched()`
+    // setzt sie bei jeder Eingabe zurueck.
+    var schlafZiel = (liegeU >= 0.9995 && schlafWunsch !== "wach"
+                      && (schlafWunsch === "schlafen" || ruhe > SCHLAF_NACH)) ? 1 : 0;
+    if (schlafZiel > schlafU + 1e-4) schlafRi = 1;
+    else if (schlafZiel < schlafU - 1e-4) schlafRi = -1;
+    if (still) schlafU = (schlafStand === null) ? schlafZiel : schlafStand;
+    else schlafU = clamp(schlafU + schlafRi * dt / (schlafRi > 0 ? 6.00 : 5.50), 0, 1);
+    // Der Wach-Wunsch ist einmalig: sobald Noki wach ist, entscheidet wieder
+    // die Uhr. Sonst schliefe er nie wieder ein.
+    if (schlafWunsch === "wach" && schlafU <= 0.0005) schlafWunsch = null;
+    if (still) schlafRiIst = schlafRi;
+    else schlafRiIst = schlafRiIst + clamp(schlafRi - schlafRiIst, -3.0 * dt, 3.0 * dt);
+    var slE = schlafKurven(schlafU,  1, dt);
+    var slA = schlafKurven(schlafU, -1, dt);
+    var mWach = clamp(0.5 - 0.5 * schlafRiIst, 0, 1);   // 0 = einschlafen, 1 = aufwachen
+    var sl = {};
+    for (var slk in slE) sl[slk] = slE[slk] + (slA[slk] - slE[slk]) * mWach;
+
+    // Schlaf-Leerlauf. Bewusst DETERMINISTISCH statt zufaellig: langsame
+    // Sinus mit unteilbaren Perioden, wie es `drift` im Haus schon macht.
+    // Dadurch kann der Selbsttest jede Amplitude nach oben begrenzen — bei
+    // Zufall koennte er das nicht, und „nichts zuckt" waere eine Behauptung
+    // statt einer Zusicherung.
+    if (!still && schlafU > 0.02) {
+      var ss = schlafU * schlafU;                   // erst im tiefen Schlaf voll da
+      sl.hY    += 0.020 * Math.sin(time * 0.273 + 0.7) * ss;
+      sl.hR    += 0.018 * Math.sin(time * 0.203 + 2.9) * ss;
+      sl.hP    += 0.009 * Math.sin(time * 0.171 + 5.1) * ss;
+      sl.armSw += 0.010 * Math.sin(time * 0.331 + 1.8) * ss;
+      sl.finger+= 0.030 * Math.sin(time * 0.147 + 4.2) * ss;
+      sl.lidZu -= 0.012 * Math.sin(time * 0.483 + 3.4) * ss;
+      // Umlagern: selten, gedaempft, aber nicht regelmaessig genug, um als
+      // Takt aufzufallen — zwei unteilbare Perioden ueberlagert.
+      var um = Math.max(0, Math.sin(time * 0.157) * Math.sin(time * 0.041 + 1.3));
+      var umW = um * um * um * ss;
+      sl.br    += 0.014 * umW * Math.sin(time * 0.61);
+      sl.armSw += 0.022 * umW;
+      sl.knie  += 0.030 * umW;
+      sl.squash-= 0.003 * umW;
+    }
 
     // --- Gehen ---
     gehen = lerp(gehen, gehenZ, 1 - Math.pow(0.02, dt / 0.45));
@@ -2808,6 +3088,12 @@
       var fw = 1 - clamp(fadeT / 0.35, 0, 1);
       if (fw <= 0) fadeOff = null;
       else for (var fk in fadeOff) { o[fk] += fadeOff[fk] * fw; }
+    }
+    // Eine noch laufende Einlage wird mit dem Einschlafen ausgeblendet statt
+    // abgeschnitten — sonst spielte ein Schlafender „B1 Umsehen" zu Ende.
+    if (schlafU > 0.001) {
+      var wachAnteil = 1 - schlafU;
+      for (var ek in o) { o[ek] *= wachAnteil; }
     }
 
     // --- 4b · Greifpose, Handgelenk und Gewicht ---
@@ -2982,10 +3268,15 @@
     var fiZiel = [0, 0, 0, 0, 0];
     for (var fk = 0; fk < 5; fk++) {
       // Gewicht heisst fester zupacken. Das ist der Druckpunkt, den man sieht.
-      fiZiel[fk] = lerp(FINGERRUHE.fi[fk], art.fi[fk], traegt) + fiZus[fk] + 0.13 * gw;
+      // Der Schlafanteil kommt zuletzt dazu: eine entspannte Hand kruemmt
+      // sich etwas mehr, eine sich streckende oeffnet sich. Die Anatomie —
+      // Daumen aussen, drei Gelenke, Konvergenz — bleibt unberuehrt; hier
+      // aendert sich nur, wie weit gebeugt wird.
+      fiZiel[fk] = lerp(FINGERRUHE.fi[fk], art.fi[fk], traegt) + fiZus[fk] + 0.13 * gw
+                 + sl.finger * (1 - traegt);
     }
     var oppZiel = lerp(FINGERRUHE.opp, art.opp, traegt) + oppZus;
-    var sprZiel = lerp(FINGERRUHE.spreiz, art.spreiz, traegt) + sprZus;
+    var sprZiel = lerp(FINGERRUHE.spreiz, art.spreiz, traegt) + sprZus + sl.spreiz * (1 - traegt);
 
     // Leerlauf und Griffkorrektur: eine Hand steht nie still, und alle paar
     // Sekunden legt sich ein Finger neu an, ohne dass der Griff aufgeht.
@@ -3048,46 +3339,67 @@
     // Die Phase wird fortgeschrieben, nicht aus der absoluten Zeit berechnet:
     // sonst springt sie, sobald sich die Atemfrequenz ändert — bei jedem
     // Haltungs- und Ausdruckswechsel.
-    if (still) phAtem = t * 1.15 * br; else phAtem += dt * 1.15 * br;
+    // Im Schlaf laeuft der Atem langsamer — die Phase wird gedrosselt, nicht
+    // die Amplitude. Die kommt weiter unten sogar dazu: Schlafatmung ist
+    // langsam UND tief, nicht langsam und flach.
+    var atemF = 1.15 * br * (1 - 0.55 * sl.atemLangsam);
+    if (still) phAtem = t * atemF; else phAtem += dt * atemF;
     rig.bob    = Math.sin(phAtem) * 0.0062 * brA;
     // Beim Aufsetzen gibt der Koerper kurz nach — dasselbe Stauchen, das
     // auch das Atmen traegt, nur einmalig und staerker.
+    // Im Liegen haelt die Bodenbedingung den tiefsten Punkt am Boden — der
+    // Atem hebt den Koerper also nicht an. Sichtbar wird er ueber die
+    // Stauchung: die Brust weitet sich, der Ruecken bleibt liegen. Fuer einen
+    // liegenden Koerper ist genau das richtig.
     rig.squash = clamp(Math.sin(phAtem + Math.PI) * 0.013 * brA - sz.squash, -0.026, 0.026)
-               - lz.squash;
+               - lz.squash - sl.squash
+               + Math.sin(phAtem + Math.PI) * 0.009 * sl.atemTief;
 
     // Blinzeln — unregelmäßig, mit der Müdigkeit seltener
-    var lidBasis = cur.lid * hal.lid;
+    // Der Schlafanteil multipliziert: bei schlafU = 0 ist er genau 1, und
+    // damit bleibt jede wache Augenstellung bitgleich.
+    var lidBasis = cur.lid * hal.lid * (1 - clamp(sl.lidZu, 0, 1));
     if (still) {
       rig.eyeOpen = lidBasis;
     } else {
+      // Beim Einschlafen wird das Blinzeln nicht abgeschaltet, sondern
+      // GEDEHNT: laengerer Abstand, laengere Dauer, und die Augen bleiben
+      // nach jedem Blinzeln laenger zu. Das Laengerbleiben leistet der
+      // Faktor im Profil — er kappt den Sinus oben ab, und aus der Spitze
+      // wird ein Plateau bei „ganz zu".
+      var bDehn = 1 + 6.0 * sl.blinkRuhe;
       if (blinkPhase < 0 && t > blinkAt) { blinkPhase = 0; blinkDouble = Math.random() < 0.28; }
+      var dur = (blinkDouble ? 0.34 : 0.15) * (1 + 2.2 * sl.blinkRuhe);
       if (blinkPhase >= 0) {
         blinkPhase += dt;
-        var dur = blinkDouble ? 0.34 : 0.15;
         if (blinkPhase > dur) {
           blinkPhase = -1;
-          blinkAt = t + (1.9 + Math.random() * 3.6) * (1 + 0.5 * muede);
+          blinkAt = t + (1.9 + Math.random() * 3.6) * (1 + 0.5 * muede) * bDehn;
         }
       }
       var closed = 0;
       if (blinkPhase >= 0) {
-        var x = blinkPhase / (blinkDouble ? 0.34 : 0.15);
+        var x = blinkPhase / dur;
         closed = blinkDouble ? Math.max(Math.sin(x * Math.PI * 2), 0) : Math.sin(x * Math.PI);
+        closed = Math.min(1, closed * (1 + 1.6 * sl.blinkRuhe));
       }
       rig.eyeOpen = lidBasis * (1 - 0.97 * closed);
     }
 
     // Kopf — Eigenbewegung nur, solange er dich nicht ansieht (Leitsatz 7)
-    var driftW = (1 - achtung) * frei;
+    // Wer muede wird, sieht sich weniger um. `ruhig` daempft Kopfdrift und
+    // Blickdrift in einem Zug — dieselbe Zahl, dieselbe Beruhigung.
+    var driftW = (1 - achtung) * frei * (1 - clamp(sl.ruhig, 0, 1));
     var look = 0.22 * drift(t * 0.5) * driftW;
     var camY = Math.atan2(Math.sin(cam.yaw), Math.cos(cam.yaw));
     var zuDir = achtung * clamp(-camY, -0.55, 0.55);   // er dreht sich zu dir
     rig.head[0] = clamp(cur.hPitch + hal.hP + Math.sin(t * 0.83 + 2.0) * 0.020 * driftW + o.hP, -0.25, 0.30)
-                + lz.hP;
-    rig.head[1] = clamp(cur.hYaw + look + zuDir + o.hY - 0.045 * gS, -0.55, 0.55);
-    rig.head[2] = clamp(cur.hRoll + achtung * 0.08 + Math.sin(t * 0.47) * 0.018 * driftW + o.hR, -0.30, 0.30);
-    rig.look    = [clamp(cur.look[0] + look * 0.9 + o.lx, -1, 1),
-                   clamp(cur.look[1] + o.ly, -1, 1)];
+                + lz.hP + sl.hP;
+    rig.head[1] = clamp(cur.hYaw + look + zuDir + o.hY - 0.045 * gS, -0.55, 0.55) + sl.hY;
+    rig.head[2] = clamp(cur.hRoll + achtung * 0.08 + Math.sin(t * 0.47) * 0.018 * driftW + o.hR, -0.30, 0.30)
+                + sl.hR;
+    rig.look    = [clamp(clamp(cur.look[0] + look * 0.9 + o.lx, -1, 1) + sl.lx, -1, 1),
+                   clamp(clamp(cur.look[1] + o.ly, -1, 1) + sl.ly, -1, 1)];
 
     // Antenne läuft der Kopfbewegung nach (Overlap) — nie keyframen
     var yawVel = (rig.head[1] - prevHeadYaw) / Math.max(dt, 1e-4);
@@ -3110,10 +3422,10 @@
     // bestehende Wert bei sz = 0 bitgleich, und die Grenzen halten trotzdem.
     // Die Liegeversaetze liegen noch eine Lage weiter aussen: der Arm muss
     // sich fuer den Boden weiter zurueckdrehen, als die Stehgrenzen zulassen.
-    rig.armL = [clamp(clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40) + sz.armSw, -0.10, 2.40) + lz.armSw,
-                clamp(clamp(armFw + gArm + rig.armFwL, -0.20, 0.60) + sz.armFw, -0.20, 0.60) + lz.armFw];
-    rig.armR = [clamp(clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40) + sz.armSw, -0.10, 2.40) + lz.armSw,
-                clamp(clamp(armFw - gArm, -0.20, 0.60) + sz.armFw, -0.20, 0.60) + lz.armFw];
+    rig.armL = [clamp(clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40) + sz.armSw, -0.10, 2.40) + lz.armSw + sl.armSw,
+                clamp(clamp(armFw + gArm + rig.armFwL, -0.20, 0.60) + sz.armFw, -0.20, 0.60) + lz.armFw + sl.armFw];
+    rig.armR = [clamp(clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40) + sz.armSw, -0.10, 2.40) + lz.armSw + sl.armSw,
+                clamp(clamp(armFw - gArm, -0.20, 0.60) + sz.armFw, -0.20, 0.60) + lz.armFw + sl.armFw];
     if (cur.wave > 0.01) {   // Ausdruck „Winken" aus der Bibliothek
       var w = 2.00 + Math.sin(t * 6.4) * 0.28;
       rig.armR = [clamp(lerp(rig.armR[0], w, cur.wave), -0.10, 2.40),
@@ -3136,8 +3448,15 @@
     // Rumpf — Ebene 4 (Gewicht) plus Einlagenversätze
     var gz = still ? 0 : gewichtSeite * (1 - hal.sit) * (1 - gehen);
     gewichtIst = lerp(gewichtIst, gz, 1 - Math.pow(0.02, dt / 1.8));
-    var rollGes  = clamp(gewichtIst * 0.030 + o.br + sitzRoll + 0.030 * gS, -0.050, 0.050);
+    var rollGes  = clamp(gewichtIst * 0.030 + o.br + sitzRoll + 0.030 * gS, -0.050, 0.050) + sl.br;
     var pitchGes = clamp(hal.pitch + 0.045 * gehen + sz.pitch, -0.16, 0.16) + lz.pitch;
+    // Der Kopf darf sich im Schlaf bewegen, ohne dass er oder der Rumpf
+    // abhebt: die Rumpfneigung wird nachgefuehrt, bis beide gleich tief
+    // liegen. Ohne das schwebte bei 0.03 rad Kopfneigung schon einer von
+    // beiden um gut fuenf Millimeter ueber dem Boden.
+    if (sl.gew > 1e-6) {
+      pitchGes += sl.gew * kopfAusgleich(pitchGes, rollGes, rig.head, rig.squash);
+    }
     var bodyYGes = clamp(o.by + senk, -0.020, 0.050);
 
     // --- Bodenhoehe: abgeleitet, nicht gesetzt ---
@@ -3170,7 +3489,7 @@
     rig.body[0] = clamp(gewichtIst * 0.012 + o.bx + 0.007 * gS, -0.015, 0.015);
     rig.body[1] = bodyYGes;
     rig.body[2] = clamp(o.bz, -0.020, 0.050) + sz.bz + lz.bz;
-    rig.body[3] = rollGes;
+    rig.body[3] = clamp(rollGes, -0.075, 0.075);
     rig.pose[0] = pitchGes;
     rig.pose[1] = hal.sit;
     rig.pose[2] = hal.posY;        // historisch; die Senkung laeuft ueber u_sitz.z
@@ -3181,18 +3500,26 @@
     // Zwischenstellung, ohne dass es jemand nachrechnen muesste. Sitzen und
     // Liegen schliessen einander aus, ihre Betraege addieren sich deshalb
     // gefahrlos.
-    var bk = beinKette(sz.hueft + lz.hueft, sz.knie + lz.knie);
-    rig.sitz  = [sz.hueft + lz.hueft, sz.knie + lz.knie, senkGes];
+    var beinH = sz.hueft + lz.hueft + sl.hueft;
+    var beinK = Math.max(0, sz.knie + lz.knie + sl.knie);   // Knie beugt nur nach hinten
+    var bk = beinKette(beinH, beinK);
+    rig.sitz  = [beinH, beinK, senkGes];
     rig.hueft = [0.085, BODEN_FUSS - bk.fussY, sz.hz + lz.hz];
 
     // Glimm — eigener Kanal, pulst auch bei geschlossenen Augen weiter
-    var pf = cur.puls * hal.pulsMul;
+    // Der Glimm pulst im Schlaf weiter, nur gedimmt und langsam. Genau das
+    // ist der Unterschied zwischen schlafend und ausgeschaltet.
+    var pf = cur.puls * hal.pulsMul * (1 - 0.55 * sl.dunkel);
     if (still) phGlimm = t * 2 * Math.PI * pf; else phGlimm += dt * 2 * Math.PI * pf;
     var puls = 0.5 + 0.5 * Math.sin(phGlimm);
-    rig.glimm = clamp(hal.glimm * cur.glow * (1 + stimmung * 0.15) * (0.86 + 0.14 * puls) + o.gl, 0, 2.0);
+    rig.glimm = clamp(hal.glimm * cur.glow * (1 + stimmung * 0.15) * (0.86 + 0.14 * puls) + o.gl, 0, 2.0)
+              * (1 - 0.62 * sl.dunkel);
 
     rig.arc   = clamp(cur.arc + o.arc, 0, 1);
-    rig.mouth = clamp(cur.mouth + o.mouth, -1, 1);
+    // Der verschlafene Ausdruck laeuft ueber Versaetze, nicht ueber einen
+    // Ausdruckswechsel: das Menue und die Agentenlogik bleiben unberuehrt,
+    // das Gesicht aendert sich trotzdem sichtbar.
+    rig.mouth = clamp(clamp(cur.mouth + o.mouth, -1, 1) + sl.mouth, -1, 1);
   }
 
   // =================================================================
@@ -3562,6 +3889,7 @@
     // die Ausgabe flutet und die späteren Prüfungen nie laufen.
     var arten = {}, dt = 1 / 60, schritte = Math.round(1200 / dt);
     var liegeBericht = "Liegen: nicht geprueft";
+    var schlafBerichtGlobal = "Schlafen: nicht geprueft";
     function melde(art, text) {
       if (!arten[art]) arten[art] = { n: 0, erst: text };
       arten[art].n++;
@@ -3743,7 +4071,7 @@
         var senk = z.senkung;
         if (z.w > 1e-6) senk += z.w * Math.max(0, -tief.y - senk);
         var Rb = m3(mZ(0), mX(z.pitch));
-        var arm = [1, -1].map(function (sgn) {
+        var arm = [1, -1].map(function (sgn, i) {
           var gel = sgn > 0 ? [0, 0.75, 0] : [0, 0.75, -0.04];
           var af = z.armFw;
           if (z.w > 1e-6) af = armFwFrei(sgn, z.armSw, af, Rb, gel, senk);
@@ -3882,6 +4210,292 @@
             + " springt: " + k3 + " um " + schlimm[k3].toFixed(4) + " je Bild");
       }
       liegeKontakt = 0;
+    })();
+
+    // =============================================================
+    //  EINSCHLAFEN, SCHLAFEN UND AUFWACHEN — die Kurven
+    // =============================================================
+    (function () {
+      // Bei schlafU = 0 ist JEDER neue Betrag null. Das ist zugleich der
+      // Nachweis, dass die Endlage des Aufwachens exakt die definierte
+      // Wach-Liegehaltung ist, und dass Gehen, Sitzen, Hinlegen, Haende und
+      // Griffe unveraendert geblieben sind.
+      [1, -1].forEach(function (ri) {
+        var n = schlafKurven(0, ri, 1 / 60);
+        for (var k in n) if (Math.abs(n[k]) > 1e-12)
+          melde("schlaf-null", "Bei schlafU = 0 ist " + k + " = " + n[k].toFixed(6)
+            + " statt 0 (Richtung " + (ri > 0 ? "einschlafen" : "aufwachen") + ")");
+      });
+
+      // Endpunktgleichheit beider Kurvensaetze — dieselbe Zusicherung, die
+      // bei Sitzen und Liegen je einen echten Fehler gefunden hat.
+      [0, 1].forEach(function (u) {
+        var e = schlafKurven(u, 1, 1 / 60), a = schlafKurven(u, -1, 1 / 60);
+        for (var k in e) if (Math.abs(e[k] - a[k]) > 1e-9)
+          melde("schlaf-endpunkt", "Kurvensaetze weichen bei u=" + u + " ab: " + k
+            + " " + e[k].toFixed(5) + " gegen " + a[k].toFixed(5));
+      });
+
+      // Grenzen je Abtastschritt. 300 Schritte sind ueber sechs Sekunden
+      // rund sechsmal grober als ein Bild — die Zahlen liegen entsprechend
+      // ueber dem, was je Bild tatsaechlich passiert.
+      var grenzen = { lidZu: 0.040, blinkRuhe: 0.030, ruhig: 0.030, dunkel: 0.020,
+                      atemLangsam: 0.020, atemTief: 0.045, hP: 0.006, hY: 0.020,
+                      hR: 0.006, armSw: 0.022, armFw: 0.016, finger: 0.024,
+                      spreiz: 0.0012, hueft: 0.005, knie: 0.007, br: 0.0012,
+                      squash: 0.0006, lx: 0.040, ly: 0.022, mouth: 0.010, gew: 0.070 };
+      [1, -1].forEach(function (ri) {
+        var rich = ri > 0 ? "einschlafen" : "aufwachen";
+        var vor = null, lidVor = null;
+        for (var q = 0; q <= 300; q++) {
+          var u = ri > 0 ? q / 300 : 1 - q / 300;
+          var z = schlafKurven(u, ri, 1 / 60);
+          if (z.lidZu < -1e-6 || z.lidZu > 1 + 1e-6) melde("schlaf-lid-bereich",
+            "Lidschluss ausserhalb [0,1]: " + z.lidZu.toFixed(4) + " bei " + rich
+            + " u=" + u.toFixed(2));
+          // Beim Einschlafen sinken die Lider ohne Rueckschlag — „die Augen
+          // werden schwer" heisst: es geht nur in eine Richtung.
+          if (ri > 0 && lidVor !== null && z.lidZu < lidVor - 1e-9)
+            melde("schlaf-lid-rueckschlag",
+              "Lider oeffnen sich beim Einschlafen wieder bei u=" + u.toFixed(2));
+          lidVor = z.lidZu;
+          if (vor) for (var k in grenzen) {
+            var d = Math.abs(z[k] - vor[k]);
+            if (d > grenzen[k]) melde("schlaf-sprung:" + k,
+              "Sprung " + k + " um " + d.toFixed(4) + " je Schritt bei " + rich
+              + " u=" + u.toFixed(2));
+          }
+          vor = z;
+        }
+      });
+
+      // Die Aufwachfolge: auf — wieder zu — ganz auf. Ohne den Rueckfall
+      // waere es ein Aufspringen, und genau das soll es nicht sein.
+      var aErst = schlafKurven(1 - 0.30, -1, 1/60).lidZu;
+      var aRueck = schlafKurven(1 - 0.40, -1, 1/60).lidZu;
+      var aOffen = schlafKurven(1 - 0.58, -1, 1/60).lidZu;
+      if (!(aErst < 0.72)) melde("schlaf-augen-folge",
+        "Erster Aufwach-Versuch oeffnet die Augen nicht (" + aErst.toFixed(3) + ")");
+      if (!(aRueck > aErst + 0.15)) melde("schlaf-augen-folge",
+        "Der Rueckfall fehlt: " + aErst.toFixed(3) + " dann " + aRueck.toFixed(3));
+      if (!(aOffen < 0.02)) melde("schlaf-augen-folge",
+        "Die Augen gehen nicht ganz auf (" + aOffen.toFixed(3) + ")");
+
+      // Weicher Richtungswechsel mitten in der Bewegung
+      for (var uf = 0; uf <= 1.0001; uf += 0.1) {
+        var vorW = null, schlimm = {};
+        for (var fi = 0; fi < 40; fi++) {
+          var rIst = (fi < 8) ? 1 : Math.max(-1, 1 - 3.0 * (fi - 7) / 60);
+          var e1 = schlafKurven(uf, 1, 1/60), a1 = schlafKurven(uf, -1, 1/60);
+          var m1 = clamp(0.5 - 0.5 * rIst, 0, 1), w1 = {};
+          for (var k1 in e1) w1[k1] = e1[k1] + (a1[k1] - e1[k1]) * m1;
+          if (vorW) for (var k2 in w1) {
+            var dd = Math.abs(w1[k2] - vorW[k2]);
+            if (dd > (schlimm[k2] || 0)) schlimm[k2] = dd;
+          }
+          vorW = w1;
+        }
+        for (var k3 in schlimm) if (schlimm[k3] > 0.060)
+          melde("schlaf-richtungswechsel", "Richtungswechsel bei u=" + uf.toFixed(1)
+            + " springt: " + k3 + " um " + schlimm[k3].toFixed(4) + " je Bild");
+      }
+
+      // Der Schlaf-Leerlauf ist deterministisch — genau deshalb laesst sich
+      // hier zusichern, dass nichts zuckt, statt es zu behaupten.
+      var maxA = { hY:0, hR:0, hP:0, armSw:0, finger:0, lidZu:0, br:0, knie:0, squash:0 };
+      for (var ti = 0; ti < 24000; ti++) {
+        var tt = ti * 0.05;
+        var um = Math.max(0, Math.sin(tt * 0.157) * Math.sin(tt * 0.041 + 1.3));
+        var umW = um * um * um;
+        maxA.hY     = Math.max(maxA.hY,     Math.abs(0.020 * Math.sin(tt * 0.273 + 0.7)));
+        maxA.hR     = Math.max(maxA.hR,     Math.abs(0.018 * Math.sin(tt * 0.203 + 2.9)));
+        maxA.hP     = Math.max(maxA.hP,     Math.abs(0.009 * Math.sin(tt * 0.171 + 5.1)));
+        maxA.armSw  = Math.max(maxA.armSw,  Math.abs(0.010 * Math.sin(tt * 0.331 + 1.8)) + 0.022 * umW);
+        maxA.finger = Math.max(maxA.finger, Math.abs(0.030 * Math.sin(tt * 0.147 + 4.2)));
+        maxA.lidZu  = Math.max(maxA.lidZu,  Math.abs(0.012 * Math.sin(tt * 0.483 + 3.4)));
+        maxA.br     = Math.max(maxA.br,     0.014 * umW);
+        maxA.knie   = Math.max(maxA.knie,   0.030 * umW);
+        maxA.squash = Math.max(maxA.squash, 0.003 * umW);
+      }
+      var leerGrenze = { hY:0.021, hR:0.019, hP:0.010, armSw:0.033, finger:0.031,
+                         lidZu:0.013, br:0.015, knie:0.031, squash:0.004 };
+      for (var lk in leerGrenze) if (maxA[lk] > leerGrenze[lk])
+        melde("schlaf-leerlauf", "Schlaf-Leerlauf zu gross: " + lk + " = "
+          + maxA[lk].toFixed(4) + " ueber " + leerGrenze[lk]);
+    })();
+
+    // =============================================================
+    //  DIE VIER ABLAEUFE — echte Laeufe durch updateRig, Bild fuer Bild
+    //   A  Stehen → Hinlegen → Schlafen
+    //   B  Hinlegen → Schlafen → Aufwachen
+    //   C  Schlafen → Aufwachen → liegen bleiben
+    //   D  … → Aufwachen → spaeter Aufstehen
+    // =============================================================
+    (function () {
+      function rX(v, a) {
+        var c = Math.cos(a), s2 = Math.sin(a);
+        return [v[0], c*v[1] - s2*v[2], s2*v[1] + c*v[2]];
+      }
+      var vorB = null;
+      // Grenzen JE BILD — nicht je Abtastschritt wie in den Kurvenpruefungen.
+      // Hinlegen ist die schnellste Bewegung, die Noki hat: der Rumpf legt
+      // 1.36 rad in gut einer Sekunde zurueck, das Knie 2.3 rad. Die Werte
+      // sind deshalb die gemessene Geschwindigkeit der vorhandenen
+      // Bewegungen plus Rand, nicht ein Wunsch.
+      //
+      // `armFw` faellt aus der Reihe, und zwar aus einem BEKANNTEN Grund,
+      // der nicht dieser Stufe gehoert: Mitten in der Hocke liegt die
+      // unzulaessige Armstellung als Tal um den Wunschwert — der Arm haengt
+      // dort senkrecht nach unten und ist am tiefsten, nach vorn wie nach
+      // hinten hebt sich die Hand. In dem Bild, in dem der Wunsch ins Tal
+      // geraet, springt die Bodengrenze einmal ueber das ganze Tal. Je
+      // nachdem, welches Bild die Kante trifft, sind das 0.12 bis 0.33 rad,
+      // also bis zu acht Zentimeter Handweg.
+      //
+      // Das gehoert der Hinlegestufe und wurde hier zum ersten Mal gemessen.
+      // Zwei Auswege wurden geprueft und wieder verworfen — eine Suche nach
+      // beiden Seiten laesst den Arm bis -1.37 nach hinten wandern und dann
+      // um 0.98 rad zurueckschlagen, mit oder ohne Gedaechtnis. Der saubere
+      // Weg ist, den Wunsch der Liegekurve waehrend der Hocke gar nicht erst
+      // in den Boden zu schicken — und das ist eine Aenderung AN DER
+      // HINLEGEBEWEGUNG, die hier nicht ansteht.
+      //
+      // Bis dahin wird der Wert gemessen und im Bericht genannt, statt
+      // unsichtbar zu bleiben. Die Schranke faengt jede Verschlechterung ab.
+      var sprung = { pitch:0.060, senkung:0.014, hueft:0.095, knie:0.095,
+                     kopfN:0.060, kopfD:0.100, kopfR:0.060, armSw:0.170,
+                     armFw:0.450, auge:0.360, glimm:0.200, squash:0.010 };
+      var armFwSpitze = 0, armFwWo = "";
+
+      function bild(wo) {
+        var senkGes = rig.sitz[2], hoehe = rig.bob + rig.body[1] + senkGes;
+        var tief = tiefsterKoerper(rig.pose[0], rig.body[3], rig.head, rig.squash);
+        // Im Liegen traegt die Bodenbedingung und muss auf den Millimeter
+        // halten. Im Sitzen liegt die Unterkante bauartbedingt 0.4 mm unter
+        // null — das ist der alte Sitzwert und nicht Sache dieser Stufe.
+        var tol = (liegeU > 0.5) ? -1e-4 : -1e-3;
+        if (tief.y + hoehe < tol) melde("schlaf-boden",
+          "Koerper im Boden (" + (tief.y + hoehe).toFixed(5) + ", " + tief.wer
+          + ") bei " + wo);
+        if (liegeU > 0.5) {
+          var Rb = m3(mZ(rig.body[3]), mX(rig.pose[0]));
+          if (armTiefster( 1, rig.armR[0], rig.armR[1], Rb, rig.hand)  + hoehe < -1e-4)
+            melde("schlaf-arm-boden", "Arm rechts im Boden bei " + wo);
+          if (armTiefster(-1, rig.armL[0], rig.armL[1], Rb, rig.handL) + hoehe < -1e-4)
+            melde("schlaf-arm-boden", "Arm links im Boden bei " + wo);
+        }
+        // Fusssohle: die Kette wie im Shader nachgerechnet
+        var ober = rX([0.157, -0.988, 0.0], rig.sitz[0]);
+        var unter = rX(ober, rig.sitz[1]);
+        var fY = rig.hueft[1] + ober[1]*L_OBER + unter[1]*L_UNTER - 0.029;
+        if (Math.abs(fY - BODEN_FUSS) > 1e-6) melde("schlaf-fuss",
+          "Fusssohle nicht am Boden (" + fY.toFixed(5) + ") bei " + wo);
+        if (rig.sitz[1] < -1e-6) melde("schlaf-knie",
+          "Knie ueberstreckt (" + rig.sitz[1].toFixed(3) + ") bei " + wo);
+        if (rig.eyeOpen < -1e-9 || rig.eyeOpen > 1 + 1e-9) melde("schlaf-auge-bereich",
+          "Augenoeffnung ausserhalb [0,1]: " + rig.eyeOpen.toFixed(4) + " bei " + wo);
+
+        var jetzt = { pitch: rig.pose[0], senkung: senkGes, hueft: rig.sitz[0],
+                      knie: rig.sitz[1], kopfN: rig.head[0], kopfD: rig.head[1],
+                      kopfR: rig.head[2], armSw: rig.armR[0], armFw: rig.armR[1],
+                      auge: rig.eyeOpen, glimm: rig.glimm, squash: rig.squash };
+        if (vorB) for (var k in sprung) {
+          var d = Math.abs(jetzt[k] - vorB[k]);
+          if (k === "armFw" && d > armFwSpitze) { armFwSpitze = d; armFwWo = wo; }
+          if (d > sprung[k]) melde("schlaf-ablauf-sprung:" + k,
+            "Sprung " + k + " um " + d.toFixed(4) + " je Bild bei " + wo);
+        }
+        vorB = jetzt;
+      }
+
+      function fahre(n, wo, extra) {
+        for (var i = 0; i < n; i++) {
+          time += 1 / 60; updateRig(1 / 60);
+          bild(wo);
+          if (extra) extra();
+        }
+      }
+      function anfang() {
+        sitzWunsch = null; liegeWunsch = null; schlafWunsch = null;
+        sitzU = 0; sitzRi = 1; sitzRiIst = 1; sitzKontakt = 0;
+        liegeU = 0; liegeRi = 1; liegeRiIst = 1; liegeKontakt = 0;
+        schlafU = 0; schlafRi = 1; schlafRiIst = 1;
+        setHaltung("stehen"); ruhe = 0; vorB = null;
+        for (var f in HALTUNG.stehen) hal[f] = HALTUNG.stehen[f];
+      }
+
+      // --- A · Stehen → Hinlegen → Schlafen -----------------------
+      anfang();
+      schlafWunsch = "schlafen"; liegeWunsch = "liegen"; sitzWunsch = "stehen";
+      fahre(30, "A vor dem Hinlegen");
+      fahre(560, "A Hinlegen und Einschlafen", function () {
+        if (schlafU > 1e-9 && liegeU < 0.9995) melde("schlaf-reihenfolge",
+          "Schlaf beginnt, obwohl Noki noch nicht liegt (liegeU " + liegeU.toFixed(3) + ")");
+      });
+      if (liegeU < 0.999) melde("schlaf-ablauf-a",
+        "Hinlegen nicht fertig (liegeU " + liegeU.toFixed(3) + ")");
+      if (schlafU < 0.999) melde("schlaf-ablauf-a",
+        "Einschlafen nicht fertig (schlafU " + schlafU.toFixed(3) + ")");
+      if (rig.eyeOpen > 0.02) melde("schlaf-ablauf-a",
+        "Die Augen sind im Schlaf nicht zu (" + rig.eyeOpen.toFixed(3) + ")");
+      // Im Schlaf liegen Kopf UND Rumpf auf — der Kopfausgleich haelt beide
+      // am Boden, statt einen von beiden schweben zu lassen.
+      var eS = tiefsterKoerper(rig.pose[0], rig.body[3], rig.head, rig.squash);
+      var hS = rig.bob + rig.body[1] + rig.sitz[2];
+      if (Math.abs(eS.kopf + hS) > 5e-4 || Math.abs(eS.rumpf + hS) > 5e-4)
+        melde("schlaf-auflage", "Im Schlaf schwebt etwas: Kopf "
+          + ((eS.kopf + hS) * 1000).toFixed(1) + " mm, Rumpf "
+          + ((eS.rumpf + hS) * 1000).toFixed(1) + " mm");
+      var schlafBericht = "Schlaf: Augen " + rig.eyeOpen.toFixed(3) + ", Glimm "
+        + rig.glimm.toFixed(2) + ", Kopf " + ((eS.kopf + hS) * 1000).toFixed(1)
+        + " mm und Rumpf " + ((eS.rumpf + hS) * 1000).toFixed(1) + " mm ueber dem Boden";
+
+      // --- B · Schlafen → Aufwachen -------------------------------
+      var augenTief = rig.eyeOpen, augenAuf = 0, rueckfall = false;
+      schlafWunsch = "wach"; ruhe = 0;
+      fahre(400, "B Aufwachen", function () {
+        if (rig.eyeOpen > 0.20) augenAuf = Math.max(augenAuf, rig.eyeOpen);
+        if (augenAuf > 0.20 && rig.eyeOpen < augenAuf - 0.12 && rig.eyeOpen < 0.45)
+          rueckfall = true;
+      });
+      if (schlafU > 0.001) melde("schlaf-ablauf-b",
+        "Aufwachen nicht fertig (schlafU " + schlafU.toFixed(3) + ")");
+      if (!rueckfall) melde("schlaf-ablauf-b",
+        "Beim Aufwachen fehlt der Rueckfall — die Augen springen auf");
+      if (rig.eyeOpen < 0.90) melde("schlaf-ablauf-b",
+        "Die Augen sind nach dem Aufwachen nicht offen (" + rig.eyeOpen.toFixed(3) + ")");
+      if (augenTief > 0.02) melde("schlaf-ablauf-b", "Ausgangslage war nicht schlafend");
+
+      // --- C · Aufwachen → liegen bleiben -------------------------
+      // Das Aufwachen fuehrt ausdruecklich NICHT zum Aufstehen.
+      fahre(180, "C liegen bleiben", function () {
+        if (liegeU < 0.9995) melde("schlaf-ablauf-c",
+          "Noki steht nach dem Aufwachen von selbst auf (liegeU " + liegeU.toFixed(3) + ")");
+        if (schlafU > 0.001) melde("schlaf-ablauf-c",
+          "Noki schlaeft gleich wieder ein (schlafU " + schlafU.toFixed(3) + ")");
+      });
+      if (schlafWunsch !== null) melde("schlaf-ablauf-c",
+        "Wach-Wunsch nicht zurueckgenommen — er schliefe nie wieder ein");
+
+      // --- D · aus dem Schlaf heraus aufstehen --------------------
+      // Wer aufrichten will, waehrend Noki schlaeft, weckt ihn erst. Der
+      // Zeitachse des Liegens ist das Aufwachen zwingend vorgeschaltet.
+      schlafWunsch = "schlafen"; ruhe = 0;
+      fahre(400, "D wieder einschlafen");
+      if (schlafU < 0.999) melde("schlaf-ablauf-d", "Zweites Einschlafen nicht fertig");
+      liegeWunsch = null; schlafWunsch = "wach"; ruhe = 0;
+      fahre(560, "D aufwachen und aufstehen", function () {
+        if (liegeU < 0.9995 && schlafU > 0.0005) melde("schlaf-vorrang",
+          "Noki richtet sich auf, obwohl er noch schlaeft (schlafU "
+          + schlafU.toFixed(3) + ")");
+      });
+      if (liegeU > 0.001) melde("schlaf-ablauf-d",
+        "Aufstehen nicht fertig (liegeU " + liegeU.toFixed(3) + ")");
+
+      anfang();
+      schlafBerichtGlobal = schlafBericht
+        + "\nBekannt aus der Hinlegestufe: die Arm-Bodengrenze springt einmal um "
+        + armFwSpitze.toFixed(3) + " rad (" + armFwWo + ")";
     })();
 
     // Haende ueber dem Boden. Im Sitzen liegt der Rumpf 0.150 tiefer, die
@@ -4115,6 +4729,8 @@
       + "\n1200 s simuliert, 16 Kanaele geprueft, 5 Griffe in allen Phasen"
       + "\nSitzen- und Hinlegen-Taste: Ablauf, Sperre und Rueckkehr geprueft"
       + "\n" + liegeBericht
+      + "\nAblaeufe A-D geprueft (Stehen, Hinlegen, Schlafen, Aufwachen, Aufstehen)"
+      + "\n" + schlafBerichtGlobal
       + "\nFingerfedern: " + federn.n + " Bilder, groesste Aenderung je Bild "
       + federn.spitze.toFixed(4)
       + "\nEinlagen gezogen: " + gezogen.length
@@ -4250,6 +4866,7 @@
       if (clipEl) clipEl.textContent = clip ? EINLAGE[clip.key].label : "—";
       zeichneSitzKnopf();
       zeichneLiegeKnopf();
+      zeichneSchlafKnopf();
     }
   }
 
@@ -4283,6 +4900,16 @@
     liegeWunsch = liegeStand > 0.5 ? "liegen" : null;
     liegeRi = (num(hash.liegri, 1) < 0) ? -1 : 1;
     liegeRiIst = liegeRi;
+  }
+  // Schlafen im Standbild. Er setzt das Liegen mit voraus — anders ist der
+  // Zustand gar nicht erreichbar, und das soll auch hier so bleiben.
+  if (hash.schlaf !== undefined) {
+    schlafStand = clamp(num(hash.schlaf, 1), 0, 1);
+    schlafU = schlafStand;
+    schlafWunsch = schlafStand > 0.5 ? "schlafen" : null;
+    schlafRi = (num(hash.schlri, 1) < 0) ? -1 : 1;
+    schlafRiIst = schlafRi;
+    if (liegeStand === null) { liegeStand = 1; liegeU = 1; liegeWunsch = "liegen"; }
   }
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
   if (hash.obj !== undefined) {

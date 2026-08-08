@@ -214,6 +214,46 @@ Helligkeitskanal (siehe Lückenliste in [04](04-bewegungssprache.md)).
 > **So nicht:** kein Schnarch-Symbol, keine Z-Buchstaben. Das wäre Cartoon-Kurzschrift und
 > würde die Figur zum Sticker machen.
 
+### 7c · Das Gesicht beim Einschlafen und Aufwachen im Liegen
+
+Der Abschnitt oben beschreibt den Schlaf als **Zustand** — die Haltung, in die die
+Zeitkaskade Noki nach 15 Minuten im Sitzen fallen lässt. Der Schlaf im **Liegen** ist etwas
+anderes: ein Ablauf mit eigener Zeitachse, und das Gesicht trägt ihn.
+
+**Die Lider sinken in drei Stufen, nicht in einer.** `1.00 → 0.75 → 0.35 → zu`, über sechs
+Sekunden verteilt. Eine einzige Kurve von auf nach zu liest sich als *ausgehen*; drei
+Stufen lesen sich als *schwer werden*.
+
+**Das Blinzeln wird gedehnt, nicht abgeschaltet.** Der Abstand wächst auf das Siebenfache,
+die Dauer auf das Dreifache, und ein Faktor im Profil kappt den Sinus oben ab — aus der
+Spitze wird ein Plateau. Die Augen bleiben nach jedem Blinzeln also länger zu, genau wie
+bei jemandem, der gegen den Schlaf ankämpft. Erst am Ende hört es von selbst auf.
+
+**Das Aufwachen hat einen Rückfall.** Das ist der Beat, an dem der ganze Moment hängt:
+
+| | Lid |
+|---|---|
+| erster Versuch | `0.35` |
+| Rückfall | `0.12` |
+| zweiter Versuch | ganz auf |
+
+Ohne ihn springen die Augen auf, und die Figur wirkt, als hätte sie nie geschlafen. Der
+Selbsttest misst deshalb nach, dass sich die Lider zwischen den beiden Versuchen wieder um
+mindestens `0.15` schließen.
+
+Danach **orientiert** sich der Blick — links, rechts, nach vorn, mit dem Kopf verzögert
+hinterher — und der Ausdruck bleibt kurz verschlafen: Lid, Glimm und Mund wandern in
+Richtung der Werte von `muede` und kehren erst dann zurück.
+
+> **Wichtig für die Architektur:** Das alles läuft über **Versätze**, nicht über einen
+> Ausdruckswechsel. `EMO` wird nicht umgeschaltet, das Menü zeigt weiter den gewählten
+> Ausdruck, und die spätere Agentenseite behält die Hoheit darüber. Das Gesicht ändert sich
+> trotzdem sichtbar — weil Lid, Glimm und Mund eigene Kanäle sind.
+
+Der Shader trägt das ohne Änderung: `max(u_eye.x, 0.040)` hält auch bei Lid `0` einen Rest
+offen. Geschlossene Augen sind dadurch ein feiner Strich statt eines schwarzen Lochs —
+genau das richtige Schlafgesicht.
+
 ---
 
 ## Übersicht

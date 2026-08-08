@@ -379,6 +379,46 @@ Hüftpunkt im Rumpf, Schienbein möglichst frei, Bein nach vorn gestreckt, Knie 
 gebeugt. `LIEGEART` hält die Werte je Variante; gefüllt ist `normal`, `seite`, `schlaf` und
 `entspannt` zeigen darauf.
 
+---
+
+## Schlafen: der Kopf darf sich bewegen
+
+Der Schlaf im Liegen läuft auf einer dritten Zeitachse `schlafU` (0 … 1), nach demselben
+Muster — mit einer Besonderheit, die aus der Liegegeometrie folgt.
+
+**Die Kette ist strukturell erzwungen, nicht verdrahtet:** `schlafU` steigt nur, wenn
+`liegeU` bei `1` steht, und `liegeU` fällt nur, wenn `schlafU` bei `0` steht. Damit *ist*
+die Endlage des Hinlegens die Startlage des Schlafens, und aus dem Schlaf steht niemand auf,
+ohne vorher aufzuwachen. Es gibt keinen zweiten Ort, an dem einer der beiden Zustände
+beginnen könnte.
+
+**Der Kopfausgleich.** Kopf und Rumpf liegen im Liegen *gemeinsam* auf — das war die
+Bedingung, aus der die Liegeneigung `−1.3625` überhaupt entstand. Dreht sich der Kopf im
+Schlaf, wird einer von beiden zum tiefsten Punkt und der andere schwebt: bei `0.03` rad
+Kopfneigung schon um gut fünf Millimeter. Statt die Kopfbewegung deshalb winzig zu halten,
+wird die **Rumpfneigung nachgeführt**:
+
+```
+kopfAusgleich(pitch, roll, kopf, squash)
+  → der Zuschlag z, für den tiefsterKoerper(pitch + z, …).kopf == .rumpf
+```
+
+Eine Bisektion über 16 Schritte, gerechnet mit derselben Funktion, die schon die Bodenhöhe
+liefert. Erst sie macht die Kopfbewegung im Schlaf möglich; ohne sie wäre der Schlaf-Leerlauf
+auf unsichtbar kleine Amplituden beschränkt gewesen. Der Selbsttest prüft in der
+Schlafhaltung, dass Kopf **und** Rumpf innerhalb von `0.5 mm` aufliegen.
+
+### Neue Kanalbereiche
+
+| Kanal | im Schlaf | Anmerkung |
+|---|---|---|
+| Augenöffnung | wird mit `(1 − lidZu)` multipliziert | bei `schlafU = 0` ist der Faktor genau `1`, jede wache Augenstellung bleibt bitgleich |
+| Blinzeln | Abstand ×7, Dauer ×3.2, Profil oben gekappt | gedehnt, nicht abgeschaltet |
+| Glimm | ×`(1 − 0.62 · dunkel)`, Puls ×`(1 − 0.55 · dunkel)` | er pulst weiter — schlafend, nicht ausgeschaltet |
+| Atem | Frequenz ×`(1 − 0.55 · atemLangsam)`, Stauchung `+0.009 · atemTief` | langsam **und** tief |
+| Rumpfrollen | `±0.050` → `±0.075` | für das seltene Umlagern |
+| Kopf, Arme, Finger | additive Versätze außerhalb der bestehenden Klammern | |
+
 ### Was der Selbsttest hier prüft
 
 Über den gesamten Ablauf, in **beiden** Richtungen: nichts unter dem Boden (Rumpf, Hals,

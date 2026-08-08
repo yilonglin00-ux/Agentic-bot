@@ -33,6 +33,7 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | Gehen | startet und stoppt den Watschelgang; der Boden zieht dabei unter ihm durch |
 | **Sitzen / Aufstehen** | eigene Taste im Reiter *Bewegung*: ein Klick startet den vollen Ablauf, während er läuft ist sie gesperrt. Ohne Klick setzt Noki sich nach 90 s von selbst — mit Zeitraffer ×10 nach neun Sekunden zu sehen. `#sitv=0…1` zeigt jeden Zwischenstand |
 | **Hinlegen / Aufrichten** | dritte Taste im Reiter *Bewegung*: Noki legt sich in 2.2 s auf den Rücken — Hocke, Abrollen über den Rücken, Kinn zur Brust, Kopf setzt zuletzt auf. Sitzt er gerade, steht er erst vollständig auf. `#lieg=0…1` zeigt jeden Zwischenstand |
+| **Einschlafen / Aufwachen** | vierte Taste im Reiter *Bewegung* — oder von selbst: liegt Noki etwa 20 s ruhig, wird er müde, die Lider sinken in drei Stufen, das Blinzeln wird gedehnt, und er schläft ein. Jede Eingabe weckt ihn wieder — mit Rückfall, Orientieren und einer kleinen Streckbewegung. Danach bleibt er **wach und liegend**. `#schlaf=0…1` zeigt jeden Zwischenstand |
 | Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
 
 Noki steht dabei nie still: Er atmet, blinzelt in unregelmäßigem Rhythmus, sieht sich um, und
@@ -90,7 +91,8 @@ Bewegung ein, `ui=0` blendet die Bedienoberfläche aus, `theme` erzwingt `dark` 
 Dazu `pose=` (stehen · sitzen · doesen · schlaf), `clip=` mit `cu=` für eine Einlage an einem
 bestimmten Zeitpunkt, `achtung=1` für die Zuhör-Haltung, `geh=` für eine Schrittphase
 (`0 … 1` = ein voller Schritt), `sitv=`/`sitri=` für jeden Zwischenstand des Hinsetzens und
-`lieg=`/`liegri=` für jeden Zwischenstand des Hinlegens.
+`lieg=`/`liegri=` für jeden Zwischenstand des Hinlegens und `schlaf=`/`schlri=` für jeden
+Zwischenstand des Einschlafens und Aufwachens.
 
 **Selbsttest:** `noki.html#selftest=1` fährt das Rig über 1200 simulierte Sekunden und prüft
 alle 16 Kanäle gegen ihre Grenzen, die Reihenfolge der Zeitkaskade, die Anti-Wiederholung der
@@ -102,6 +104,14 @@ nachgerechnet, dass kein Punkt von Rumpf, Hals, Kopf, Armen und Händen unter de
 dass die Figur in der Endlage weder schwebt noch einsinkt, dass der Kontaktpunkt monoton vom
 Gesäß zum Kopf wandert — und dass bei `liegeU = 0` jeder neue Betrag exakt null ist, Stehen,
 Gehen und Sitzen also unverändert geblieben sind.
+
+Und die **Ablaufprüfung**: Die vier Abläufe *Stehen → Hinlegen → Schlafen*, *Schlafen →
+Aufwachen*, *Aufwachen → liegen bleiben* und *aus dem Schlaf heraus Aufstehen* werden als
+echte Läufe durch das Rig gefahren und Bild für Bild geprüft — Bodenkontakt, Fußsohle,
+Gelenkwinkel, Augenöffnung und Sprungfreiheit jedes Kanals. Dazu die Zusicherungen, die
+diese Stufe ausmachen: dass der Schlaf erst bei vollständigem Liegen beginnt, dass beim
+Aufwachen der **Rückfall** der Augenlider wirklich stattfindet, und dass Noki nach dem
+Aufwachen **nicht von selbst aufsteht**.
 
 Dazu die **Griffprüfung**: Für jeden der fünf Gegenstände wird nachgerechnet, ob jeder
 tragende Finger die Grifffläche wirklich berührt, ob die nicht tragenden Finger wegbleiben,
@@ -134,6 +144,9 @@ ursprünglich bestimmt; sie wacht seither über sie.
 - [x] **Hinlegen und Liegen** — abgeleitete Bodenhöhe statt Keyframes: der Rumpf rollt
       über den Rücken ab, der Kontaktpunkt wandert von selbst vom Gesäß zum Kopf,
       die Hände gleiten am Boden entlang
+- [x] **Einschlafen, Schlafen und Aufwachen** — dritte Zeitachse, an das Liegen
+      strukturell gekoppelt; Lider in drei Stufen, gedehntes Blinzeln, deterministischer
+      Schlaf-Leerlauf, Aufwachen mit Rückfall, Orientieren und Strecken
 - [ ] Stufe 3: die seltenen Momente, dreizehn weitere Gegenstände, Gegenstände mit Platz in der Welt
 - [ ] Anbindung als interaktiver Begleiter
 

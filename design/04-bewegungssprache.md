@@ -420,3 +420,103 @@ Noki liegt nicht flach. Sein Kopf ist mit `0.270` dicker als sein Rumpf mit `0.1
 seine Beine mit `0.083` kurz sind gegenüber einem `0.190` dicken Rumpf, liegen sie nicht
 flach ausgestreckt, sondern kommen vorn aus dem Rumpf heraus und ruhen mit den Sohlen auf
 dem Boden. Beides ist Folge der Formensprache, nicht der Animation.
+
+---
+
+## Einschlafen, Schlafen und Aufwachen
+
+Der Schlaf setzt genau dort an, wo das Hinlegen aufhört. Nicht ungefähr, sondern
+buchstäblich: `schlafU` darf nur steigen, wenn `liegeU` bei `1` steht, und `liegeU` darf
+nur fallen, wenn `schlafU` bei `0` steht. Die Kette **Stehen → Hinlegen → Schlafen →
+Aufwachen → Aufstehen** ist damit erzwungen und nicht verdrahtet — es gibt keinen zweiten
+Ort, an dem der Schlaf beginnen oder das Aufstehen einsetzen könnte.
+
+### Einschlafen — 6.0 s
+
+Was du zuerst siehst, ist gar keine neue Animation: Nach dem Hinlegen liegt Noki **wach**
+im vorhandenen Liege-Leerlauf und sieht sich um. Erst nach etwa 20 s Ruhe wird er müde.
+
+| Anteil | Abschnitt | Was geschieht |
+|---|---|---|
+| 0.00 – 0.30 | **Müdigkeit** | Das Blinzeln wird gedehnt, die Lider sinken auf etwa `0.75`, Blick und Kopf beruhigen sich |
+| 0.30 – 0.62 | **Schwere Lider** | Auf etwa `0.35`. Der Atem wird langsamer, Arme und Finger lösen ihre Spannung |
+| 0.62 – 0.88 | **Augen schließen** | Ganz zu. Der Glimm dimmt und pulst langsamer, der Kopf sackt nach |
+| 0.88 – 1.00 | **Ankommen** | Der Körper entspannt sichtbar, alles läuft weich aus |
+
+Das Blinzeln wird **nicht abgeschaltet, sondern gedehnt**: Der Abstand wächst auf das
+Siebenfache, die Dauer auf das Dreifache, und ein Faktor im Blinzelprofil kappt den Sinus
+oben ab — aus der Spitze wird ein Plateau bei „ganz zu". Genau das ist der Unterschied
+zwischen *die Augen werden schwer* und *die Augen gehen aus*.
+
+### Schlafen
+
+Sehr klein und bewusst **deterministisch** statt zufällig: langsame Sinus mit unteilbaren
+Perioden, wie `drift()` es im Haus schon macht. Nur dadurch kann der Selbsttest jede
+Amplitude nach oben begrenzen — bei Zufall bliebe „nichts zuckt" eine Behauptung.
+
+| Was | Größenordnung | Periode |
+|---|---|---|
+| Atem | langsamer **und tiefer** als im Wachliegen | ~10 s |
+| Kopf drehen / neigen / nicken | ±0.020 / ±0.018 / ±0.009 | 23 s · 31 s · 37 s |
+| Arme | ±0.010 | 19 s |
+| Finger | ±0.030 | 43 s |
+| Lidzittern | ±0.012 | 13 s |
+| **Umlagern** | Gewicht, Schulter, Beinstellung — ein gedämpfter Ausschlag | selten, aus zwei unteilbaren Perioden überlagert |
+
+Der Glimm pulst weiter, nur gedimmt und langsam. Das ist der Unterschied zwischen
+*schlafend* und *ausgeschaltet*.
+
+**Der Kopf darf sich dabei bewegen, ohne dass etwas abhebt.** Dreht er sich, wird einer von
+Kopf und Rumpf zum tiefsten Punkt und der andere schwebt — bei `0.03` rad schon um gut fünf
+Millimeter. Statt die Kopfbewegung deshalb winzig zu halten, wird die **Rumpfneigung
+nachgeführt**, bis beide gleich tief liegen. Dieselbe Idee wie die abgeleitete Bodenhöhe,
+eine Ebene höher — und erst sie macht die Kopfbewegung im Schlaf überhaupt möglich.
+
+### Aufwachen — 5.5 s
+
+Ein eigener Kurvensatz, kein Rückwärtsspielen. Das ist hier nicht Feinschliff, sondern der
+Kern: Aufwachen hat eigene Schläge, die es beim Einschlafen nicht gibt.
+
+| Anteil | Abschnitt | Was geschieht |
+|---|---|---|
+| 0.00 – 0.14 | **Erste Reaktion** | Ein tieferer Atemzug, die Finger regen sich, die Lider zittern — die Augen sind noch zu |
+| 0.14 – 0.30 | **Erster Versuch** | Die Lider öffnen sich auf etwa `0.35` |
+| 0.30 – 0.40 | **Rückfall** | Sie sinken wieder auf `0.12`, eine kurze Pause |
+| 0.40 – 0.58 | **Zweiter Versuch** | Jetzt ganz auf, der Glimm kommt zurück |
+| 0.52 – 0.80 | **Orientierung** | Der Blick geht nach links, nach rechts, dann nach vorn; der Kopf folgt verzögert |
+| 0.62 – 0.92 | **Strecken** | Arme, Finger, Beine — ein Ausschlag, gedämpft, leicht verspielt |
+| 0.92 – 1.00 | **Ankommen** | Alles läuft in die Wach-Liegehaltung aus |
+
+Der **Rückfall** ist der Beat, der den ganzen Moment glaubwürdig macht. Ohne ihn ist es ein
+Aufspringen, und der Selbsttest lässt ihn deshalb nicht weg: Er misst, dass sich die Augen
+nach dem ersten Versuch wieder um mindestens `0.15` schließen.
+
+Der verschlafene Ausdruck läuft über **Versätze**, nicht über einen Ausdruckswechsel: Lid,
+Glimm und Mund wandern kurz in Richtung der Werte von `EMO.muede` und kehren zurück. Das
+Menü und die Agentenlogik bleiben dabei unberührt.
+
+Am Ende steht **wach + liegend**. Aufwachen führt ausdrücklich nicht zum Aufstehen — das
+ist eine eigene Entscheidung, und der Selbsttest prüft, dass Noki sie nicht von selbst
+trifft.
+
+### Auslösung
+
+Noki schläft **von selbst** ein, wenn er etwa 20 s ruhig liegt — über dieselbe Ruhe-Uhr,
+die schon die Zeitkaskade trägt. Und weil jede Eingabe diese Uhr zurücksetzt, ist das
+Wecken keine eigene Mechanik: Anfassen, Drehen, ein Ereignis oder ein Menüklick weckt ihn.
+
+Dazu eine vierte Taste im Reiter *Bewegung*. Steht Noki noch, legt sie ihn erst hin und
+lässt ihn dann einschlafen — die vorhandene Hinlegebewegung läuft dabei vollständig durch.
+
+Eine einzige Verbindung zum Verhaltenstreiber war nötig: Ein Schlafender darf nicht
+„B1 Umsehen" spielen. Das Ziehintervall der Idle-Einlagen wird im Schlaf deshalb gestreckt
+und der Versatz einer noch laufenden Einlage ausgeblendet — rein mengenmäßig, ohne neue
+Verzweigung. Die Zeitkaskade selbst bleibt unangetastet; der neue Schlaf gilt ausschließlich
+im Liegen.
+
+### Warum der Atem den Körper nicht anhebt
+
+Weil die Bodenhöhe abgeleitet wird, hält die Bedingung den tiefsten Punkt am Boden — der
+Atem kann den liegenden Körper also gar nicht heben. Sichtbar wird er über die **Stauchung**:
+Die Brust weitet sich, der Rücken bleibt liegen. Für einen liegenden Körper ist genau das
+richtig, und deshalb wird die Amplitude im Schlaf sogar größer, während die Frequenz sinkt.
