@@ -344,6 +344,7 @@
         <button class="chip" type="button" id="sitzen" aria-pressed="false"></button>
         <button class="chip" type="button" id="liegen" aria-pressed="false"></button>
         <button class="chip" type="button" id="schlafen" aria-pressed="false"></button>
+        <button class="chip" type="button" id="huepfen"></button>
         <button class="chip" type="button" id="gehen" aria-pressed="false">Gehen</button>
         <button class="chip" type="button" id="raffer" aria-pressed="false">Zeitraffer &times;10</button>
         <button class="chip" type="button" id="wecken">Zur&uuml;cksetzen</button>
@@ -1988,6 +1989,11 @@
     return { knieY: ky, knieZ: kz, fussY: ay + FUSS_VERSATZ[1], fussZ: az + FUSS_VERSATZ[2] };
   }
 
+  // Die Hueftpunkthoehe im Stand — aus derselben Kette, nicht abgeschrieben.
+  // Der Hopser braucht sie, um die Senkung seiner Hocke abzuleiten statt sie
+  // zu keyframen.
+  var HUEFT_STAND = BODEN_FUSS - beinKette(0, 0).fussY;
+
   var sitzU = 0, sitzRi = 1;                 // Fortschritt und Richtung
   var sitzRoll = 0;                          // Gewichtsverlagerung im Sitzen
   var sitzRiIst = 1;                         // weich nachgefuehrte Richtung
@@ -2419,6 +2425,137 @@
     return r;
   }
 
+  // =================================================================
+  //  HUEPFEN — ein kleiner Hopser
+  //
+  //  Dieselbe Bauart wie Sitzen, Liegen und Schlafen: eine eigene
+  //  Zeitachse, und JEDER Kanal hat seine eigene Kurve darueber. Erst die
+  //  versetzten Fenster machen aus einer Ueberblendung eine Bewegung.
+  //
+  //  Was hier ANDERS ist, und zwar bewusst: Huepfen ist kein Zustand,
+  //  sondern ein Vorgang mit einem Weg. Es gibt deshalb keinen zweiten
+  //  Kurvensatz, keine Richtung und keine weich nachgefuehrte Richtung —
+  //  nichts davon haette einen Gegenstand. `huepfU` laeuft einmal von 0
+  //  nach 1 und faellt dann auf 0 zurueck. Das ist die einfachere Haelfte
+  //  des vorhandenen Musters, kein zweites System.
+  //
+  //  Der Rueckfall auf 0 ist genau deshalb sprungfrei, weil die Kurven bei
+  //  u = 1 dasselbe liefern wie bei u = 0: den Nullsatz. Diese
+  //  Endpunktgleichheit ist hier keine Zusatzbedingung, sondern die
+  //  Bauart — jeder Kanal ist entweder ein Impuls sin(pi * fenster(...)),
+  //  der an beiden Enden null ist, oder eine cTraege-Differenz, die auf
+  //  null zurueckfaehrt.
+  // ---------------------------------------------------------------
+  //  Die Masse — und warum sie so und nicht anders sind.
+  //
+  //  Noki ist 1.0 hoch; sein ganzes Bein misst 0.111. Ein Scheitel von
+  //  0.060 sind 6 % seiner Hoehe: deutlich sichtbar, weit von einem
+  //  Hochsprung entfernt.
+  //
+  //  Die Beinwinkel sind NICHT frei waehlbar. Das Bein ist kurz und flach
+  //  angestellt, es braucht deshalb grosse Gelenkwinkel fuer kleine
+  //  Hoehenunterschiede — 1.10 rad Knie ergeben nur 12 mm Hueftsenkung.
+  //  Zusammen mit der Dauer legt das fest, wie schnell sich das Knie je
+  //  Bild bewegt, und das ist die eigentliche Schranke.
+  //
+  //  Ein erster Entwurf hatte 1.60 rad Knie ueber 1.15 s mit `cSchnellAn`
+  //  als Streckung. Gemessen: 0.66 rad je Bild — das Siebenfache dessen,
+  //  was Sitzen und Hinlegen sich erlauben, und als Bild ein Zucken statt
+  //  eines Absprungs. Flacherer Winkel, laengere Dauer und `cWeich` statt
+  //  `cSchnellAn` bringen es auf rund 0.11.
+  // ---------------------------------------------------------------
+  var HUEPF_DAUER = 1.50;      // wie der Sitzuebergang — schnell genug, ohne zu zucken
+  var HUEPF_HOCH  = 0.060;     // Scheitel ueber dem Boden
+  var HUEPF_HUEFT = -0.55;     // Hueftwinkel in der tiefsten Hocke
+  var HUEPF_KNIE  =  1.10;     // Kniebeugung dazu — zusammen rund 12 mm Senkung
+  // Der Flug liegt zwischen diesen beiden Marken. Ausserhalb ist der
+  // Auftrieb bitgleich null — siehe `bogen` weiter unten.
+  var HUEPF_AB = 0.44, HUEPF_AN = 0.74;
+
+  var huepfU = 0;              // Fortschritt, 0 wenn Noki steht
+  var huepfAktiv = false;      // laeuft gerade ein Hopser?
+  var huepfStand = null;       // Standbild: Fortschritt direkt setzen
+  var huepfLift = 0;           // aktueller Auftrieb, fuer den Selbsttest
+
+  function huepftGerade() { return huepfAktiv || huepfU > 0.0001; }
+
+  //  Ein Bogen, der an BEIDEN Enden exakt null ist.
+  //
+  //  Das Haus-Idiom fuer einen Impuls ist `Math.sin(Math.PI * fenster(...))`.
+  //  Es hat hier einen Fehler, der sonst nirgends stoert: Math.sin(Math.PI)
+  //  ist nicht 0, sondern 1.2e-16. Fuer eine Armkurve ist das egal. Fuer
+  //  den Auftrieb ist es der Unterschied zwischen „der Fuss steht auf dem
+  //  Boden" und „der Fuss steht fast auf dem Boden" — und genau darauf
+  //  soll sich der Selbsttest ohne Toleranz verlassen koennen.
+  //
+  //  Die Parabel 4x(1-x) hat dieselbe Form, ist an beiden Enden bitgleich
+  //  null und ist fuer den Flug ausserdem die richtigere Kurve: eine
+  //  Wurfbahn IST eine Parabel.
+  function bogen(u, a, b) { var x = fenster(u, a, b); return 4 * x * (1 - x); }
+
+  //  Der Ablauf ueber u:
+  //    0.00–0.04  Vorbereitung — nur die Arme loesen sich und der Kopf
+  //               hebt sich kaum merklich. Die Vorahnung, ohne die der
+  //               Absprung aus dem Nichts kaeme.
+  //    0.04–0.26  Einknicken — Huefte und Knie beugen langsam ein.
+  //    0.26–0.44  Absprung — dieselben Gelenke strecken sich wieder, und
+  //               zwar schneller, als sie eingeknickt sind. Die Streckung
+  //               IST der Absprung; sie endet genau dort, wo der Flug
+  //               beginnt.
+  //    0.44–0.74  Flug — die Wurfparabel. Die Beine sind hier gestreckt
+  //               und bleiben es: die Figur steigt als Ganzes.
+  //    0.74–0.90  Landen — der Stoss, und deshalb als einziges `cSchnellAn`:
+  //               sofortiger Einsatz. Die zweite Beuge ist knapp halb so
+  //               tief wie die erste.
+  //    0.90–1.00  Abfedern und Ausklingen auf exakt null.
+  //
+  //  Beugung und Auftrieb ueberlappen sich mit Absicht NICHT. Solange ein
+  //  Fuss auf dem Boden steht, senkt die Beugung die Huefte — das ist
+  //  abgeleitet und richtig. In der Luft waere dieselbe Ableitung falsch
+  //  herum: sie wuerde den Koerper senken, statt die Fuesse anzuziehen.
+  //  Der Hopser umgeht das, indem er in der Luft schlicht gestreckt bleibt.
+  //  Das ist zugleich das ruhigere Bild — und ein Hopser, kein Hochsprung.
+  function huepfKurven(u) {
+    var r = { hueft: 0, knie: 0, lift: 0, pitch: 0,
+              armSw: 0, armFw: 0, hP: 0, squash: 0 };
+    if (u <= 0.0001) return r;
+
+    // Langsam einknicken (0.22 breit), schneller strecken (0.18). Genau
+    // diese Asymmetrie unterscheidet einen Absprung von einer Kniebeuge.
+    // Beide Faktoren sind an ihrem aeusseren Ende bitgleich null:
+    // cWeich(0) = 0 und cWeich(1) = 1.
+    var hocke  = cWeich(fenster(u, 0.04, 0.26))
+               * (1 - cWeich(fenster(u, 0.26, 0.44)));
+    // Landung andersherum: sofort hinein, langsam heraus.
+    var federn = cSchnellAn(fenster(u, 0.74, 0.90))
+               * (1 - cWeich(fenster(u, 0.90, 1.00)));
+    r.hueft = HUEPF_HUEFT * (hocke + 0.44 * federn);
+    r.knie  = HUEPF_KNIE  * (hocke + 0.44 * federn);
+
+    // Der Auftrieb — die einzige Kurve, die den Boden verlaesst.
+    r.lift = HUEPF_HOCH * bogen(u, HUEPF_AB, HUEPF_AN);
+
+    // Rumpf: leicht vor, waehrend das Gewicht ueber die Fuesse geht, und
+    // bei der Landung noch einmal kurz nach.
+    r.pitch = 0.085 * bogen(u, 0.06, 0.42) + 0.050 * bogen(u, 0.74, 1.00);
+
+    // Arme: erst kurz zurueck, dann nach vorn-oben. Der Vorschwung setzt
+    // VOR der Beinstreckung ein — die Staffelung aus Leitsatz 1, ohne die
+    // ein Absprung mechanisch wirkt.
+    r.armSw = 0.34 * bogen(u, 0.20, 0.80) - 0.10 * bogen(u, 0.02, 0.24);
+    r.armFw = 0.22 * bogen(u, 0.16, 0.72) - 0.12 * bogen(u, 0.00, 0.22);
+
+    // Der Kopf ist schwer (Leitsatz 4): er hebt sich spaeter als der Rumpf
+    // und gibt bei der Landung nach.
+    r.hP = -0.070 * bogen(u, 0.24, 0.74) + 0.055 * bogen(u, 0.72, 1.00);
+
+    // Strecken beim Absprung, Stauchen bei der Landung. Positiv ist die
+    // Stauchung — dieselbe Vorzeichenrichtung wie bei Sitzen und Liegen,
+    // wo der Wert ebenfalls abgezogen wird.
+    r.squash = -0.012 * bogen(u, 0.24, 0.52) + 0.016 * bogen(u, 0.72, 0.98);
+    return r;
+  }
+
   // ---------------------------------------------------------------
   //  Hinlegen-Taste — dasselbe Muster wie die Sitzen-Taste.
   // ---------------------------------------------------------------
@@ -2688,6 +2825,62 @@
       zeichneSitzKnopf();
     });
     zeichneSchlafKnopf();
+  }
+
+  // ---------------------------------------------------------------
+  //  Huepf-Taste
+  //  Anders als die drei anderen ist sie ein AUSLOESER, kein Schalter:
+  //  es gibt keinen Zustand „gehuepft", in dem man bleiben koennte. Sie
+  //  traegt deshalb kein aria-pressed und keine zweite Beschriftung.
+  //  Waehrend der Hopser laeuft, ist sie gesperrt — ein zweiter Klick
+  //  mittendrin wuerde die Zeitachse zuruecksetzen und die Landung
+  //  verschlucken.
+  //
+  //  Sie steht bewusst hinter der Schlaf-Taste: `schlafU` wird weiter oben
+  //  deklariert, und erst hier hat es beim ersten Zeichnen schon einen Wert.
+  // ---------------------------------------------------------------
+  // Ein Bogen ueber einer Bodenlinie — die Wurfbahn selbst.
+  var HUEPF_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+    + '<path d="M2.2 13.4h11.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'
+    + '<path d="M3.6 11.2C3.6 5.4 12.4 5.4 12.4 11.2" stroke="currentColor" stroke-width="1.6"'
+    + ' stroke-linecap="round" stroke-dasharray="1.6 1.9"/>'
+    + '<circle cx="8" cy="5.0" r="1.9" stroke="currentColor" stroke-width="1.6"/></svg>';
+
+  var huepfBtn = document.getElementById("huepfen");
+  var huepfBtnStand = null;
+
+  // Gehuepft wird nur aus dem Stand. Wer sitzt, liegt oder schlaeft, hat
+  // dafuer seine eigene Taste; ein Hopser von dort waere keine Bewegung,
+  // sondern ein Sprung in der Haltung.
+  function huepfBereit() {
+    return !huepfAktiv
+        && sitzU  <= 0.0005 && sitzWunsch  !== "sitzen"
+        && liegeU <= 0.0005 && liegeWunsch !== "liegen"
+        && schlafU <= 0.0005 && schlafWunsch !== "schlafen";
+  }
+
+  function zeichneHuepfKnopf() {
+    if (!huepfBtn) return;
+    var stand = huepfBereit() ? "frei" : "sperr";
+    if (stand === huepfBtnStand) return;
+    huepfBtnStand = stand;
+    huepfBtn.innerHTML = HUEPF_ICON + "<span>Hüpfen</span>";
+    huepfBtn.className = "chip mitIcon";
+    if (stand === "sperr") huepfBtn.setAttribute("disabled", "");
+    else huepfBtn.removeAttribute("disabled");
+    huepfBtn.title = "Noki macht einen kleinen Hüpfer";
+  }
+
+  if (huepfBtn) {
+    huepfBtn.addEventListener("click", function () {
+      if (!huepfBereit()) return;
+      touched();
+      if (gehenZ === 1) { gehBis = 0; setGehen(false); }   // erst anhalten
+      huepfU = 0;
+      huepfAktiv = true;
+      zeichneHuepfKnopf();
+    });
+    zeichneHuepfKnopf();
   }
 
   var haltung = "stehen";
@@ -3029,6 +3222,19 @@
       lz.armSw += 0.013 * Math.sin(time * 0.27 + 3.3) * lRuhig;
     }
 
+    // --- 2c · Huepfen ---
+    // Ein Weg, keine Richtung: `huepfU` laeuft einmal durch und faellt auf
+    // null zurueck. Der Ruecksprung ist sprungfrei, weil huepfKurven(1)
+    // denselben Nullsatz liefert wie huepfKurven(0) — das ist die
+    // Endpunktgleichheit, hier in ihrer einfachsten Form.
+    if (still) huepfU = (huepfStand === null) ? 0 : clamp(huepfStand, 0, 1);
+    else if (huepfAktiv) {
+      huepfU += dt / HUEPF_DAUER;
+      if (huepfU >= 1) { huepfU = 0; huepfAktiv = false; }
+    }
+    var hz = huepfKurven(huepfU);
+    huepfLift = hz.lift;
+
     // --- 3 · Verhaltenstreiber ---
     if (!still) treiber(dt);
     var muede = clamp(ruhe / 90, 0, 1);
@@ -3272,7 +3478,7 @@
     o.aF += greifIst.aF + art.aF * traegt + (0.60 - greifIst.aF) * zh;
     o.aL += 0.88 * zh;
     o.bz -= 0.020 * gw;                             // Gegengewicht nach hinten
-    o.hP += greifIst.hP + 0.05 * gw + sz.hP;
+    o.hP += greifIst.hP + 0.05 * gw + sz.hP + hz.hP;
     // Der Kopf kommt dem Blick hinterher, nicht mit ihm: erst geht das Auge
     // zum Gegenstand, dann folgt der Kopf. Gleichzeitig wirkt es puppenhaft.
     kopfNach = lerp(kopfNach, greifIst.hY, still ? 1 : 1 - Math.pow(0.05, dt / 0.30));
@@ -3388,7 +3594,7 @@
     // Stauchung: die Brust weitet sich, der Ruecken bleibt liegen. Fuer einen
     // liegenden Koerper ist genau das richtig.
     rig.squash = clamp(Math.sin(phAtem + Math.PI) * 0.013 * brA - sz.squash, -0.026, 0.026)
-               - lz.squash - sl.squash
+               - lz.squash - sl.squash - hz.squash
                + Math.sin(phAtem + Math.PI) * 0.009 * sl.atemTief;
 
     // Blinzeln — unregelmäßig, mit der Müdigkeit seltener
@@ -3458,10 +3664,13 @@
     // bestehende Wert bei sz = 0 bitgleich, und die Grenzen halten trotzdem.
     // Die Liegeversaetze liegen noch eine Lage weiter aussen: der Arm muss
     // sich fuer den Boden weiter zurueckdrehen, als die Stehgrenzen zulassen.
-    rig.armL = [clamp(clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40) + sz.armSw, -0.10, 2.40) + lz.armSw + sl.armSw,
-                clamp(clamp(armFw + gArm + rig.armFwL, -0.20, 0.60) + sz.armFw, -0.20, 0.60) + lz.armFw + sl.armFw];
-    rig.armR = [clamp(clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40) + sz.armSw, -0.10, 2.40) + lz.armSw + sl.armSw,
-                clamp(clamp(armFw - gArm, -0.20, 0.60) + sz.armFw, -0.20, 0.60) + lz.armFw + sl.armFw];
+    // Der Huepfversatz liegt bewusst INNEN, bei den Sitzversaetzen: ein
+    // Hopser braucht die Stehgrenzen nicht zu ueberschreiten, und so kann
+    // er sie auch nicht versehentlich aufweichen.
+    rig.armL = [clamp(clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40) + sz.armSw + hz.armSw, -0.10, 2.40) + lz.armSw + sl.armSw,
+                clamp(clamp(armFw + gArm + rig.armFwL, -0.20, 0.60) + sz.armFw + hz.armFw, -0.20, 0.60) + lz.armFw + sl.armFw];
+    rig.armR = [clamp(clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40) + sz.armSw + hz.armSw, -0.10, 2.40) + lz.armSw + sl.armSw,
+                clamp(clamp(armFw - gArm, -0.20, 0.60) + sz.armFw + hz.armFw, -0.20, 0.60) + lz.armFw + sl.armFw];
     if (cur.wave > 0.01) {   // Ausdruck „Winken" aus der Bibliothek
       var w = 2.00 + Math.sin(t * 6.4) * 0.28;
       rig.armR = [clamp(lerp(rig.armR[0], w, cur.wave), -0.10, 2.40),
@@ -3485,7 +3694,7 @@
     var gz = still ? 0 : gewichtSeite * (1 - hal.sit) * (1 - gehen);
     gewichtIst = lerp(gewichtIst, gz, 1 - Math.pow(0.02, dt / 1.8));
     var rollGes  = clamp(gewichtIst * 0.030 + o.br + sitzRoll + 0.030 * gS, -0.050, 0.050) + sl.br;
-    var pitchGes = clamp(hal.pitch + 0.045 * gehen + sz.pitch, -0.16, 0.16) + lz.pitch;
+    var pitchGes = clamp(hal.pitch + 0.045 * gehen + sz.pitch + hz.pitch, -0.16, 0.16) + lz.pitch;
     // Der Kopf darf sich im Schlaf bewegen, ohne dass er oder der Rumpf
     // abhebt: die Rumpfneigung wird nachgefuehrt, bis beide gleich tief
     // liegen. Ohne das schwebte bei 0.03 rad Kopfneigung schon einer von
@@ -3501,7 +3710,16 @@
     // Rumpf liegt — und weil der zurueckgelegte Ruecken dicker ist als das
     // Gesaess, hebt sie ihn beim Abrollen von selbst wieder an. Genau das
     // macht aus dem Zurueckneigen ein Abrollen.
-    var senkAnim = sz.senkung + lz.senkung;
+    // Die Hocke des Hopsers senkt den Rumpf um GENAU so viel, wie die
+    // Beinkette die Huefte senkt — ausgerechnet, nicht eingetragen. Sonst
+    // muesste man einen Senkungswert zu jedem Beinwinkel nachjustieren, und
+    // beim ersten Nachjustieren waere er wieder falsch. Bei hz.hueft =
+    // hz.knie = 0 ist der Betrag bitgleich null; die Rechnung gilt, weil der
+    // Hopser nur aus dem Stand startet und `sz`, `lz`, `sl` dort alle null
+    // sind, `beinH` also genau `hz.hueft` ist.
+    var hpSenk = (BODEN_FUSS - beinKette(hz.hueft, Math.max(0, hz.knie)).fussY)
+               - HUEFT_STAND;
+    var senkAnim = sz.senkung + lz.senkung + hpSenk;
     var senkGes = senkAnim;
     liegeTief = null;
     if (lz.w > 1e-6) {
@@ -3523,7 +3741,10 @@
     }
 
     rig.body[0] = clamp(gewichtIst * 0.012 + o.bx + 0.007 * gS, -0.015, 0.015);
-    rig.body[1] = bodyYGes;
+    // Der Auftrieb liegt AUSSERHALB der Einlagenklammer (-0.020 … 0.050).
+    // Die Klammer gehoert den Einlagen und behaelt ihre volle Kraft; der
+    // Hopser weicht sie nicht auf, sondern kommt daneben dazu.
+    rig.body[1] = bodyYGes + hz.lift;
     rig.body[2] = clamp(o.bz, -0.020, 0.050) + sz.bz + lz.bz;
     rig.body[3] = clamp(rollGes, -0.075, 0.075);
     rig.pose[0] = pitchGes;
@@ -3536,11 +3757,18 @@
     // Zwischenstellung, ohne dass es jemand nachrechnen muesste. Sitzen und
     // Liegen schliessen einander aus, ihre Betraege addieren sich deshalb
     // gefahrlos.
-    var beinH = sz.hueft + lz.hueft + sl.hueft;
-    var beinK = Math.max(0, sz.knie + lz.knie + sl.knie);   // Knie beugt nur nach hinten
+    var beinH = sz.hueft + lz.hueft + sl.hueft + hz.hueft;
+    var beinK = Math.max(0, sz.knie + lz.knie + sl.knie + hz.knie);   // Knie beugt nur nach hinten
     var bk = beinKette(beinH, beinK);
     rig.sitz  = [beinH, beinK, senkGes];
-    rig.hueft = [0.085, BODEN_FUSS - bk.fussY, sz.hz + lz.hz];
+    // Der Auftrieb geht auf BEIDE: auf den Rumpf oben und hier auf die
+    // Beinwurzel. Die Beine haengen naemlich nicht am Rumpf — der Shader
+    // nimmt fuer sie rohes `p` und diesen Hueftpunkt. Nur `rig.body[1]`
+    // anzuheben wuerde den Rumpf von den Beinen abloesen und die Fuesse
+    // stehen lassen. Mit demselben Betrag auf beiden steigt die Figur als
+    // Ganzes, und die Sohle liegt bei BODEN_FUSS + hz.lift: im Flug genau
+    // `lift` ueber dem Boden, sonst bitgleich darauf.
+    rig.hueft = [0.085, BODEN_FUSS - bk.fussY + hz.lift, sz.hz + lz.hz];
 
     // Glimm — eigener Kanal, pulst auch bei geschlossenen Augen weiter
     // Der Glimm pulst im Schlaf weiter, nur gedimmt und langsam. Genau das
@@ -3915,7 +4143,12 @@
         "arm_l": rig.armL[0], "arm_r": rig.armR[0], "arm_vor": rig.armL[1],
         "antenne_x": rig.ant[0], "antenne_z": rig.ant[1],
         "koerper.y": rig.bob, "koerper.stauchung": rig.squash,
-        "koerper.x": rig.body[0], "koerper.sprung": rig.body[1],
+        // Der Auftrieb des Hopsers wird hier abgezogen. `koerper.sprung`
+        // meint die Einlagen — und deren Grenze [-0.020, 0.050] mit 0.012
+        // je Bild soll unveraendert scharf bleiben, statt aufgeweitet zu
+        // werden, damit ein Hopser hindurchpasst. Der hat seine eigene
+        // Pruefung weiter unten.
+        "koerper.x": rig.body[0], "koerper.sprung": rig.body[1] - huepfLift,
         "koerper.z": rig.body[2], "koerper.rollen": rig.body[3],
         "glimm": rig.glimm, "augen.offen": rig.eyeOpen
       };
@@ -4680,6 +4913,148 @@
       setHaltung("stehen");
     })();
 
+    // =============================================================
+    //  HUEPFPRUEFUNG
+    //  Der Hopser ist die einzige Bewegung, bei der Noki den Boden
+    //  verlaesst. Genau das macht ihn pruefbar: es gibt einen Abschnitt,
+    //  in dem die Fuesse frei sein MUESSEN, und zwei, in denen sie
+    //  bitgleich aufstehen muessen. Dazwischen darf es keinen Zwischenfall
+    //  geben — kein Schweben vor dem Absprung, kein Einsinken nach der
+    //  Landung, kein Rest, der stehen bleibt.
+    // =============================================================
+    var huepfBericht = "Huepfen: nicht geprueft";
+    (function () {
+      var kanaele = ["hueft", "knie", "lift", "pitch", "armSw", "armFw", "hP", "squash"];
+
+      // 1 · Nullprobe und Endpunktgleichheit.
+      //     Beide Enden muessen EXAKT null sein, nicht ungefaehr — daran
+      //     haengt, dass der Ruecksprung von u = 1 auf u = 0 sprungfrei ist
+      //     und dass Stehen, Gehen und Sitzen unveraendert geblieben sind.
+      //     Deshalb steht hier `!== 0` und keine Toleranz.
+      var e0 = huepfKurven(0), e1 = huepfKurven(1);
+      for (var ke = 0; ke < kanaele.length; ke++) {
+        var kn = kanaele[ke];
+        if (e0[kn] !== 0) melde("huepf-null",
+          "Bei huepfU = 0 ist " + kn + " = " + e0[kn] + " statt exakt null");
+        if (e1[kn] !== 0) melde("huepf-endpunkt",
+          "Bei huepfU = 1 ist " + kn + " = " + e1[kn] + " statt exakt null");
+      }
+
+      // 2 · Kurvenlauf: Bodenkontakt, gestreckte Beine im Flug, Sprungfreiheit.
+      //     Die Schranken sind die GEMESSENEN Geschwindigkeiten plus Rand.
+      //     Das Knie ist mit 0.107 je Bild der schnellste Kanal des ganzen
+      //     Rigs — ein Absprung ist die schnellste Bewegung, die Noki hat.
+      //     Ein erster Entwurf lag hier bei 0.66; die Schranke haette ihn
+      //     gefangen, und genau dafuer steht sie.
+      var grenzen = { hueft: 0.070, knie: 0.130, lift: 0.012, pitch: 0.014,
+                      armSw: 0.050, armFw: 0.045, hP: 0.020, squash: 0.006 };
+      var dtH = 1 / 60, duH = dtH / HUEPF_DAUER;
+      var nH = Math.ceil(1 / duH), vorH = null, spitzeH = 0, spitzeK = "";
+      var tiefsteHocke = 0, scheitel = 0;
+      for (var ih = 0; ih <= nH; ih++) {
+        var uh = Math.min(1, ih * duH);
+        var rh = huepfKurven(uh);
+
+        // Der Boden. Ausserhalb des Flugfensters ist der Auftrieb bitgleich
+        // null — das ist keine Toleranzfrage: entweder der Fuss steht, oder
+        // er steht nicht.
+        if (rh.lift < 0) melde("huepf-unterboden",
+          "Auftrieb negativ (" + rh.lift.toFixed(5) + ") bei u=" + uh.toFixed(3));
+        if ((uh <= HUEPF_AB || uh >= HUEPF_AN) && rh.lift !== 0)
+          melde("huepf-kontakt", "Noki schwebt ausserhalb des Fluges: Auftrieb "
+            + rh.lift + " bei u=" + uh.toFixed(3));
+        // Im Flug muessen die Beine gestreckt sein. Waeren sie es nicht,
+        // wuerde die Bodenableitung sie falsch herum bedienen: sie senkte
+        // den Koerper, statt die Fuesse anzuziehen.
+        if (rh.lift > 0 && (rh.hueft !== 0 || rh.knie !== 0))
+          melde("huepf-flugbein", "Bein im Flug gebeugt (hueft " + rh.hueft.toFixed(4)
+            + ", knie " + rh.knie.toFixed(4) + ") bei u=" + uh.toFixed(3));
+        if (rh.knie < -1e-9) melde("huepf-knie",
+          "Knie ueberstreckt (" + rh.knie.toFixed(4) + ") bei u=" + uh.toFixed(3));
+
+        // Die abgeleitete Hocke: dieselbe Rechnung wie in updateRig.
+        var senkH = (BODEN_FUSS - beinKette(rh.hueft, Math.max(0, rh.knie)).fussY)
+                  - HUEFT_STAND;
+        if (senkH > 1e-9) melde("huepf-hocke",
+          "Die Hocke hebt den Rumpf statt ihn zu senken (" + senkH.toFixed(5) + ")");
+        if (senkH < tiefsteHocke) tiefsteHocke = senkH;
+        if (rh.lift > scheitel) scheitel = rh.lift;
+
+        if (vorH) for (var kh = 0; kh < kanaele.length; kh++) {
+          var k2 = kanaele[kh], dh = Math.abs(rh[k2] - vorH[k2]);
+          if (dh > spitzeH) { spitzeH = dh; spitzeK = k2; }
+          if (dh > grenzen[k2]) melde("huepf-sprung:" + k2,
+            "Sprung " + k2 + " um " + dh.toFixed(4) + " je Bild bei u=" + uh.toFixed(3));
+        }
+        vorH = rh;
+      }
+      if (scheitel <= 0) melde("huepf-ohne-flug",
+        "Der Hopser hebt gar nicht ab — Scheitel " + scheitel);
+
+      // 3 · Ein echter Lauf durch updateRig, ueber die Taste ausgeloest.
+      //     Erst hier zeigt sich, ob der Auftrieb wirklich auf BEIDE geht,
+      //     auf Rumpf und Beinwurzel. Ginge er nur auf den Rumpf, bliebe
+      //     die Sohle am Boden kleben und die Figur risse auseinander.
+      var vorS = sitzWunsch, vorL = liegeWunsch, vorSch = schlafWunsch, vorR = ruhe;
+      sitzWunsch = null; liegeWunsch = null; schlafWunsch = null;
+      sitzU = 0; sitzRi = 1; sitzRiIst = 1; sitzKontakt = 0;
+      liegeU = 0; liegeRi = 1; liegeRiIst = 1; liegeKontakt = 0;
+      schlafU = 0; schlafRi = 1; schlafRiIst = 1;
+      huepfU = 0; huepfAktiv = false;
+      setHaltung("stehen"); ruhe = 0;
+      for (var fs in HALTUNG.stehen) hal[fs] = HALTUNG.stehen[fs];
+      for (var iv = 0; iv < 40; iv++) { time += 1/60; updateRig(1/60); }
+
+      if (!huepfBereit()) melde("huepf-taste",
+        "Die Huepf-Taste ist im Stand gesperrt");
+      huepfAktiv = true; huepfU = 0;
+      if (huepfBereit()) melde("huepf-sperre",
+        "Die Huepf-Taste bleibt waehrend des Hopsers offen — ein zweiter "
+        + "Klick wuerde die Landung verschlucken");
+
+      var frei = 0, nBild = Math.ceil(HUEPF_DAUER * 60) + 20;
+      for (var ib = 0; ib < nBild; ib++) {
+        time += 1/60; updateRig(1/60);
+        // Die Fusssohle, wie im Shader nachgerechnet: sie muss GENAU um den
+        // Auftrieb ueber dem Boden liegen — nie tiefer, nie hoeher.
+        var c1 = Math.cos(rig.sitz[0]), s1 = Math.sin(rig.sitz[0]);
+        var oyF = c1 * BEIN_STAND[1];
+        var t12 = rig.sitz[0] + rig.sitz[1];
+        var uyF = Math.cos(t12) * BEIN_STAND[1];
+        var fY = rig.hueft[1] + oyF * L_OBER + uyF * L_UNTER + FUSS_VERSATZ[1];
+        if (Math.abs(fY - (BODEN_FUSS + huepfLift)) > 1e-6) melde("huepf-fuss",
+          "Fusssohle nicht bei BODEN_FUSS + Auftrieb (" + fY.toFixed(6)
+          + " statt " + (BODEN_FUSS + huepfLift).toFixed(6) + ")");
+        if (fY < BODEN_FUSS - 1e-6) melde("huepf-fuss-boden",
+          "Fuss im Boden (" + fY.toFixed(6) + ")");
+        // Rumpf, Hals und Kopf bleiben ueber dem Boden.
+        var hoeheH = rig.bob + rig.body[1] + rig.sitz[2];
+        var tiefH = tiefsterKoerper(rig.pose[0], rig.body[3], rig.head, rig.squash);
+        if (tiefH.y + hoeheH < -1e-3) melde("huepf-boden",
+          "Koerper im Boden (" + (tiefH.y + hoeheH).toFixed(5) + ", " + tiefH.wer + ")");
+        if (huepfLift > 0) frei++;
+      }
+      if (frei < 10) melde("huepf-flug",
+        "Im ganzen Lauf war Noki nur " + frei + " Bilder in der Luft");
+      if (huepfAktiv) melde("huepf-ende", "Der Hopser hoert nicht von selbst auf");
+      if (huepfU !== 0) melde("huepf-ende",
+        "huepfU bleibt auf " + huepfU + " statt auf exakt null zurueckzufallen");
+      // Zusammen mit der Nullprobe aus 1 ist damit bewiesen, dass die
+      // Standhaltung nach dem Hopser bitgleich die von vorher ist: der
+      // Fortschritt ist exakt null, und bei exakt null liefert jeder Kanal
+      // exakt null.
+      if (huepfLift !== 0) melde("huepf-ende",
+        "Nach dem Hopser bleibt ein Auftrieb von " + huepfLift + " stehen");
+
+      huepfU = 0; huepfAktiv = false; huepfStand = null;
+      sitzWunsch = vorS; liegeWunsch = vorL; schlafWunsch = vorSch; ruhe = vorR;
+      setHaltung("stehen");
+      huepfBericht = "Huepfen: Scheitel " + (scheitel * 1000).toFixed(0)
+        + " mm, Hocke " + (-tiefsteHocke * 1000).toFixed(1) + " mm, "
+        + frei + " Bilder in der Luft, groesster Sprung "
+        + spitzeH.toFixed(3) + " (" + spitzeK + ") je Bild";
+    })();
+
     // Griffe: beruehrt jeder tragende Finger, dringt nichts ein, bleibt der
     // Gegenstand aus Arm, Rumpf und Kopf heraus? Die Rechnung, die die
     // Griffwerte bestimmt hat, prueft sie hier dauerhaft nach.
@@ -4753,6 +5128,7 @@
       + "\n" + liegeBericht
       + "\nAblaeufe A-D geprueft (Stehen, Hinlegen, Schlafen, Aufwachen, Aufstehen)"
       + "\n" + schlafBerichtGlobal
+      + "\n" + huepfBericht
       + "\nFingerfedern: " + federn.n + " Bilder, groesste Aenderung je Bild "
       + federn.spitze.toFixed(4)
       + "\nEinlagen gezogen: " + gezogen.length
@@ -4889,6 +5265,7 @@
       zeichneSitzKnopf();
       zeichneLiegeKnopf();
       zeichneSchlafKnopf();
+      zeichneHuepfKnopf();
     }
   }
 
@@ -4932,6 +5309,13 @@
     schlafRi = (num(hash.schlri, 1) < 0) ? -1 : 1;
     schlafRiIst = schlafRi;
     if (liegeStand === null) { liegeStand = 1; liegeU = 1; liegeWunsch = "liegen"; }
+  }
+  // Huepfen im Standbild. Es braucht keine Richtung — der Hopser hat nur
+  // einen Weg. `huepf=1` zeigt deshalb wieder den Stand, nicht das Ende
+  // einer anderen Haltung; genau das soll die Endpunktgleichheit leisten.
+  if (hash.huepf !== undefined) {
+    huepfStand = clamp(num(hash.huepf, 0), 0, 1);
+    huepfU = huepfStand;
   }
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
   if (hash.obj !== undefined) {

@@ -34,6 +34,7 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | **Sitzen / Aufstehen** | eigene Taste im Reiter *Bewegung*: ein Klick startet den vollen Ablauf, während er läuft ist sie gesperrt. Ohne Klick setzt Noki sich nach 90 s von selbst — mit Zeitraffer ×10 nach neun Sekunden zu sehen. `#sitv=0…1` zeigt jeden Zwischenstand |
 | **Hinlegen / Aufrichten** | dritte Taste im Reiter *Bewegung*: Noki legt sich in 2.2 s auf den Rücken — Hocke, Abrollen über den Rücken, Kinn zur Brust, Kopf setzt zuletzt auf. Sitzt er gerade, steht er erst vollständig auf. `#lieg=0…1` zeigt jeden Zwischenstand |
 | **Einschlafen / Aufwachen** | vierte Taste im Reiter *Bewegung* — oder von selbst: liegt Noki etwa 20 s ruhig, wird er müde, die Lider sinken in drei Stufen, das Blinzeln wird gedehnt, und er schläft ein. Jede Eingabe weckt ihn wieder — mit Rückfall, Orientieren und einer kleinen Streckbewegung. Danach bleibt er **wach und liegend**. `#schlaf=0…1` zeigt jeden Zwischenstand |
+| **Hüpfen** | fünfte Taste im Reiter *Bewegung*: ein kleiner Hopser aus dem Stand in 1.5 s — leicht in die Knie, abspringen, 0.45 s fliegen, landen, abfedern. Die einzige Bewegung, bei der er den Boden verlässt, und die einzige ohne Nachzustand: sie endet exakt in der Haltung, in der sie begann. `#huepf=0…1` zeigt jeden Zwischenstand |
 | Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
 
 Noki steht dabei nie still: Er atmet, blinzelt in unregelmäßigem Rhythmus, sieht sich um, und
@@ -68,7 +69,7 @@ daraus macht, entscheidet er selbst.
 | [04 · Bewegungssprache](design/04-bewegungssprache.md) | Die sieben Leitsätze des Animationsstils, das geschichtete Ruheverhalten, Stehen, Gehen und Sitzen |
 | [05 · Gesicht und Emotionen](design/05-gesicht-und-emotionen.md) | Sieben Gefühle mit Augen, Mund, Kopf, Körpersprache und Glimm |
 | [06 · Interaktion und Verhalten](design/06-interaktion-und-verhalten.md) | Die fünf Interaktionsfälle, das Verhaltensmodell und die Schnittstelle zur späteren KI-Seite |
-| [07 · Animationsliste](design/07-animationsliste.md) | 37 Animationen mit Auslöser, Gefühl und Spezifikation |
+| [07 · Animationsliste](design/07-animationsliste.md) | 38 Animationen mit Auslöser, Gefühl und Spezifikation |
 | [09 · Stufe 2 und Greifsystem](design/09-stufe2-und-greifsystem.md) | Die dreizehn Animationen der Stufe 2 und das Sequenzsystem |
 | [10 · Das universelle Greifsystem](design/10-greifsystem.md) | Handgelenk, sieben Griffarten, Tasse, Smartphone und Schraubenzieher in voller Tiefe |
 | [08 · Anhang](design/08-anhang-referenzvideo.md) | Analyseraster, falls später ein Referenzvideo einfließen soll |
@@ -91,8 +92,9 @@ Bewegung ein, `ui=0` blendet die Bedienoberfläche aus, `theme` erzwingt `dark` 
 Dazu `pose=` (stehen · sitzen · doesen · schlaf), `clip=` mit `cu=` für eine Einlage an einem
 bestimmten Zeitpunkt, `achtung=1` für die Zuhör-Haltung, `geh=` für eine Schrittphase
 (`0 … 1` = ein voller Schritt), `sitv=`/`sitri=` für jeden Zwischenstand des Hinsetzens und
-`lieg=`/`liegri=` für jeden Zwischenstand des Hinlegens und `schlaf=`/`schlri=` für jeden
-Zwischenstand des Einschlafens und Aufwachens.
+`lieg=`/`liegri=` für jeden Zwischenstand des Hinlegens, `schlaf=`/`schlri=` für jeden
+Zwischenstand des Einschlafens und Aufwachens und `huepf=` für jeden Zwischenstand des
+Hüpfers — dieser ohne Richtungsangabe, denn der Hopser hat nur einen Weg.
 
 **Selbsttest:** `noki.html#selftest=1` fährt das Rig über 1200 simulierte Sekunden und prüft
 alle 16 Kanäle gegen ihre Grenzen, die Reihenfolge der Zeitkaskade, die Anti-Wiederholung der
@@ -112,6 +114,14 @@ Gelenkwinkel, Augenöffnung und Sprungfreiheit jedes Kanals. Dazu die Zusicherun
 diese Stufe ausmachen: dass der Schlaf erst bei vollständigem Liegen beginnt, dass beim
 Aufwachen der **Rückfall** der Augenlider wirklich stattfindet, und dass Noki nach dem
 Aufwachen **nicht von selbst aufsteht**.
+
+Dazu die **Hüpfprüfung**: Der Hopser ist die einzige Bewegung, bei der Noki den Boden
+verlässt — und genau das macht ihn prüfbar. Nachgerechnet wird, dass der Auftrieb außerhalb
+der Flugphase **bitgleich null** ist (die Füße können vor dem Absprung und nach der Landung
+gar nicht schweben), dass die Fußsohle in jedem Bild genau um den Auftrieb über dem Boden
+liegt, dass die Beine im Flug gestreckt bleiben, dass die Hocke den Rumpf senkt statt ihn zu
+heben — und dass am Ende jeder Betrag wieder exakt null ist, die Standhaltung nach dem
+Hopser also bitgleich die von vorher ist.
 
 Dazu die **Griffprüfung**: Für jeden der fünf Gegenstände wird nachgerechnet, ob jeder
 tragende Finger die Grifffläche wirklich berührt, ob die nicht tragenden Finger wegbleiben,
@@ -147,6 +157,9 @@ ursprünglich bestimmt; sie wacht seither über sie.
 - [x] **Einschlafen, Schlafen und Aufwachen** — dritte Zeitachse, an das Liegen
       strukturell gekoppelt; Lider in drei Stufen, gedehntes Blinzeln, deterministischer
       Schlaf-Leerlauf, Aufwachen mit Rückfall, Orientieren und Strecken
+- [x] **Hüpfen** — der erste Vorgang ohne Nachzustand: eigene Zeitachse, aber nur ein Weg
+      und kein Rückwärts-Kurvensatz. Der Auftrieb geht auf Rumpf *und* Beinwurzel, damit die
+      Figur als Ganzes steigt; außerhalb der Flugphase ist er bitgleich null
 - [ ] Stufe 3: die seltenen Momente, dreizehn weitere Gegenstände, Gegenstände mit Platz in der Welt
 - [ ] Anbindung als interaktiver Begleiter
 

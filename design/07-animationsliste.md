@@ -1,6 +1,6 @@
 # 07 · Animationsliste
 
-> Schritt 3, Teil 4. **37 Animationen** in sieben Gruppen — die vollständige Liste für die
+> Schritt 3, Teil 4. **38 Animationen** in sieben Gruppen — die vollständige Liste für die
 > spätere Umsetzung.
 >
 > Jeder Eintrag trägt Name, Beschreibung, Auslöser, Gefühl und eine Spezifikationszeile:
@@ -96,6 +96,14 @@ gegenphasig, die Hüfte sinkt mit der Spreizung, Arme und Kopf schwingen gegen. 
 ist es der Gang eines Aufziehspielzeugs — und genau der passt zu Noki.
 *Auslöser:* Knopf, oder Idle-Ziehung ab 60 s ohne Interaktion — *Gefühl:* Eigenständigkeit, Tatendrang
 `5–9 s · pendelnd (65 % Dreieck) · beinschwung ±0.42 @ 0.72 Zyklen/s, hüfte −0.082·(1−cos α), boden += |Δfuß|, koerper.rollen ±0.030, arme ∓0.30 · Prio 1 · ja`
+
+**B9 · Hüpfen** ▶
+Ein kleiner Hopser aus dem Stand: leicht in die Knie, abspringen, kurz fliegen, landen,
+abfedern, stehen. Die einzige Bewegung, bei der Noki den Boden verlässt — und die einzige,
+die keinen Zustand hinterlässt: sie endet exakt in der Haltung, in der sie begonnen hat.
+*Auslöser:* Knopf im Reiter *Bewegung*. Bewusst **nicht** in der Idle-Ziehung: ein Hopser aus
+dem Nichts wirkt nervös, nicht verspielt — *Gefühl:* Verspieltheit, Übermut
+`1.5 s · weich (Landung schnell-an) · hüfte −0.55 / knie 1.10 in der Hocke, koerper.sprung +0.060 als Wurfparabel, arm_l/r +0.34, arm_vor +0.22, kopf.nicken −0.070, stauchung ∓0.016 · Prio 1 · nein`
 
 ---
 
@@ -333,7 +341,7 @@ sind **sechs umgesetzt**. Damit stehen alle Kanäle bereit, die die Stufen 1 und
 |---|---|---|
 | `koerper` seitlich (x) | B2 | **umgesetzt** |
 | `koerper` Tiefe (z) | B5, E5, E6, G1, G3, C3 | **umgesetzt** |
-| `koerper.sprung` | B4, D6, E6 | **umgesetzt** |
+| `koerper.sprung` | B4, B9, D6, E6 | **umgesetzt** |
 | `koerper` Rollen (z) | B2, G2 | **umgesetzt** |
 | Beinwinkel (Sitzstellung) | A2, C2 | **umgesetzt** |
 | `glimm` eigenständig | A4, G4 | **umgesetzt** |
@@ -352,6 +360,7 @@ Die umgesetzten Animationen lassen sich einzeln ansteuern:
 noki.html#still=1&ui=0&pose=sitzen          Grundhaltung einfrieren
 noki.html#still=1&ui=0&clip=B1&cu=0.5       Einlage an einem Zeitpunkt
 noki.html#still=1&ui=0&achtung=1            Zuhör-Haltung
+noki.html#still=1&ui=0&huepf=0.59           Hüpfen an einem Zeitpunkt (0 … 1)
 noki.html#selftest=1                        Selbsttest über 1200 simulierte Sekunden
 ```
 
