@@ -70,6 +70,10 @@ Füße bleiben stehen. Das ist der Unterschied zwischen „schwebt" und „steht
 | `finger_l` | Krümmung | 0.30 | wie rechts | eine Zahl für die ganze linke Hand, mit leicht ungleichen Faktoren je Finger |
 | `pronation` | abgeleitet | — | — | kein eigener Kanal: eine Eindrehung, die **nur auf die leere Hand** addiert wird (siehe unten) |
 | `detail` | Fingerdetails | 1 | 0 … 1 | Abstufung nach Kameraabstand und Bildrate; die Finger schrumpfen stetig in den Ballen |
+| `hueft` | Hüftpunkt | `(0.085, 0.158, 0)` | — | kommt aus der Animation, nicht aus einer Formel: abgeleitet aus der Bedingung, dass die Fußsohle auf `y = 0.047` liegt |
+| `hueftwinkel` | Drehung (x) | 0 | `−2.5 … 0` | Beugung im Hüftgelenk, dazu addiert sich der Schrittschwung |
+| `knie` | Drehung (x) | 0 | `0 … 2.3` | Beugung im Knie, **nur nach hinten**; im Stand und im Gang null |
+| `senkung` | Höhe (y) | 0 | `−0.150 … 0` | senkt den ganzen Rumpf — der Anschluss, der jahrelang fehlte |
 
 Alle Kanäle dieser Tabelle sind in `noki.html` umgesetzt und werden vom eingebauten
 Selbsttest (`noki.html#selftest=1`) über 1200 simulierte Sekunden gegen genau diese Grenzen
@@ -292,3 +296,32 @@ mögliche Antwort auf die Frage, wo der Unterarm aufhört und die Hand anfängt.
 [04 · Bewegungssprache](04-bewegungssprache.md) — der Animationsstil, der auf dieser
 Grundlage aufsetzt: Leitsätze, Ruheverhalten und die acht Kanäle, die dem Rig dafür noch
 fehlen.
+
+---
+
+## Sitzen: eine eigene Zeitachse
+
+Der Übergang läuft nicht über die Haltungs-Überblendung, sondern über einen eigenen
+Fortschritt `sitzU` (0 … 1) mit **einer Kurve je Kanal**. Der Ablauf steht in
+[04 · Bewegungssprache](04-bewegungssprache.md); hier die drei Regeln, die der
+Selbsttest erzwingt und die beim Bauen jeweils einen echten Fehler gefunden haben:
+
+1. **Endpunktgleichheit.** Beide Kurvensätze müssen bei `u = 0` und `u = 1` denselben
+   Wert liefern. Der erste Entwurf ließ beim Hinsetzen `−0.016` Resttiefe stehen.
+2. **Reine Funktion.** `sitzKurven(u, ri)` antwortet allein aus ihren Parametern. Das
+   Aufsetzen ist ein Ereignis und steht außerhalb — solange es drinsteckte, lieferte
+   dieselbe Eingabe zwei verschiedene Antworten.
+3. **Weicher Richtungswechsel.** Die Sätze dürfen sich *zwischen* den Endpunkten
+   unterscheiden — man steht anders auf, als man sich hinsetzt. Kippt die Richtung
+   aber mitten in der Bewegung (Noki steht auf, weil er losgehen will), muss zwischen
+   ihnen überblendet werden. Ohne das sprang der Kopf um `0.098` in einem Bild.
+
+Die Überblendung läuft mit **fester Rate** (`3.0` je Sekunde), nicht exponentiell: Eine
+Exponentialkurve springt im ersten Bild am weitesten, und genau dort tut es weh.
+
+## Sitzvarianten
+
+`SITZART` hält je Variante Hüftwinkel, Kniewinkel, Hüfttiefe, Senkung, Rumpfneigung und
+Armhaltung. Gefüllt ist bisher `normal`; `entspannt`, `aufmerksam`, `gespraech`,
+`smartphone` und `tablet` zeigen darauf. Eine neue Variante ist damit eine Zeile und
+keine neue Animation.

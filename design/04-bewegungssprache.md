@@ -279,3 +279,60 @@ Feinschliff. Keiner verändert die Geometrie — alles sind Transformationen bes
 - [05 · Gesicht und Emotionen](05-gesicht-und-emotionen.md) — die sieben Gefühle im Detail
 - [06 · Interaktion und Verhalten](06-interaktion-und-verhalten.md) — wie er auf dich reagiert
 - [07 · Animationsliste](07-animationsliste.md) — die vollständige Liste
+
+---
+
+## Sitzen und Aufstehen
+
+Sitzen war lange ein **Zustand**: eine einzige Exponentialkurve zog alle Kanäle
+gleichzeitig ans Ziel. Genau daher kam der Eindruck, die Figur wechsele zwischen zwei
+Posen statt sich zu bewegen. Dazu kam ein Fehler, den niemand sehen konnte, ohne den
+Code zu lesen: Die Rumpfabsenkung `posY = −0.150` lief als `u_pose.z` in den Shader und
+**wurde dort nie gelesen**. Beim Sitzen drehte deshalb nur das Bein nach vorn, während
+der Rumpf auf Stehhöhe blieb — Noki schwebte, und die Beine verschwanden im Bauch.
+
+Beides ist behoben. Der Übergang hat jetzt eine eigene Zeitachse, und **jeder Kanal hat
+seine eigene Kurve darüber**. Erst die versetzten Zeiten machen aus einer Überblendung
+eine Bewegung.
+
+### Hinsetzen — 1.5 s
+
+| Abschnitt | Anteil | Was geschieht |
+|---|---|---|
+| Vorbereitung | 0.00 – 0.16 | Das Gewicht geht kurz nach hinten, die Knie lösen sich |
+| Absenken | 0.16 – 0.68 | Knie beugen, Hüfte nach hinten und unten, Rumpf beugt zum Ausgleich **vor**, Arme heben mit |
+| Aufsetzen | 0.68 – 0.80 | Das Gesäß setzt auf: kurzes Nachgeben, die Arme reagieren nach |
+| Setzen | 0.80 – 1.00 | Der Rumpf richtet sich wieder auf, alles läuft weich aus |
+
+Der Kopf läuft dem Rumpf hinterher — dieselbe Verzögerung, die auch den Blick zum
+Gegenstand trägt.
+
+### Aufstehen — 1.25 s
+
+Es ist **nicht** die rückwärts gespielte Kurve. Zuerst neigt sich der Rumpf vor und der
+Schwerpunkt wandert über die Füße, dann strecken die Knie, dann richtet sich der Rumpf
+auf. Man steht anders auf, als man sich hinsetzt.
+
+### Zwei Regeln, die der Selbsttest erzwingt
+
+**Die Kurvensätze müssen an ihren gemeinsamen Endpunkten übereinstimmen.** Sonst springt
+die Figur genau dann, wenn ein Ereignis sie mitten im Hinsetzen unterbricht und sie wieder
+aufsteht. Der erste Entwurf ließ beim Hinsetzen einen Rest von `−0.016` in der Tiefe
+stehen, den der Aufsteh-Satz nicht kannte — ein Sprung von 18 mm in einem Bild.
+
+**Die Kurvenfunktion antwortet allein aus ihren Parametern.** Das Aufsetzen ist ein
+Ereignis, kein Kurvenwert, und steht deshalb außerhalb. Solange es drinsteckte, hing das
+Ergebnis am Zustand des Aufrufers, und dieselbe Eingabe lieferte zwei verschiedene
+Antworten.
+
+### Sitz-Leerlauf
+
+Sehr klein gehalten: eine langsame Gewichtsverlagerung (Periode ~11 s), ein minimales
+Nachsacken im Atemrhythmus, dazu der ohnehin ruhigere Atem und das Blinzeln. Wer sitzt,
+wackelt nicht.
+
+### Was die Beinlänge nicht hergibt
+
+Das Knie kann höchstens `0.037` über der Hüfte stehen — mehr lässt eine Beinlänge von
+`0.083` bei aufsitzendem Rumpf nicht zu. Noki sitzt deshalb mit **leicht angewinkelten**
+Beinen und flach aufliegenden Sohlen, nicht mit hochgezogenen Knien.

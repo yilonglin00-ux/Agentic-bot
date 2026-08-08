@@ -72,7 +72,8 @@ Weltkoordinaten.
 | **Handballen ×2** | Ellipsoid | lokal `(0.052, −0.238, 0.006)`, Mitte `(0, 0.004, 0.002)` | Radien `(0.0290, 0.0300, 0.0235)` | Graphit |
 | **Handteller ×2** | Ellipsoid | lokal in der Innenfläche, `(0, −0.0020, 0.0113)` | Radien `(0.0230, 0.0245, 0.0140)` — bündig, deshalb ein Farbfeld und keine Beule | Kontaktfläche |
 | **Handwurzel ×2** | Kapsel | lokal `(0, 0.040, 0)` → `(0, 0.012, 0)` | Radius `0.0345`, steht auf dem **halben** Handgelenkwinkel | Graphit |
-| Bein ×2 | Kapsel | `(±0.085, 0.158, 0)` → `(±0.098, 0.076, 0)` | Radius `0.044` | Graphit |
+| **Oberschenkel ×2** | Kapsel | Hüfte → Knie, Länge `0.045` | Radius `0.044` | Graphit |
+| **Unterschenkel ×2** | Kapsel | Knie → Knöchel, Länge `0.038` | Radius `0.044` | Graphit |
 | Fuß ×2 | Box mit Rundung | `(±0.105, 0.047, 0.020)` | Halbmaße `(0.032, 0.004, 0.050)`, Radius `0.042` → **L 0.184 · B 0.148** | Perlweiß |
 
 ### Finger
@@ -130,6 +131,21 @@ Wurzel, die ihn den Fingern entgegenstellt. Dazu steht seine Beugeebene um `rotY
 schräg zur Handfläche — deshalb läuft seine Kuppe beim Krümmen nach vorn **und** quer
 über den Ballen, statt neben den Fingern herzufallen. Das ist der Unterschied zwischen
 einem Daumen und einem fünften Finger.
+
+### Das Knie
+
+Das Bein war bis Stufe „Sitzen" **eine** Kapsel von der Hüfte zum Knöchel, Länge `0.083`.
+Es ist jetzt in zwei Segmente geteilt, `0.045 + 0.038 = 0.083`. Bei Kniewinkel `0` sind
+beide kollinear, und die Vereinigung zweier kollinearer Kapseln gleichen Radius **ist**
+die alte Kapsel: Stehen und Gehen bleiben dadurch millimetergenau, nicht ungefähr. Der
+Selbsttest hält das ausdrücklich fest.
+
+Das Knie beugt nur nach hinten (positiver Winkel). Genutzt wird es ausschließlich beim
+Sitzen; im Stand und im Gang ist es null.
+
+Der **Hüftpunkt** steht nicht mehr im Shader, sondern kommt aus der Animation. Sie leitet
+ihn aus einer Bedingung ab: Die Fußsohle liegt auf `y = 0.047`. Dadurch kann ein Fuß gar
+nicht erst einsinken — das ist Bauart, nicht Prüfung.
 
 Die Armteile sind lokal zum jeweiligen Schultergelenk und werden für die linke Seite an der
 `x`-Achse gespiegelt. Der eingebaute Versatz nach außen (`x` wächst nach unten) gibt den
