@@ -139,6 +139,24 @@ Ein dritter Ort hängt daran: die Zuhör-Haltung dreht den Kopf mit
 `welt.kurs − camY` zum Betrachter. Das blosse `−camY` war richtig, solange
 der Rumpf sich nie drehen konnte.
 
+### Und die Bemalung gehört in denselben Rahmen
+
+`mapChar` bekommt `zuFigur(p)` — die **Form** steht damit richtig. Die
+**Bemalung** ist ein zweiter Ort, an den man nicht denkt: `paintWhite` und
+`paintGlass` laufen erst im Schattierungsschritt, mit dem Trefferpunkt aus dem
+Marsch, und der ist in Weltkoordinaten. `toHead` und `toBody` darin wissen von
+`zuFigur` nichts.
+
+Solange die Figur im Ursprung stand, fiel das nicht auf. Sobald sie sich
+versetzte oder drehte, standen Augen, Mundlinie und Fugen in der **Welt**
+still, während der Kopf sich darunter wegbewegte: **das Visier war schwarz und
+leer**, und die Linien wanderten beim Gehen über den Körper, statt an ihrem
+Platz zu bleiben. Schon reines Versetzen genügte — Drehung war gar nicht nötig.
+
+Richtig ist: Normale, Licht und Spiegelung bleiben in Weltkoordinaten, die
+Bemalung bekommt `pFig = zuFigur(p)`. Der Selbsttest liest das im Shader-Text
+nach; rechnen kann er es nicht, weil er nicht zeichnet.
+
 ---
 
 ## Kollision

@@ -1259,6 +1259,19 @@ weltGLSL(),
 "  if (hit){",
 "    vec3 p = ro + rd * t;",
 "    vec3 v = -rd;",
+"    // Die BEMALUNG gehoert in den Rahmen der Figur, nicht in die Welt.",
+"    //",
+"    // `mapChar` bekommt laengst `zuFigur(p)` — die FORM steht also richtig.",
+"    // Die Bemalung bekam dagegen weiter den rohen Weltpunkt, und `toHead`",
+"    // und `toBody` darin wissen von `zuFigur` nichts. Damit lagen Augen,",
+"    // Mundlinie und Fugen in WELTkoordinaten fest, waehrend der Kopf sich",
+"    // darunter wegbewegte: sobald Noki nicht genau im Ursprung mit Kurs 0",
+"    // stand, war das Visier schwarz und leer, und die Linien wanderten beim",
+"    // Gehen ueber den Koerper, statt an ihrem Platz zu bleiben.",
+"    //",
+"    // Die Normale, das Licht und die Spiegelung bleiben in Weltkoordinaten —",
+"    // die gehoeren dorthin. Nur die Bemalung wechselt den Rahmen.",
+"    vec3 pFig = zuFigur(p);",
 "    {",
 "      vec3 n = calcNormal(p);",
 "      vec3 alb; float rough, metal; vec3 emis = vec3(0.0);",
@@ -1266,13 +1279,13 @@ weltGLSL(),
 "      bool isGlass = false;",
 "      if (mat < 1.5){",
 "        alb = vec3(0.935, 0.940, 0.952); rough = 0.29; metal = 0.0;",
-"        paintWhite(p, alb, emis);",
+"        paintWhite(pFig, alb, emis);",
 "      } else if (mat < 2.5){",
 "        alb = vec3(0.082, 0.089, 0.104); rough = 0.18; metal = 0.90;",
 "      } else if (mat < 3.5){",
 "        alb = vec3(0.014, 0.016, 0.021); rough = 0.070; metal = 0.10;",
 "        isGlass = true;",
-"        paintGlass(p, alb, emis);",
+"        paintGlass(pFig, alb, emis);",
 "      } else if (mat < 4.5){",
 "        alb = vec3(0.42, 0.31, 0.17); rough = 0.32; metal = 0.0;",
 "        emis = u_eyeCol * 1.35 * u_glimm;",
@@ -5694,6 +5707,20 @@ weltGLSL(),
       if (!mVZ) melde("richtung-quelle",
         "zuFigur ist im Shader nicht mehr zu finden — die Richtungspruefung greift ins Leere");
       var vzShader = (mVZ && mVZ[1] === "-") ? -1 : 1;
+
+      //     Die Bemalung muss im Rahmen der Figur ausgewertet werden.
+      //     Diese Pruefung liest den Shader-Text, statt zu rechnen — der
+      //     Selbsttest zeichnet nicht, und ein Fehler im Farbraum ist rein
+      //     visuell. Er ist trotzdem schwer zu sehen und leicht zu machen:
+      //     `mapChar` bekam laengst `zuFigur(p)`, die Bemalung weiter den
+      //     rohen Weltpunkt. Augen, Mundlinie und Fugen standen dadurch in
+      //     der WELT still, waehrend der Kopf sich darunter wegdrehte — das
+      //     Visier war schwarz, sobald Noki den Ursprung verliess.
+      if (/paint(White|Glass)\s*\(\s*p\s*,/.test(FRAG)) melde("bemalung-welt",
+        "paintWhite/paintGlass bekommen den Weltpunkt statt zuFigur(p) — "
+        + "Augen und Linien loesen sich vom Koerper, sobald Noki sich bewegt");
+      if (!/paint(White|Glass)\s*\(\s*pFig\s*,/.test(FRAG)) melde("bemalung-quelle",
+        "Die Bemalung wird nicht mehr ueber pFig aufgerufen — die Pruefung greift ins Leere");
       // Welt -> lokal ist rotY(., vz*kurs), also lokal -> Welt rotY(., -vz*kurs).
       // Nokis Visier sitzt lokal auf +z.
       function blickRichtung(kurs) { return rotY2(0, 1, -vzShader * kurs); }
