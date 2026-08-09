@@ -1007,11 +1007,25 @@ bodenGLSL(),
 "// Figur an einen Ort, sie baut sie nicht um.",
 weltGLSL(),
 "",
-"// Weltpunkt in den Rahmen der Figur. Noki schaut bei Kurs 0 nach +z;",
-"// gedreht wird der PUNKT gegen den Kurs, nicht die Figur mit ihm.",
+"// Weltpunkt in den Rahmen der Figur. Noki schaut lokal nach +z — dort sitzt",
+"// das Visier (CANON.visorC = [0, 0.255, +0.200]).",
+"//",
+"// Das Vorzeichen ist die halbe Wahrheit dieser Funktion, und es stand einmal",
+"// falsch: mit -u_pos.z bildete die Umkehrung das lokale +z auf",
+"// (-sin kurs, 0, cos kurs) ab, waehrend `schiebe` nach (+sin kurs, 0, cos kurs)",
+"// lief. Bei ±90 Grad zeigten Blick und Bewegung damit exakt entgegengesetzt —",
+"// Noki lief seitwaerts und schaute dabei nach hinten, die Augen lagen auf der",
+"// falschen Kopfseite und verschwanden. Es war kein Augenfehler: Kopf, Visier",
+"// und Augen sitzen alle in `mapChar` und drehen laengst korrekt mit. Falsch",
+"// herum gedreht wurde der RUMPF.",
+"//",
+"// Konvention, an die sich beide Seiten halten muessen:",
+"//   Welt -> lokal : rotY(p - pos, +kurs)",
+"//   lokal -> Welt : rotY(v, -kurs)  =>  lokales +z wird zu (sin, 0, cos)",
+"//   Weltvorwaerts : (sin kurs, 0, cos kurs)   — genau das benutzt `schiebe`",
 "vec3 zuFigur(vec3 p){",
 "  if (u_welt < 0.5) return p;      // ohne Welt bleibt alles bitgleich wie bisher",
-"  return rotY(p - vec3(u_pos.x, 0.0, u_pos.y), -u_pos.z);",
+"  return rotY(p - vec3(u_pos.x, 0.0, u_pos.y), u_pos.z);",
 "}",
 "",
 "vec2 mapSzene(vec3 p){",
@@ -1866,8 +1880,14 @@ weltGLSL(),
     // Aus der Totzone heraus auf 0…1 dehnen, damit der erste wirksame
     // Ausschlag nicht mit einem Sprung auf 0.12 beginnt.
     welt.tempo = clamp((len - STICK_TOT) / (1 - STICK_TOT), 0, 1);
-    // Bildschirm nach oben (-ny) heisst „von der Kamera weg".
-    welt.kursZ = Math.atan2(nx, -ny) + cam.yaw;
+    // Bildschirm nach oben heisst „von der Kamera weg".
+    //
+    // Hier stand einmal `atan2(nx, -ny)`, und das war eine Umkehrung zu viel:
+    // der Bildschirm zaehlt nach unten, die Kamera steht bei yaw = 0 auf der
+    // +z-Seite und schaut nach -z — beide Umkehrungen heben einander schon
+    // auf. Mit dem dritten Minus lief Noki bei „hoch" nach +z, also AUF die
+    // Kamera zu: vorwaerts gesteuert, rueckwaerts gelaufen.
+    welt.kursZ = Math.atan2(nx, ny) + cam.yaw;
     if (gehenZ !== 1) { gehBis = 0; setGehen(true, true); }
     touched();
   }
@@ -4122,7 +4142,13 @@ weltGLSL(),
     var driftW = (1 - achtung) * frei * (1 - clamp(sl.ruhig, 0, 1));
     var look = 0.22 * drift(t * 0.5) * driftW;
     var camY = Math.atan2(Math.sin(cam.yaw), Math.cos(cam.yaw));
-    var zuDir = achtung * clamp(-camY, -0.55, 0.55);   // er dreht sich zu dir
+    // Er dreht sich zu dir. `-camY` allein war richtig, solange der Rumpf sich
+    // NIE drehen konnte — der Kopfwinkel wird im Rumpfraum gemessen, und der
+    // stand fest. Mit einer Wohnung dreht sich der Rumpf, und ohne den
+    // Kurswinkel sieht der Kopf an dir vorbei: bei kurs = pi/2 waeren +1.571
+    // noetig, gesetzt wurden 0.000. Die Klammer bei ±0.55 bleibt — der Kopf
+    // dreht sich so weit er darf, nicht weiter.
+    var zuDir = achtung * clamp(welt.kurs - camY, -0.55, 0.55);
     rig.head[0] = clamp(cur.hPitch + hal.hP + Math.sin(t * 0.83 + 2.0) * 0.020 * driftW + o.hP, -0.25, 0.30)
                 + lz.hP + sl.hP;
     rig.head[1] = clamp(cur.hYaw + look + zuDir + o.hY - 0.045 * gS, -0.55, 0.55) + sl.hY;
@@ -5638,6 +5664,97 @@ weltGLSL(),
       function tuerPunkt(t, seite) {
         return [t.bei + seite * (WAND_D + FIGUR_R + 0.05), t.mitte];
       }
+
+      // 0 · RICHTUNGEN
+      //     Blickrichtung, Bewegungsrichtung und Joystickeingabe muessen
+      //     dieselbe Sprache sprechen. Hier standen einmal zwei Vorzeichen
+      //     falsch: Noki lief bei „vorwaerts" rueckwaerts, und beim
+      //     Seitwaertslaufen schaute er in die Gegenrichtung, sodass die
+      //     Augen auf der falschen Kopfseite lagen. Beides waere hier
+      //     aufgefallen.
+
+      //     a · Blick = Bewegung.
+      //     `zuFigur` im Shader bildet Welt -> lokal ab; die Umkehrung bringt
+      //     Nokis lokales +z (das Visier) in die Welt. Genau diese Richtung
+      //     muss `schiebe` benutzen. Dieselbe Bauart, mit der auch
+      //     `tiefsterKoerper` das Rumpf-SDF und `beinKette` die Beinkette
+      //     spiegeln: die Rechnung des Shaders steht ein zweites Mal in JS
+      //     und wacht ueber sich selbst.
+      function rotY2(x, z, a) {          // Zeichengleich zur rotY im Shader
+        var c = Math.cos(a), s = Math.sin(a);
+        return [c * x - s * z, s * x + c * z];
+      }
+      // Das Vorzeichen wird NICHT abgeschrieben, sondern aus dem Shader-Text
+      // gelesen. Der erste Entwurf dieser Pruefung hatte es von Hand
+      // eingetragen — und liess das falsche Vorzeichen anstandslos durch:
+      // eine Spiegelung, die nur sich selbst prueft, prueft nichts. `FRAG`
+      // ist ohnehin ein JS-String; ihn hier als Quelle zu lesen ist dieselbe
+      // Idee wie `weltGLSL()`, das den Shader-Text aus JS-Daten erzeugt.
+      var mVZ = /rotY\(p - vec3\(u_pos\.x, 0\.0, u_pos\.y\), (-?)u_pos\.z\)/.exec(FRAG);
+      if (!mVZ) melde("richtung-quelle",
+        "zuFigur ist im Shader nicht mehr zu finden — die Richtungspruefung greift ins Leere");
+      var vzShader = (mVZ && mVZ[1] === "-") ? -1 : 1;
+      // Welt -> lokal ist rotY(., vz*kurs), also lokal -> Welt rotY(., -vz*kurs).
+      // Nokis Visier sitzt lokal auf +z.
+      function blickRichtung(kurs) { return rotY2(0, 1, -vzShader * kurs); }
+
+      for (var wk = 0; wk < 64; wk++) {
+        var kk = -Math.PI + 2 * Math.PI * wk / 63;
+        var blick = blickRichtung(kk);
+        var bewegung = [Math.sin(kk), Math.cos(kk)];
+        var ab = Math.abs(blick[0] - bewegung[0]) + Math.abs(blick[1] - bewegung[1]);
+        if (ab > 1e-12) melde("richtung-blick",
+          "Blick und Bewegung fallen auseinander bei kurs=" + kk.toFixed(3)
+          + ": Blick [" + blick[0].toFixed(3) + ", " + blick[1].toFixed(3)
+          + "], Bewegung [" + bewegung[0].toFixed(3) + ", " + bewegung[1].toFixed(3) + "]");
+      }
+
+      //     b · Joystick -> Weltrichtung, gefahren statt gerechnet.
+      //     Die Kamera steht bei `yaw` in Weltrichtung (sin yaw, cos yaw) und
+      //     schaut von dort auf Noki. „Bildschirm oben" heisst deshalb
+      //     (-sin yaw, -cos yaw), „Bildschirm rechts" (cos yaw, -sin yaw).
+      //     Geprueft wird der TATSAECHLICHE Versatz nach ein paar Bildern.
+      var g2 = 1 / Math.sqrt(2);
+      var stickR = [["hoch", 0, -1], ["runter", 0, 1], ["rechts", 1, 0], ["links", -1, 0],
+                    ["hoch-rechts", g2, -g2], ["hoch-links", -g2, -g2],
+                    ["runter-rechts", g2, g2], ["runter-links", -g2, g2]];
+      var camVor = cam.yaw;
+      for (var cy2 = 0; cy2 < 4; cy2++) {
+        cam.yaw = -Math.PI + cy2 * Math.PI / 2 + 0.37;   // vier schraege Kamerawinkel
+        for (var si = 0; si < stickR.length; si++) {
+          var nm = stickR[si][0], nx = stickR[si][1], ny = stickR[si][2];
+          // Sollrichtung in der Welt
+          var sx = nx * Math.cos(cam.yaw) + (-ny) * (-Math.sin(cam.yaw));
+          var sz = nx * (-Math.sin(cam.yaw)) + (-ny) * (-Math.cos(cam.yaw));
+          stelle(0, 0, Math.atan2(sx, sz));      // schon ausgerichtet: kein Bogen
+          stickSetzen(nx, ny);
+          var x0 = welt.x, z0 = welt.z;
+          for (var fi = 0; fi < 90; fi++) { ruhe = 0; gehBis = 0; time += 1/60; updateRig(1/60); }
+          var dx2 = welt.x - x0, dz2 = welt.z - z0;
+          var weg = Math.sqrt(dx2 * dx2 + dz2 * dz2);
+          if (weg < 0.02) {
+            melde("richtung-kein-weg", "Joystick " + nm + " bewegt Noki nicht (" + weg.toFixed(4) + ")");
+          } else {
+            var dw = Math.atan2(sx, sz) - Math.atan2(dx2, dz2);
+            while (dw >  Math.PI) dw -= 2 * Math.PI;
+            while (dw < -Math.PI) dw += 2 * Math.PI;
+            if (Math.abs(dw) > 0.05) melde("richtung-joystick",
+              "Joystick " + nm + " bei Kamera " + cam.yaw.toFixed(2)
+              + " laeuft " + (Math.abs(dw) * 180 / Math.PI).toFixed(1)
+              + " Grad daneben" + (Math.abs(dw) > 2.6 ? " — das ist die Gegenrichtung" : ""));
+          }
+          // Und der Blick muss dabei mitlaufen, nicht nur die Bewegung.
+          var bl = blickRichtung(welt.kurs);
+          var db = Math.atan2(bl[0], bl[1]) - Math.atan2(dx2, dz2);
+          while (db >  Math.PI) db -= 2 * Math.PI;
+          while (db < -Math.PI) db += 2 * Math.PI;
+          if (weg >= 0.02 && Math.abs(db) > 0.05) melde("richtung-gesicht",
+            "Bei Joystick " + nm + " schaut Noki " + (Math.abs(db) * 180 / Math.PI).toFixed(1)
+            + " Grad an seiner Laufrichtung vorbei — die Augen liegen dann seitlich oder hinten");
+        }
+      }
+      stickLos();
+      cam.yaw = camVor;
 
       // 1 · Er startet im Hauptbereich.
       stelle(0, 0, 0);

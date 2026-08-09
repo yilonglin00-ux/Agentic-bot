@@ -112,6 +112,35 @@ Tempo.
 
 ---
 
+## Die Richtungskonvention
+
+Sie steht hier, weil sie einmal falsch war und niemand es dem Code ansehen
+konnte. Drei Dinge müssen dieselbe Zahl meinen:
+
+```
+Nokis Gesicht     lokal +z          (CANON.visorC = [0, 0.255, +0.200])
+Welt → lokal      rotY(p − pos, +kurs)      in `zuFigur`
+Weltvorwärts      (sin kurs, 0, cos kurs)   in `schiebe`
+```
+
+Aus den ersten beiden folgt die dritte: `lokal → Welt` ist `rotY(v, −kurs)`,
+und das bildet lokales `+z` auf `(sin kurs, 0, cos kurs)` ab. **Stünde in
+`zuFigur` ein `−kurs`, wäre die Blickrichtung an der x-Achse gespiegelt** —
+bei ±90° zeigten Blick und Bewegung exakt entgegengesetzt, und die Augen
+lägen auf der falschen Kopfseite.
+
+Genau dieser Fehler war einmal drin, zusammen mit einer Umkehrung zu viel in
+der Joystickachse (`atan2(nx, −ny)` statt `atan2(nx, ny)`). Der Selbsttest
+prüft beides jetzt: er liest das Vorzeichen **aus dem Shader-Text** statt es
+abzuschreiben, und er fährt acht Stickrichtungen über vier Kamerawinkel und
+vergleicht den tatsächlichen Versatz mit dem Sollwert.
+
+Ein dritter Ort hängt daran: die Zuhör-Haltung dreht den Kopf mit
+`welt.kurs − camY` zum Betrachter. Das blosse `−camY` war richtig, solange
+der Rumpf sich nie drehen konnte.
+
+---
+
 ## Kollision
 
 Kreis gegen achsparallele Rechtecke, kein Physiksystem. Geht der volle Schritt
@@ -224,6 +253,7 @@ tut. Gesucht oder geplant wird dabei nichts; es ist kein Pathfinding.
 
 ```
 noki.html#welt=0                        die alte leere Bühne
-noki.html#pos=-2.30,0,-1.57             Standort x, z und Kurs im Standbild
+noki.html#pos=-2.30,0,1.57              Standort x, z und Kurs im Standbild
+                                        Kurs 0 = nach +z, +pi/2 = nach +x
 noki.html#pos=0,0,0&still=1&ui=0        reproduzierbares Bild eines Raumes
 ```
