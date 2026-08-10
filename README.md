@@ -36,6 +36,8 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | **Einschlafen / Aufwachen** | vierte Taste im Reiter *Bewegung* — oder von selbst: liegt Noki etwa 20 s ruhig, wird er müde, die Lider sinken in drei Stufen, das Blinzeln wird gedehnt, und er schläft ein. Jede Eingabe weckt ihn wieder — mit Rückfall, Orientieren und einer kleinen Streckbewegung. Danach bleibt er **wach und liegend**. `#schlaf=0…1` zeigt jeden Zwischenstand |
 | **Hüpfen** | fünfte Taste im Reiter *Bewegung*: ein kleiner Hopser aus dem Stand in 1.5 s — leicht in die Knie, abspringen, 0.45 s fliegen, landen, abfedern. Die einzige Bewegung, bei der er den Boden verlässt, und die einzige ohne Nachzustand: sie endet exakt in der Haltung, in der sie begann. `#huepf=0…1` zeigt jeden Zwischenstand |
 | **Treppe in den Werkraum** | der Werkraum liegt 0.36 tiefer. Hinunter geht Noki mit dem normalen Gang, hinauf kommt er mit dem **Hüpfer** — die Stufen sind mit 0.045 nach seinem Bein bemessen, nicht nach dem Bauwesen |
+| **Türen, die er selbst öffnet** | jeder Durchgang hat ein Türblatt und ist zu. Läuft Noki auf eine geschlossene Tür zu, hält er an und **greift mit der Hand danach** — mit der, auf deren Seite die Klinke sitzt. Erst wenn die Hand am Blatt ist, schwingt es auf; hinter ihm fällt es wieder zu. Solange sie zu ist, kommt er nicht hindurch. `#tuer=tuer_flur,0…1` zeigt jeden Zwischenstand |
+| **Räume auf Menschmaß** | die Wände stehen 1.43 hoch — das ist eine Raumhöhe von 2.50 m, gemessen an Nokis Körperhöhe. Damit die vordere Wand ihn nicht verdeckt, schneidet die Kamera ein rundes Loch entlang der Sichtlinie frei; Fußboden und Treppe bleiben stehen |
 | **Joystick unten links** | bewegt Noki durch die Räume — weiter außen heißt schneller. Für den Finger gebaut, funktioniert auf Handy und Tablet genauso wie mit der Maus. Solange die Bedienleiste offen ist, weicht er; beim Anfassen der Figur schließt sie sich von selbst |
 | Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
 
@@ -139,6 +141,12 @@ Bild** in einer Wand liegt, dass er aus jeder Raummitte in acht Richtungen gegen
 fahren kann, ohne hindurchzukommen oder sich festzufahren, und dass jeder Durchgang breit genug
 ist, dass man nicht zielen muss. Dazu die Nullprobe: mit `welt=0` bewegt sich nichts.
 
+Die Türen prüft sie **von beiden Seiten**: dass ein geschlossenes Blatt wirklich sperrt — kein
+einziger Punkt der Öffnung darf frei bleiben, ein Türblatt, das nie sperrt, ist keins — und
+dass Noki jede Tür, die er geschlossen anfährt, **von selbst öffnet** und drüben ankommt.
+Dazu, dass er unter jedem Sturz durchpasst und dass der Sichtschnitt nur Wandwerkstoff
+wegnimmt: Figur, Gegenstände und Treppenstufen müssen außerhalb seines Fensters liegen.
+
 Dazu die **Griffprüfung**: Für jeden der fünf Gegenstände wird nachgerechnet, ob jeder
 tragende Finger die Grifffläche wirklich berührt, ob die nicht tragenden Finger wegbleiben,
 ob der Daumen dem Griff **gegenüber** liegt statt nur daneben, ob ein Fingerende durch die
@@ -179,6 +187,10 @@ ursprünglich bestimmt; sie wacht seither über sie.
 - [x] **Umgebung** — fünf Räume auf zwei Ebenen, fünf Durchgänge, Boden und Wände als Distanzfeld neben der
       Figur statt in ihr; Weltposition und Kurs, Kollision mit Gleiten, virtueller Joystick.
       Die Räume sind nach Nokis Schrittlänge bemessen — sein Bein misst 8.3 % seiner Höhe
+- [x] **Menschmaß und Türen** — die Wände stehen jetzt auf 1.43 statt 0.62 und damit auf der
+      Höhe, die 2.50 m beim Menschen entsprechen: kein Grundrissmaß ändert sich, das Volumen
+      wächst auf das Zweieinhalbfache. Über jeder Öffnung ein Sturz, in jeder Öffnung ein
+      Türblatt am Band — und Noki greift selbst danach, bevor es aufschwingt
 - [ ] Stufe 3: die seltenen Momente, dreizehn weitere Gegenstände, Gegenstände mit Platz in der Welt
 - [ ] Anbindung als interaktiver Begleiter
 

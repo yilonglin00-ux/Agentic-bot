@@ -1,6 +1,6 @@
 # 07 · Animationsliste
 
-> Schritt 3, Teil 4. **38 Animationen** in sieben Gruppen — die vollständige Liste für die
+> Schritt 3, Teil 4. **39 Animationen** in sieben Gruppen — die vollständige Liste für die
 > spätere Umsetzung.
 >
 > Jeder Eintrag trägt Name, Beschreibung, Auslöser, Gefühl und eine Spezifikationszeile:
@@ -104,6 +104,15 @@ die keinen Zustand hinterlässt: sie endet exakt in der Haltung, in der sie bego
 *Auslöser:* Knopf im Reiter *Bewegung*. Bewusst **nicht** in der Idle-Ziehung: ein Hopser aus
 dem Nichts wirkt nervös, nicht verspielt — *Gefühl:* Verspieltheit, Übermut
 `1.5 s · weich (Landung schnell-an) · hüfte −0.55 / knie 1.10 in der Hocke, koerper.sprung +0.060 als Wurfparabel, arm_l/r +0.34, arm_vor +0.22, kopf.nicken −0.070, stauchung ∓0.016 · Prio 1 · nein`
+
+**B10 · Nach der Tür greifen** ▶
+Er hält vor einer geschlossenen Tür an und langt mit **einer** Hand danach — der,
+auf deren Seite die Klinke sitzt. Erst wenn die Hand am Blatt ist, schwingt es auf.
+Die Hand hält, solange das Blatt sich bewegt, und lässt zum Schluss los.
+Beinschwung und Vorrücken hören dabei **zusammen** auf; nur eins von beidem zu
+stoppen ergäbe Gehen auf der Stelle oder Gleiten ohne Schritt.
+*Auslöser:* geschlossene Tür in `0.55` Abstand, und sie liegt vor ihm — *Gefühl:* Selbständigkeit
+`1.2 s (0.50 s Hand + 0.70 s Blatt) · weich · arm_vor +0.52, arm_l/r +0.30 auf EINER Seite, Blattwinkel bis 1.66 rad · Prio 1 · nein`
 
 ---
 
@@ -361,6 +370,9 @@ noki.html#still=1&ui=0&pose=sitzen          Grundhaltung einfrieren
 noki.html#still=1&ui=0&clip=B1&cu=0.5       Einlage an einem Zeitpunkt
 noki.html#still=1&ui=0&achtung=1            Zuhör-Haltung
 noki.html#still=1&ui=0&huepf=0.59           Hüpfen an einem Zeitpunkt (0 … 1)
+noki.html#pos=1.15,0.40,-1.57&tuer=tuer_flur,0.42
+                                            Türgriff an einem Zeitpunkt (0 … 1);
+                                            #pos= muss vorher stehen
 noki.html#selftest=1                        Selbsttest über 1200 simulierte Sekunden
 ```
 

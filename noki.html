@@ -479,18 +479,36 @@
 
   // Fuenf Durchgaenge. Zwei davon verbinden Flur und Hauptbereich — dadurch
   // gibt es einen Rundweg statt lauter Sackgassen.
+  //
+  //   angel    -1 = das Band sitzt am unteren Ende der Oeffnung, +1 am oberen
+  //            (unten/oben entlang der Oeffnungsachse, nicht in der Hoehe)
+  //   schwenk  in welche Richtung das Blatt aufgeht. Beide Vorzeichen sind
+  //            gleich richtig; gewaehlt ist jeweils die Seite, auf der beim
+  //            Durchgehen niemand gegen das Blatt laeuft.
   var TUER = [
     { id: "tuer_schlaf", von: "bedroom",   nach: "main_room",
-      achse: "x", bei: -1.60, mitte:  2.20, breite: 0.85 },
+      achse: "x", bei: -1.60, mitte:  2.20, breite: 0.85, angel: -1, schwenk: +1 },
     { id: "tuer_werk",   von: "werkstatt", nach: "flur",
-      achse: "x", bei: -1.60, mitte:  0.45, breite: 0.80 },
+      achse: "x", bei: -1.60, mitte:  0.45, breite: 0.80, angel: +1, schwenk: -1 },
     { id: "tuer_flur",   von: "flur",      nach: "main_room",
-      achse: "x", bei:  0.60, mitte:  0.40, breite: 0.85 },
+      achse: "x", bei:  0.60, mitte:  0.40, breite: 0.85, angel: -1, schwenk: +1 },
     { id: "tuer_diele",  von: "flur",      nach: "main_room",
-      achse: "z", bei:  1.40, mitte: -0.50, breite: 0.85 },
+      achse: "z", bei:  1.40, mitte: -0.50, breite: 0.85, angel: -1, schwenk: -1 },
     { id: "tuer_neben",  von: "room_3",    nach: "main_room",
-      achse: "z", bei: -0.60, mitte:  2.00, breite: 0.85 }
+      achse: "z", bei: -0.60, mitte:  2.00, breite: 0.85, angel: +1, schwenk: +1 }
   ];
+  // Oeffnungswinkel und halbe Blattdicke. 1.66 rad sind 95 Grad: das Blatt
+  // steht dann eine Spur ueber die Wandflucht hinaus und gibt die Oeffnung
+  // vollstaendig frei.
+  var TUER_AUF = 1.66, TUER_D = 0.035;
+  // Der Fussboden im Durchgang. Wo zwei Ebenen aneinanderstossen, ist es der
+  // HOEHERE der beiden Raeume — dieselbe Groesse, auf der auch der Sturz
+  // sitzt. Blattoberkante und Sturzunterkante fallen damit zusammen; der
+  // Selbsttest misst genau das nach.
+  for (var ti = 0; ti < TUER.length; ti++) {
+    TUER[ti].y0 = Math.max(RAUM[TUER[ti].von].y, RAUM[TUER[ti].nach].y);
+    TUER[ti].auf = 0;    // 0 = zu, 1 = ganz offen
+  }
 
   // ---------------------------------------------------------------
   //  Die Treppe.
@@ -515,11 +533,25 @@
   TREPPE.steig = 0.36 / TREPPE.stufen;                       // 0.045 je Stufe
   TREPPE.tritt = (TREPPE.xOben - TREPPE.xUnten) / TREPPE.stufen;  // 0.16 tief
 
-  var WAND_H  = 0.62;    // Wandhoehe ueber dem jeweiligen Fussboden
+  // Raumhoehe im Menschmassstab. Ein Zimmer misst 2.50 m bei 1.75 m
+  // Koerperhoehe — das sind 1.43 Koerperhoehen. Bei 0.62 stand die Wand auf
+  // 43 % davon: die Grundflaeche stimmte laengst (Hauptraum 42 m2), aber der
+  // Raum war flach. Die Erhoehung aendert KEIN Grundrissmass und verdreifacht
+  // trotzdem beinahe das Volumen.
+  var WAND_H  = 1.43;    // Wandhoehe ueber dem jeweiligen Fussboden
+  // Lichte Tuerhoehe: 2.00 m beim Menschen = 1.14. Darueber sitzt der Sturz —
+  // erst er macht aus einem Loch in der Wand eine Tuer.
+  var TUER_H  = 1.14;
   var WAND_D  = 0.12;    // halbe Wanddicke
-  var PFOSTEN_H = 0.78;  // Tuerpfosten ueberragen die Wand
+  var PFOSTEN_H = 1.22;  // Tuerpfosten ueberragen die Oeffnung
   var PFOSTEN_B = 0.075; // halbe Pfostenbreite
   var FIGUR_R = 0.20;    // Kollisionsradius: Rumpf 0.19, Fussaussenkante 0.16
+  var NOKI_H  = 1.00;    // Koerperhoehe — das Mass, in dem hier alles rechnet
+  // Lochradius des Sichtachsen-Freischnitts, in WELTmass um die Sichtlinie.
+  // 0.90 ist knapp das Doppelte von Nokis halber Hoehe (0.50): eine Wand
+  // unmittelbar vor ihm gibt damit gerade genug frei, eine Wand dicht an der
+  // Kamera raeumt weit auf. Siehe imWeg() im Shader.
+  var FREI_R = 0.90;
 
   // Bodenhoehe an einer Stelle: Raumebene, auf der Treppe die Stufe.
   function bodenHoehe(x, z) {
@@ -641,7 +673,21 @@
         var bis = (li2 < luecken.length)
                 ? luecken[li2].mitte - luecken[li2].breite / 2 : lauf.bis;
         if (bis - von > 1e-4) w.push(quader(achse, bei, von, bis, lo, hi + WAND_H));
-        if (li2 < luecken.length) von = luecken[li2].mitte + luecken[li2].breite / 2;
+        if (li2 < luecken.length) {
+          // Der Sturz: ueber der lichten Oeffnung laeuft die Wand weiter.
+          // Ohne ihn waere die Tuer ein Loch bis zur Decke.
+          var d2 = luecken[li2];
+          var st = quader(achse, bei, d2.mitte - d2.breite / 2, d2.mitte + d2.breite / 2,
+                          hi + TUER_H, hi + WAND_H);
+          // Und er ist KEIN Hindernis, sondern Kopffreiheit. `frei()` rechnet
+          // nur in der Ebene und hat keine Hoehe; ohne diese Marke laege ueber
+          // jedem Durchgang eine Wand quer im Weg, und Noki kaeme durch keine
+          // einzige Tuer. Die Marke wird gerechnet, nicht gesetzt: sie gilt
+          // genau dann, wenn er wirklich darunter durchpasst.
+          st.ueberKopf = (TUER_H >= NOKI_H);
+          w.push(st);
+          von = d2.mitte + d2.breite / 2;
+        }
       }
     }
 
@@ -718,7 +764,12 @@
   // koennen: beide lesen dieselbe Liste `WAENDE`.
   function weltGLSL() {
     var f = function (v) { return v.toFixed(4); };
-    var z = [
+    var z = [];
+    // Je Tuer ein eigener Skalar. WebGL 1 mag keine dynamisch indizierten
+    // Arrays, und fuenf Namen sind billiger als jeder Umweg darum herum.
+    for (var t = 0; t < TUER.length; t++)
+      z.push("uniform float u_tuer" + t + ";   // " + TUER[t].id);
+    z = z.concat([
       "vec2 mapWelt(vec3 p){",
       "  vec2 r = vec2(1e9, M_WAND);",
       "  if (u_welt < 0.5) return r;",
@@ -728,17 +779,48 @@
         + f((HAUS.y1 - HAUS.y0) / 2) + ", " + f((HAUS.z1 - HAUS.z0) / 2) + ");",
       "  float bb = length(max(bd, 0.0)) + min(max(bd.x, max(bd.y, bd.z)), 0.0);",
       "  if (bb > 0.25) return vec2(bb, M_WAND);"
-    ];
+    ]);
     for (var i = 0; i < WAENDE.length; i++) {
       var q = WAENDE[i];
       // Pfosten stehen hoeher als die Wand, Stufen sind eigenes Material —
       // beides nur, damit sich Rahmen und Tritte vom Rest abheben.
-      var m = q.stufe ? "M_RAHMEN"
+      var m = q.stufe ? "M_STUFE"
             : (q.hy * 2 > WAND_H + 1e-6 ? "M_RAHMEN" : "M_WAND");
       z.push("  r = opU(r, vec2(sdRoundBox(p - vec3(" + f(q.cx) + ", " + f(q.cy)
         + ", " + f(q.cz) + "), vec3(" + f(q.hx) + ", " + f(q.hy) + ", "
         + f(q.hz) + "), 0.012), " + m + "));");
     }
+
+    // Die Tuerblaetter. Ein Blatt ist ein duenner Quader, der um seine
+    // senkrechte Bandachse gedreht wird. Gedreht wird nicht der Quader,
+    // sondern der Abfragepunkt — und zwar rueckwaerts: steht das Blatt um
+    // +a offen, liegt der Punkt im Blattsystem bei rotY(p - band, -a).
+    //
+    // Die Masse kommen aus derselben TUER-Tabelle, aus der auch `frei()` die
+    // Sperre baut. Anders koennten Bild und Kollision auseinanderlaufen — und
+    // eine Tuer, die man sieht aber nicht spuert, ist schlimmer als keine.
+    for (var d = 0; d < TUER.length; d++) {
+      var T2 = TUER[d], hb = T2.breite / 2, hoch = TUER_H / 2;
+      var weg = -T2.angel;               // vom Band zum freien Blattrand
+      var bx, bz, cx2, cz2, ex, ez;
+      if (T2.achse === "x") {
+        bx = T2.bei;  bz = T2.mitte + T2.angel * hb;
+        cx2 = 0;      cz2 = weg * hb;
+        ex = TUER_D;  ez = hb;
+      } else {
+        bx = T2.mitte + T2.angel * hb;   bz = T2.bei;
+        cx2 = weg * hb;                  cz2 = 0;
+        ex = hb;                         ez = TUER_D;
+      }
+      z.push("  {");
+      z.push("    vec3 q" + d + " = rotY(p - vec3(" + f(bx) + ", " + f(T2.y0)
+        + ", " + f(bz) + "), -u_tuer" + d + ");");
+      z.push("    r = opU(r, vec2(sdRoundBox(q" + d + " - vec3(" + f(cx2) + ", "
+        + f(hoch) + ", " + f(cz2) + "), vec3(" + f(ex) + ", " + f(hoch) + ", "
+        + f(ez) + "), 0.008), M_RAHMEN));");
+      z.push("  }");
+    }
+
     z.push("  return r;");
     z.push("}");
     return z.join("\n");
@@ -872,6 +954,12 @@
 "const float M_HOLZ   = 8.0;   // matter, warmer Griffwerkstoff",
 "const float M_SCHIRM = 9.0;   // leuchtende Anzeigeflaeche",
 "const float M_HAUT   = 10.0;  // Handteller und Fingerkuppen: matt, minimal heller",
+// Die Stufen sahen frueher wie Pfosten aus und trugen deshalb M_RAHMEN. Das
+// ging gut, bis der Freischnitt kam: er raeumt alles zwischen 4.5 und 6.5 aus
+// dem Weg, und damit haette er den Treppenschacht ausgehoehlt — ein Loch im
+// FUSSBODEN, genau das, was er nicht tun soll. Eigene Nummer, gleiche Farbe:
+// am Bild aendert sich nichts, am Schnitt alles.
+"const float M_STUFE  = 11.0;  // Treppentritte — Fussboden, kein Hindernis",
 "",
 "// ---------- Grundformen ----------",
 "float sdSphere(vec3 p, float r){ return length(p) - r; }",
@@ -1261,6 +1349,34 @@ weltGLSL(),
 "  return c;",
 "}",
 "",
+"// Steht dieser Punkt zwischen Kamera und Noki im Weg?",
+"//",
+"// Mit 0.62 hohen Waenden sah man ueber alles hinweg — das war der ganze",
+"// Grund fuer die niedrige Bauweise. Auf Menschmass gebracht verdeckt die",
+"// vordere Wand die Figur zwangslaeufig. Statt die Kamera umzubauen, wird",
+"// das Wandmaterial entlang der Sichtlinie uebersprungen: ein rundes Loch",
+"// genau dort, wo die Figur sonst verschwaende. Boden und Figur bleiben",
+"// unberuehrt, geschnitten wird ausschliesslich Wand.",
+"//",
+"// Der Schnitt ist eine ROEHRE von festem Weltradius um die Sichtlinie — kein",
+"// Kegel mit der Spitze in der Kamera. Der Kegel liegt naeher, weil er ein",
+"// Loch von immer gleicher BILDgroesse ergibt; genau das ist hier aber falsch.",
+"// Steht die Kamera dicht hinter einer Wand, fuellt diese das ganze Bild, und",
+"// ein bildkonstantes Loch macht daraus ein Guckloch: man sieht die Figur und",
+"// sonst nichts (gemessen — der Kegel zeigte vom Raum keinen Quadratzentimeter).",
+"// Die Roehre oeffnet dagegen umso weiter, je naeher die Wand an der Linse",
+"// steht: ihr Winkelradius ist FREI_R/s. Nah heisst weit auf, und bei einer",
+"// Wand direkt vor Noki bleiben immer noch " + (FREI_R / 3.2).toFixed(2) + " rad — mehr als seine",
+"// halbe Hoehe von 0.156 rad. Zu klein wird das Loch also nie.",
+"bool imWeg(vec3 pos, vec3 ro, float t){",
+"  vec3 zielP = vec3(u_pos.x, u_ziel.y, u_pos.y);",
+"  vec3 ab = zielP - ro;",
+"  float dz = length(ab);",
+"  if (t > dz - 0.25) return false;          // hinter Noki: darf stehenbleiben",
+"  float hh = clamp(dot(pos - ro, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0);",
+"  return length(pos - (ro + ab * hh)) < " + FREI_R.toFixed(3) + ";",
+"}",
+"",
 "vec3 background(vec2 uv, vec3 rd){",
 "  vec3 c = mix(u_bgBot, u_bgTop, smoothstep(-0.55, 0.85, rd.y));",
 "  c *= 1.0 - 0.26 * smoothstep(0.20, 1.30, length(uv - vec2(0.0, 0.10)));",
@@ -1427,7 +1543,14 @@ bodenEbenenGLSL(),
 "  for (int i = 0; i < 110; i++){",
 "    vec3 pos = ro + rd * t;",
 "    vec2 h = mapSzene(pos);",
-"    if (h.x < 0.0006 * t + 0.00035){ mat = h.y; hit = true; break; }",
+"    if (h.x < 0.0006 * t + 0.00035){",
+"      // Wand oder Rahmen im Weg: ueberspringen und dahinter weitermarschieren.",
+"      // 0.28 traegt sicher ueber die 0.24 dicke Wand hinweg.",
+"      if (u_welt > 0.5 && h.y > 4.5 && h.y < 6.5 && imWeg(pos, ro, t)){",
+"        t += 0.28; continue;",
+"      }",
+"      mat = h.y; hit = true; break;",
+"    }",
 "    t += h.x * 0.92;",
 "    if (t > 16.0) break;",   // das Haus ist 8.8 breit; 8.0 reichte nur fuer die Figur
 "  }",
@@ -1482,10 +1605,15 @@ bodenEbenenGLSL(),
 "      } else if (mat < 9.5){",
 "        alb = vec3(0.06, 0.08, 0.10); rough = 0.14; metal = 0.0;    // Anzeigeflaeche",
 "        emis = vec3(0.42, 0.62, 0.78) * 0.55;",
-"      } else {",
+"      } else if (mat < 10.5){",
 "        // Handteller und Fingerkuppen: matt statt glaenzend, damit man den",
 "        // Druckpunkt sieht und nicht ein Spiegelbild.",
 "        alb = vec3(0.186, 0.192, 0.208); rough = 0.62; metal = 0.05;",
+"      } else {",
+"        // Treppentritte. Bewusst dieselben Werte wie der Tuerpfosten: die",
+"        // eigene Materialnummer existiert nur, damit der Freischnitt sie",
+"        // stehen laesst — sichtbar aendern soll sie nichts.",
+"        alb = vec3(0.260, 0.270, 0.292); rough = 0.80; metal = 0.0;",
 "      }",
 "",
 "      float ao  = calcAO(p, n);",
@@ -2005,14 +2133,38 @@ bodenEbenenGLSL(),
     return null;
   }
 
+  // Sperrt dieses Tuerblatt gerade den Durchgang?
+  //
+  // Bewusst KEIN gedrehtes Rechteck: was zaehlt, ist die lichte Oeffnung,
+  // nicht wo das Blatt gerade steht. Halb offen ist keine halbe Tuer — Noki
+  // soll erst hindurch, wenn sie wirklich aufgeschwungen ist.
+  function tuerSperrt(d, x, z, r) {
+    if (d.auf >= 0.5) return false;
+    var hb = d.breite / 2;
+    var dx, dz;
+    if (d.achse === "x") {
+      dx = Math.abs(x - d.bei) - TUER_D;
+      dz = Math.abs(z - d.mitte) - hb;
+    } else {
+      dx = Math.abs(x - d.mitte) - hb;
+      dz = Math.abs(z - d.bei) - TUER_D;
+    }
+    dx = Math.max(dx, 0); dz = Math.max(dz, 0);
+    return dx * dx + dz * dz < r * r;
+  }
+
   // Kreis gegen achsparallele Quader. Kein Physiksystem — eine Abfrage.
   function frei(x, z, r) {
+    for (var t = 0; t < TUER.length; t++)
+      if (tuerSperrt(TUER[t], x, z, r)) return false;
     for (var i = 0; i < WAENDE.length; i++) {
       var q = WAENDE[i];
       // Stufen stehen zwar im Distanzfeld, sind aber Fussboden und kein
       // Hindernis. Ohne diese Zeile waere die Treppe genau das, was sie
       // nicht sein soll: eine Wand quer im Durchgang.
-      if (q.stufe) continue;
+      // Der Tuersturz faellt aus demselben Grund heraus — er steht ueber
+      // Nokis Kopf, und `frei()` kennt keine Hoehe.
+      if (q.stufe || q.ueberKopf) continue;
       var dx = Math.max(Math.abs(x - q.cx) - q.hx, 0);
       var dz = Math.max(Math.abs(z - q.cz) - q.hz, 0);
       if (dx * dx + dz * dz < r * r) return false;
@@ -2197,6 +2349,11 @@ bodenEbenenGLSL(),
      "u_pos", "u_ziel", "u_welt"].forEach(function (n) {
       U[n] = gl.getUniformLocation(prog, n);
     });
+    // Die Tuerwinkel — aus derselben Tabelle abgezaehlt, die den Shadertext
+    // erzeugt hat. Eine von Hand gepflegte Liste liefe hier irgendwann
+    // auseinander.
+    for (var td = 0; td < TUER.length; td++)
+      U["u_tuer" + td] = gl.getUniformLocation(prog, "u_tuer" + td);
     return true;
   }
 
@@ -3234,6 +3391,96 @@ bodenEbenenGLSL(),
   }
 
   // ---------------------------------------------------------------
+  //  Tueren gehen nicht von selbst auf — er greift danach.
+  //
+  //  Eine einzige Fortschrittsachse `tuerU` traegt beides. Der vordere
+  //  Abschnitt gehoert der Hand, der hintere dem Blatt: das Blatt setzt sich
+  //  erst in Bewegung, wenn die Hand daran ist. Andersherum sähe es aus, als
+  //  ginge die Tuer von allein auf und er langte hinterher.
+  // ---------------------------------------------------------------
+  var TUER_DAUER = 1.20;   // Greifen und Aufschwingen zusammen
+  var TUER_GRIFF = 0.42;   // Anteil davon, den die Hand braucht (0.50 s)
+  var TUER_NAH   = 0.55;   // ab hier langt er hin
+  var TUER_WEG   = 1.10;   // ab hier faellt sie hinter ihm wieder zu
+  var TUER_ZU_S  = 1.40;   // Sekunden fuers Zufallen
+  var tuerAkt = null, tuerU = 0, tuerHand = 1;   // Hand: +1 rechts, -1 links
+
+  // Der Arm. Nur zwei Kanaele, beide an beiden Enden bitgleich null:
+  // cWeich(0) = 0 macht den Anfang, cWeich(1) = 1 das Ende.
+  function tuerKurven(u) {
+    var r = { armSw: 0, armFw: 0 };
+    if (u <= 0.0001) return r;
+    var h = cWeich(fenster(u, 0.00, TUER_GRIFF))
+          * (1 - cWeich(fenster(u, 0.86, 1.00)));
+    r.armFw = 0.52 * h;    // nach vorn, zur Klinke
+    r.armSw = 0.30 * h;    // ein Stueck vom Koerper weg
+    return r;
+  }
+
+  // Abstand zur LICHTEN OEFFNUNG, nicht zur Wand. Wer vor dem Pfosten steht,
+  // steht nicht vor der Tuer.
+  function tuerAbstand(d, x, z) {
+    var hb = d.breite / 2, dx, dz;
+    if (d.achse === "x") { dx = x - d.bei; dz = z - clamp(z, d.mitte - hb, d.mitte + hb); }
+    else                 { dz = z - d.bei; dx = x - clamp(x, d.mitte - hb, d.mitte + hb); }
+    return Math.sqrt(dx * dx + dz * dz);
+  }
+
+  // Ein Zeitschritt der Tuerlogik. Rueckgabe: wie stark die Beine gerade
+  // stillstehen (0 = geht normal, 1 = steht und langt hin).
+  function tuerSchritt(dt) {
+    var i, d;
+    // 1 · Was offen ist und weit genug hinter ihm liegt, faellt wieder zu.
+    for (i = 0; i < TUER.length; i++) {
+      d = TUER[i];
+      if (d === tuerAkt || d.auf <= 0) continue;
+      if (tuerAbstand(d, welt.x, welt.z) > TUER_WEG)
+        d.auf = Math.max(0, d.auf - dt / TUER_ZU_S);
+    }
+    // 2 · Ein angefangener Griff wird zu Ende gefuehrt — auch wenn der
+    //     Nutzer den Stick loslaesst. Auf halbem Weg abzubrechen hiesse,
+    //     die Hand mitten in der Luft stehen zu lassen.
+    if (tuerAkt) {
+      tuerU += dt / TUER_DAUER;
+      tuerAkt.auf = cWeich(fenster(tuerU, TUER_GRIFF, 0.94));
+      if (tuerU >= 1) { tuerAkt.auf = 1; tuerAkt = null; tuerU = 0; return 0; }
+      return cWeich(fenster(tuerU, 0.00, TUER_GRIFF));
+    }
+    // 3 · Sonst: steht er vor einer geschlossenen Tuer und will hindurch?
+    if (welt.tempo <= 0) return 0;
+    var vx = Math.sin(welt.kurs), vz = Math.cos(welt.kurs);
+    var beste = null, bAbst = TUER_NAH;
+    for (i = 0; i < TUER.length; i++) {
+      d = TUER[i];
+      if (d.auf >= 0.5) continue;                 // steht schon offen genug
+      var a = tuerAbstand(d, welt.x, welt.z);
+      if (a >= bAbst) continue;
+      var mx = (d.achse === "x") ? d.bei : d.mitte;
+      var mz = (d.achse === "x") ? d.mitte : d.bei;
+      // Liegt sie VOR ihm? Ohne diese Zeile greift er nach einer Tuer im
+      // Ruecken, sobald er dicht an ihr vorbeigeht.
+      if ((mx - welt.x) * vx + (mz - welt.z) * vz <= 0) continue;
+      beste = d; bAbst = a;
+    }
+    if (!beste) return 0;
+    tuerAkt = beste; tuerU = 0;
+    tuerHand = klinkeHand(beste);
+    return 0;
+  }
+
+  // Welche Hand greift? Die, auf deren Seite die Klinke sitzt — also am
+  // freien Blattrand gegenueber dem Band. Rechts von Noki liegt
+  // (cos kurs, -sin kurs); das Kreuzprodukt mit der Blickrichtung sagt,
+  // auf welcher Seite die Klinke steht.
+  function klinkeHand(d) {
+    var vx = Math.sin(welt.kurs), vz = Math.cos(welt.kurs);
+    var rand = -d.angel * d.breite / 2;
+    var kx = (d.achse === "x") ? d.bei         : d.mitte + rand;
+    var kz = (d.achse === "x") ? d.mitte + rand : d.bei;
+    return ((kx - welt.x) * vz - (kz - welt.z) * vx) >= 0 ? 1 : -1;
+  }
+
+  // ---------------------------------------------------------------
   //  Hinlegen-Taste — dasselbe Muster wie die Sitzen-Taste.
   // ---------------------------------------------------------------
   // Waagerechte Figur und aufgerichtete Figur; bei 15 px liest sich beides.
@@ -3984,13 +4231,21 @@ bodenEbenenGLSL(),
     // Die Strecke bleibt dabei unangetastet an den Fuss gekoppelt. Deshalb
     // rutscht er bei keinem Tempo, und deshalb sind die Raeume nach seiner
     // Schrittlaenge bemessen — nicht umgekehrt.
+
+    // Tueren: erst greifen, dann geht es weiter. `tGriff` bremst die Beine —
+    // ueber `gS`, damit Beinschwung und Vorruecken zusammen aufhoeren. Nur
+    // eins von beidem zu stoppen ergaebe Gehen auf der Stelle oder Gleiten
+    // ohne Schritt.
+    var tGriff = (welt.an && !still) ? tuerSchritt(dt) : 0;
+    var tz = tuerKurven(tuerU);
+
     var GANG_LANGSAM = 0.55, GANG_SCHNELL = 2.05;
     var gangHz = GANGF;                               // Gehen-Taste: wie bisher
     if (welt.an && welt.tempo > 0) {
       gangHz = GANG_LANGSAM + (GANG_SCHNELL - GANG_LANGSAM) * clamp(welt.tempo, 0, 1);
     }
     if (!still && gehen > 0.005) gehU += dt * gangHz;
-    var gS  = schrittProfil(gehU) * gehen;
+    var gS  = schrittProfil(gehU) * gehen * (1 - tGriff);
     var sw  = SCHWUNG * gS;
     // Die Hüfte sinkt genau so weit, wie die gespreizten Beine kürzer werden.
     // Dadurch bleiben beide Füße auf dem Boden, statt hindurchzurutschen.
@@ -4409,10 +4664,15 @@ bodenEbenenGLSL(),
     // Der Huepfversatz liegt bewusst INNEN, bei den Sitzversaetzen: ein
     // Hopser braucht die Stehgrenzen nicht zu ueberschreiten, und so kann
     // er sie auch nicht versehentlich aufweichen.
-    rig.armL = [clamp(clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40) + sz.armSw + hz.armSw, -0.10, 2.40) + lz.armSw + sl.armSw,
-                clamp(clamp(armFw + gArm + rig.armFwL, -0.20, 0.60) + sz.armFw + hz.armFw, -0.20, 0.60) + lz.armFw + sl.armFw];
-    rig.armR = [clamp(clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40) + sz.armSw + hz.armSw, -0.10, 2.40) + lz.armSw + sl.armSw,
-                clamp(clamp(armFw - gArm, -0.20, 0.60) + sz.armFw + hz.armFw, -0.20, 0.60) + lz.armFw + sl.armFw];
+    // Der Tuergriff liegt INNEN bei Sitz- und Huepfversatz: er soll die
+    // Stehgrenzen nutzen, nicht aufweichen. Und er trifft nur EINE Hand —
+    // die, auf deren Seite die Klinke sitzt.
+    var tSwR = (tuerHand > 0) ? tz.armSw : 0, tFwR = (tuerHand > 0) ? tz.armFw : 0;
+    var tSwL = (tuerHand > 0) ? 0 : tz.armSw, tFwL = (tuerHand > 0) ? 0 : tz.armFw;
+    rig.armL = [clamp(clamp(cur.armL + swBas + sway + o.aL, -0.10, 2.40) + sz.armSw + hz.armSw + tSwL, -0.10, 2.40) + lz.armSw + sl.armSw,
+                clamp(clamp(armFw + gArm + rig.armFwL, -0.20, 0.60) + sz.armFw + hz.armFw + tFwL, -0.20, 0.60) + lz.armFw + sl.armFw];
+    rig.armR = [clamp(clamp(cur.armR + swBas - sway + o.aR, -0.10, 2.40) + sz.armSw + hz.armSw + tSwR, -0.10, 2.40) + lz.armSw + sl.armSw,
+                clamp(clamp(armFw - gArm, -0.20, 0.60) + sz.armFw + hz.armFw + tFwR, -0.20, 0.60) + lz.armFw + sl.armFw];
     if (cur.wave > 0.01) {   // Ausdruck „Winken" aus der Bibliothek
       var w = 2.00 + Math.sin(t * 6.4) * 0.28;
       rig.armR = [clamp(lerp(rig.armR[0], w, cur.wave), -0.10, 2.40),
@@ -5828,6 +6088,10 @@ bodenEbenenGLSL(),
         sitzU = 0; sitzRi = 1; sitzRiIst = 1; sitzKontakt = 0;
         liegeU = 0; liegeRi = 1; liegeRiIst = 1; liegeKontakt = 0;
         schlafU = 0; schlafRi = 1; schlafRiIst = 1;
+        // Alle Tueren zu und keine Hand unterwegs — sonst schleppt ein
+        // Abschnitt den Zustand des vorigen mit sich herum.
+        tuerAkt = null; tuerU = 0;
+        for (var td = 0; td < TUER.length; td++) TUER[td].auf = 0;
         setHaltung("stehen");
         for (var f in HALTUNG.stehen) hal[f] = HALTUNG.stehen[f];
       }
@@ -5836,7 +6100,8 @@ bodenEbenenGLSL(),
       function inWand(x, z) {
         for (var i = 0; i < WAENDE.length; i++) {
           var q = WAENDE[i];
-          if (q.stufe) continue;          // Stufen sind Boden, kein Hindernis
+          // Stufen sind Boden, Stuerze sind Kopffreiheit — beides kein Hindernis
+          if (q.stufe || q.ueberKopf) continue;
           if (Math.abs(x - q.cx) < q.hx && Math.abs(z - q.cz) < q.hz) return i;
         }
         return -1;
@@ -5962,6 +6227,42 @@ bodenEbenenGLSL(),
         + "Augen und Linien loesen sich vom Koerper, sobald Noki sich bewegt");
       if (!/paint(White|Glass)\s*\(\s*pFig\s*,/.test(FRAG)) melde("bemalung-quelle",
         "Die Bemalung wird nicht mehr ueber pFig aufgerufen — die Pruefung greift ins Leere");
+
+      //     Der Sichtachsen-Freischnitt darf NUR Wandwerkstoff wegnehmen.
+      //     Er raeumt alles weg, dessen Materialnummer in seinem Fenster
+      //     liegt — also muessen Figur (1-4), Gegenstaende (7-9), Haut (10)
+      //     und vor allem die Treppentritte draussen bleiben. Die Stufen
+      //     trugen bis zu dieser Stufe M_RAHMEN und waeren mitgeschnitten
+      //     worden: ein Loch im FUSSBODEN, genau verkehrt herum.
+      var mFS = /h\.y > ([\d.]+) && h\.y < ([\d.]+) && imWeg/.exec(FRAG);
+      if (!mFS) melde("freischnitt-quelle",
+        "Der Freischnitt ist im Shader nicht mehr zu finden — die Pruefung greift ins Leere");
+      else {
+        var fsU = parseFloat(mFS[1]), fsO = parseFloat(mFS[2]);
+        var mNr = { M_WHITE: 1, M_DARK: 2, M_GLASS: 3, M_EMIT: 4, M_METALL: 7,
+                    M_HOLZ: 8, M_SCHIRM: 9, M_HAUT: 10, M_STUFE: 11 };
+        for (var mn in mNr) {
+          var mv = /const float M_(\w+)\s*=\s*([\d.]+)/g, gefunden = null, mm;
+          while ((mm = mv.exec(FRAG)) !== null) if ("M_" + mm[1] === mn) gefunden = parseFloat(mm[2]);
+          if (gefunden === null) melde("freischnitt-material",
+            mn + " steht nicht mehr im Shader — die Materialpruefung greift ins Leere");
+          else if (gefunden > fsU && gefunden < fsO) melde("freischnitt-schneidet-zuviel",
+            mn + " = " + gefunden + " liegt im Schnittfenster " + fsU + "…" + fsO
+            + " — der Freischnitt wuerde es aushoehlen");
+        }
+      }
+      //     Und jede Tuer braucht ihr Blatt im erzeugten Text, mit dem
+      //     Winkel, der zu ihr gehoert. Ein Blatt am falschen Uniform
+      //     schwingt auf, wenn eine ANDERE Tuer geoeffnet wird.
+      for (var tb = 0; tb < TUER.length; tb++) {
+        var re = new RegExp("vec3 q" + tb + " = rotY\\(p - vec3\\([^)]*\\), -u_tuer" + tb + "\\);");
+        if (!re.test(FRAG)) melde("tuer-blatt-fehlt",
+          TUER[tb].id + " hat kein Blatt am eigenen Winkel u_tuer" + tb + " im Shader");
+      }
+      //     Lichte Hoehe: Noki muss unter dem Sturz durchpassen.
+      if (TUER_H < NOKI_H + 0.05) melde("tuer-zu-niedrig",
+        "Lichte Tuerhoehe " + TUER_H + " bei Koerperhoehe " + NOKI_H
+        + " — er streift den Sturz");
       // Welt -> lokal ist rotY(., vz*kurs), also lokal -> Welt rotY(., -vz*kurs).
       // Nokis Visier sitzt lokal auf +z.
       function blickRichtung(kurs) { return rotY2(0, 1, -vzShader * kurs); }
@@ -6116,31 +6417,48 @@ bodenEbenenGLSL(),
       // 4 · Jeder Durchgang quer abgetastet: nirgends ein unsichtbares
       //     Hindernis, und die freie Breite reicht fuer die Figur.
       for (var ti = 0; ti < TUER.length; ti++) {
-        var t = TUER[ti], offen = 0, N = 400;
+        var t = TUER[ti], offen = 0, zuFrei = 0, N = 400;
         // Quer durch die Oeffnung tasten. Die Achse entscheidet, welche
         // Koordinate laeuft — beim ersten Entwurf stand hier fest die
         // x-Wand, und die drei Tueren in Querwaenden meldeten Unsinn.
+        //
+        // Zweimal getastet, mit offenem und mit geschlossenem Blatt. Die
+        // erste Runde misst den BAU — dafuer muss die Tuer offen stehen,
+        // sonst misst man das Blatt statt der Oeffnung. Die zweite belegt,
+        // dass das Blatt ueberhaupt etwas tut.
         for (var q = 0; q <= N; q++) {
           var w2 = t.mitte - t.breite / 2 + t.breite * q / N;
           var pxx = (t.achse === "x") ? t.bei : w2;
           var pzz = (t.achse === "x") ? w2   : t.bei;
-          if (frei(pxx, pzz, FIGUR_R)) offen++;
+          t.auf = 1; if (frei(pxx, pzz, FIGUR_R)) offen++;
+          t.auf = 0; if (frei(pxx, pzz, FIGUR_R)) zuFrei++;
         }
+        t.auf = 0;
         // Gemessen wird das Band, in dem Nokis MITTELPUNKT stehen darf. Es
         // ist um seinen Durchmesser schmaler als die Oeffnung.
         var breiteFrei = t.breite * offen / (N + 1);
         if (breiteFrei < FIGUR_R) melde("raum-tuer-eng",
           t.id + ": nur " + breiteFrei.toFixed(3) + " Spielraum in der Mitte, "
           + "gefordert " + FIGUR_R.toFixed(3) + " (Oeffnung " + t.breite + ")");
-        // Und wirklich hindurch: von der einen Seite anfahren, drueben ankommen
+        // Ein Blatt, das nie sperrt, ist keins.
+        if (zuFrei > 0) melde("tuer-sperrt-nicht",
+          t.id + ": geschlossen bleiben " + zuFrei + " von " + (N + 1)
+          + " Punkten frei — das Blatt haelt niemanden auf");
+
+        // Und wirklich hindurch — mit GESCHLOSSENER Tuer losgefahren. Er
+        // muss sie also selbst oeffnen; kommt er drueben an, hat er es getan.
         var vonP = tuerPunkt(t, -1), nachP = tuerPunkt(t, 1);
         stelle(vonP[0], vonP[1], 0);
         var vonR = raumBei(welt.x, welt.z);
         fahreZu(nachP[0], nachP[1], 900, t.id);
+        var warAuf = t.auf;
         haltAn();
         var nachR = raumBei(welt.x, welt.z);
         if (nachR === vonR || nachR === null) melde("raum-tuer-zu",
           t.id + ": der Durchgang fuehrt nicht hinueber (" + vonR + " → " + nachR + ")");
+        if (warAuf < 0.5) melde("tuer-oeffnet-nicht",
+          t.id + ": steht nach der Anfahrt erst bei " + warAuf.toFixed(2)
+          + " — er kommt nicht von selbst hindurch");
       }
 
       // 5 · Raumgroessen gegen das Mass der Figur.
@@ -6396,6 +6714,8 @@ bodenEbenenGLSL(),
     gl.uniform3f(U.u_pos, welt.x, welt.z, welt.kurs);
     gl.uniform3f(U.u_ziel, zielIst[0], zielIst[1], zielIst[2]);
     gl.uniform1f(U.u_welt, welt.an ? 1 : 0);
+    for (var td2 = 0; td2 < TUER.length; td2++)
+      gl.uniform1f(U["u_tuer" + td2], TUER[td2].schwenk * TUER_AUF * TUER[td2].auf);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     window.__nokiReady = true;
@@ -6484,6 +6804,24 @@ bodenEbenenGLSL(),
     // x und z kennt.
     welt.y = bodenHoehe(welt.x, welt.z);
     zielIst = [welt.x, 0.500 + welt.y, welt.z];
+  }
+  // Standbild eines Tuergriffs: `#tuer=id,u` — dieselbe Idee wie `#huepf=`.
+  // Ohne sie liesse sich der Griff nicht abbilden: er tritt nur unterwegs
+  // auf, und im Standbild laeuft die Tuerlogik gar nicht.
+  //
+  // WICHTIG: `#pos=` muss vorher gesetzt sein, sonst weiss `klinkeHand`
+  // nicht, wo Noki steht — deshalb steht dieser Block hinter jenem.
+  if (hash.tuer !== undefined) {
+    var tv = String(hash.tuer).split(",");
+    for (var tq = 0; tq < TUER.length; tq++) {
+      if (TUER[tq].id !== tv[0] && String(tq) !== tv[0]) continue;
+      tuerAkt = TUER[tq];
+      tuerU = clamp(num(tv[1], 0), 0, 1);
+      // Dieselbe Formel wie in `tuerSchritt` — der Winkel darf nicht aus
+      // zwei Quellen kommen.
+      tuerAkt.auf = cWeich(fenster(tuerU, TUER_GRIFF, 0.94));
+      tuerHand = klinkeHand(tuerAkt);
+    }
   }
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
   if (hash.obj !== undefined) {
