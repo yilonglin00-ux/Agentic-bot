@@ -35,6 +35,7 @@ Noki wird in Echtzeit als dreidimensionales Distanzfeld berechnet. Er lässt sic
 | **Hinlegen / Aufrichten** | dritte Taste im Reiter *Bewegung*: Noki legt sich in 2.2 s auf den Rücken — Hocke, Abrollen über den Rücken, Kinn zur Brust, Kopf setzt zuletzt auf. Sitzt er gerade, steht er erst vollständig auf. `#lieg=0…1` zeigt jeden Zwischenstand |
 | **Einschlafen / Aufwachen** | vierte Taste im Reiter *Bewegung* — oder von selbst: liegt Noki etwa 20 s ruhig, wird er müde, die Lider sinken in drei Stufen, das Blinzeln wird gedehnt, und er schläft ein. Jede Eingabe weckt ihn wieder — mit Rückfall, Orientieren und einer kleinen Streckbewegung. Danach bleibt er **wach und liegend**. `#schlaf=0…1` zeigt jeden Zwischenstand |
 | **Hüpfen** | fünfte Taste im Reiter *Bewegung*: ein kleiner Hopser aus dem Stand in 1.5 s — leicht in die Knie, abspringen, 0.45 s fliegen, landen, abfedern. Die einzige Bewegung, bei der er den Boden verlässt, und die einzige ohne Nachzustand: sie endet exakt in der Haltung, in der sie begann. `#huepf=0…1` zeigt jeden Zwischenstand |
+| **Treppe in den Werkraum** | der Werkraum liegt 0.36 tiefer. Hinunter geht Noki mit dem normalen Gang, hinauf kommt er mit dem **Hüpfer** — die Stufen sind mit 0.045 nach seinem Bein bemessen, nicht nach dem Bauwesen |
 | **Joystick unten links** | bewegt Noki durch die Räume — weiter außen heißt schneller. Für den Finger gebaut, funktioniert auf Handy und Tablet genauso wie mit der Maus. Solange die Bedienleiste offen ist, weicht er; beim Anfassen der Figur schließt sie sich von selbst |
 | Zeitraffer ×10 | rafft die Zeitkaskade, damit Dösen und Schlaf in zwei Minuten sichtbar werden |
 
@@ -102,7 +103,12 @@ Dazu `pos=x,z,kurs` für Nokis Standort in der Wohnung und `welt=0` für die alt
 **Selbsttest:** `noki.html#selftest=1` fährt das Rig über 1200 simulierte Sekunden und prüft
 alle 16 Kanäle gegen ihre Grenzen, die Reihenfolge der Zeitkaskade, die Anti-Wiederholung der
 Idle-Einlagen, die Sprungfreiheit jedes Kanals, den Verlauf der Stimmung, die konstante
-Beinlänge über den Sitzübergang und dass beim Gehen stets ein Fuß still auf dem Boden steht.
+Beinlänge über den Sitzübergang und die innere Stimmigkeit des Gangmusters.
+
+> **Hinweis zum Gang:** Bis zur Wohnungsstufe rückte Noki um genau den Weg vor, den sein
+> abstoßender Fuß zurückgelegt hatte — er rutschte also nicht. Mit `WELT_GANG = 3` ist das
+> bewusst aufgegeben: sein Bein misst 8,3 % seiner Körperhöhe, Menschentempo bräuchte sonst
+> 12 Schritte je Sekunde. Er rutscht jetzt sichtbar. Der Faktor steht im Selbsttest-Bericht.
 
 Dazu die **Liegeprüfung**: Über den gesamten Hinlege-Ablauf, in beiden Richtungen, wird
 nachgerechnet, dass kein Punkt von Rumpf, Hals, Kopf, Armen und Händen unter den Boden gerät,
@@ -170,7 +176,7 @@ ursprünglich bestimmt; sie wacht seither über sie.
 - [x] **Hüpfen** — der erste Vorgang ohne Nachzustand: eigene Zeitachse, aber nur ein Weg
       und kein Rückwärts-Kurvensatz. Der Auftrieb geht auf Rumpf *und* Beinwurzel, damit die
       Figur als Ganzes steigt; außerhalb der Flugphase ist er bitgleich null
-- [x] **Umgebung** — drei Räume, zwei Durchgänge, Boden und Wände als Distanzfeld neben der
+- [x] **Umgebung** — fünf Räume auf zwei Ebenen, fünf Durchgänge, Boden und Wände als Distanzfeld neben der
       Figur statt in ihr; Weltposition und Kurs, Kollision mit Gleiten, virtueller Joystick.
       Die Räume sind nach Nokis Schrittlänge bemessen — sein Bein misst 8.3 % seiner Höhe
 - [ ] Stufe 3: die seltenen Momente, dreizehn weitere Gegenstände, Gegenstände mit Platz in der Welt

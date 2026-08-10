@@ -454,97 +454,236 @@
   //  EINE Wand. Waeren die Tiefen verschieden, staenden dort zwei
   //  ueberlappende Quader — im Bild unsichtbar, aber jede Tuer wuerde
   //  doppelt gebaut, und die Pfosten staenden zweimal ineinander.
+  //  Jeder Raum ist eine LISTE von Rechtecken — dadurch kann ein Raum
+  //  L-foermig sein — und liegt auf einer Ebene `y`. Die Werkstatt liegt
+  //  tiefer; ihr zweiter Teil ist der Treppenschacht.
+  //
+  //  Die frueher noetige Regel „alle Raeume gleich tief" ist weg. Sie kam
+  //  nicht aus dem Entwurf, sondern aus der alten Wandableitung, die
+  //  gemeinsame Wraende ueber einen EXAKTEN Kantenschluessel zusammenfasste.
+  //  Die neue Ableitung geht ueber Flaechen statt ueber Kanten und braucht
+  //  das nicht mehr.
   var RAUM = {
-    main_room: { x0: -1.30, x1:  1.30, z0: -1.20, z1:  1.20,
-                 label: "Hauptbereich", ton:  0.000 },
-    bedroom:   { x0: -3.30, x1: -1.30, z0: -1.20, z1:  1.20,
-                 label: "Schlafzimmer", ton: -0.170 },
-    room_3:    { x0:  1.30, x1:  3.20, z0: -1.20, z1:  1.20,
-                 label: "Nebenraum",    ton:  0.155 }
+    main_room: { label: "Hauptbereich", ton:  0.000, y:  0.00,
+                 teile: [[ 0.60,  3.40, -0.60,  3.00],
+                         [-1.60,  0.60,  1.40,  3.00]] },
+    room_3:    { label: "Nebenraum",    ton:  0.190, y:  0.00,
+                 teile: [[ 0.60,  3.40, -2.60, -0.60]] },
+    flur:      { label: "Flur",         ton:  0.085, y:  0.00,
+                 teile: [[-1.60,  0.60, -0.60,  1.40]] },
+    bedroom:   { label: "Schlafzimmer", ton: -0.200, y:  0.00,
+                 teile: [[-4.80, -1.60,  1.40,  3.00]] },
+    werkstatt: { label: "Werkraum",     ton: -0.100, y: -0.36,
+                 teile: [[-4.80, -1.60, -0.60,  1.40]] }
   };
 
-  // Durchgaenge. `bei` ist die Wand, in der die Oeffnung sitzt, `mitte`
-  // ihre Lage darin. 0.95 Breite gegen einen Figurenradius von 0.20: mehr
-  // als das Doppelte, damit niemand an der Laibung haengen bleibt.
+  // Fuenf Durchgaenge. Zwei davon verbinden Flur und Hauptbereich — dadurch
+  // gibt es einen Rundweg statt lauter Sackgassen.
   var TUER = [
-    { id: "tuer_schlaf", von: "main_room", nach: "bedroom",
-      achse: "x", bei: -1.30, mitte: -0.15, breite: 0.80 },
-    { id: "tuer_neben",  von: "main_room", nach: "room_3",
-      achse: "x", bei:  1.30, mitte: -0.15, breite: 0.80 }
+    { id: "tuer_schlaf", von: "bedroom",   nach: "main_room",
+      achse: "x", bei: -1.60, mitte:  2.20, breite: 0.85 },
+    { id: "tuer_werk",   von: "werkstatt", nach: "flur",
+      achse: "x", bei: -1.60, mitte:  0.45, breite: 0.80 },
+    { id: "tuer_flur",   von: "flur",      nach: "main_room",
+      achse: "x", bei:  0.60, mitte:  0.40, breite: 0.85 },
+    { id: "tuer_diele",  von: "flur",      nach: "main_room",
+      achse: "z", bei:  1.40, mitte: -0.50, breite: 0.85 },
+    { id: "tuer_neben",  von: "room_3",    nach: "main_room",
+      achse: "z", bei: -0.60, mitte:  2.00, breite: 0.85 }
   ];
 
-  var WAND_H  = 0.62;    // Wandhoehe — ein Architekturmodell, kein Haus:
-                         // die Kamera sieht von schraeg oben in jeden Raum,
-                         // und die Figur wird nie von einer Wand verdeckt.
+  // ---------------------------------------------------------------
+  //  Die Treppe.
+  //
+  //  Ihre Masse kommen aus Nokis Koerper, nicht aus dem Bauwesen. Eine im
+  //  Menschmassstab proportionale Stufe (0.17 m bei 1.75 m Hoehe) waere bei
+  //  ihm 0.097 — das sind 117 % seiner GANZEN Beinlaenge von 0.083. Er
+  //  koennte sie so wenig besteigen wie ein Mensch einen Meter hohen Absatz.
+  //
+  //  0.045 sind 54 % seiner Beinlaenge: hinuntergehen geht, und hinauf
+  //  kommt er mit dem Huepfer, dessen Scheitel bei 0.060 liegt.
+  // ---------------------------------------------------------------
+  var TREPPE = {
+    raum: "werkstatt",
+    xOben: -1.60, xUnten: -2.88,      // oben am Durchgang, unten am Werkraum
+    // Die Treppe ist so breit wie der Raum. Ein schmalerer Schacht liesse
+    // links und rechts tote Taschen stehen — Flaechen, die zu keinem Raum
+    // gehoeren, von Waenden eingeschlossen und nie zu betreten.
+    z0: -0.60, z1: 1.40,
+    stufen: 8
+  };
+  TREPPE.steig = 0.36 / TREPPE.stufen;                       // 0.045 je Stufe
+  TREPPE.tritt = (TREPPE.xOben - TREPPE.xUnten) / TREPPE.stufen;  // 0.16 tief
+
+  var WAND_H  = 0.62;    // Wandhoehe ueber dem jeweiligen Fussboden
   var WAND_D  = 0.12;    // halbe Wanddicke
-  var PFOSTEN_H = 0.78;  // Tuerpfosten ueberragen die Wand, damit ein
-                         // Durchgang als Tuer lesbar ist und nicht als Luecke
+  var PFOSTEN_H = 0.78;  // Tuerpfosten ueberragen die Wand
   var PFOSTEN_B = 0.075; // halbe Pfostenbreite
   var FIGUR_R = 0.20;    // Kollisionsradius: Rumpf 0.19, Fussaussenkante 0.16
 
+  // Bodenhoehe an einer Stelle: Raumebene, auf der Treppe die Stufe.
+  function bodenHoehe(x, z) {
+    var k = raumBei(x, z);
+    if (k === null) return 0;
+    if (k === TREPPE.raum && x > TREPPE.xUnten && x <= TREPPE.xOben
+        && z > TREPPE.z0 && z < TREPPE.z1) {
+      var n = Math.ceil((TREPPE.xOben - x) / TREPPE.tritt);
+      n = Math.max(1, Math.min(TREPPE.stufen, n));
+      return -TREPPE.steig * n;
+    }
+    return RAUM[k].y;
+  }
+
   // ---------------------------------------------------------------
-  //  Aus Raeumen und Tueren die Wandquader ableiten.
-  //  Jede Wand ist ein achsparalleler Quader { cx, cz, hx, hz, h }.
-  //  Eine Wand mit Tuer wird in zwei Stuecke geteilt — die Oeffnung
-  //  entsteht also durch Weglassen, nicht durch Abziehen. Dadurch ist
-  //  sie in der Kollision automatisch dieselbe Luecke wie im Bild.
+  //  Waende aus FLAECHEN ableiten, nicht aus Kanten.
+  //
+  //  Die alte Fassung sammelte die vier Kanten jedes Rechtecks und fasste
+  //  gleiche zusammen. Das trug nur, solange alle Raeume deckungsgleiche
+  //  Kanten hatten. Ein L-foermiger Raum hat eine INNENkante, an der gar
+  //  keine Wand stehen darf, und versetzte Raeume erzeugen teilweise
+  //  ueberlappende Kanten — also zwei Quader ineinander und jede Tuer
+  //  doppelt.
+  //
+  //  Hier wird stattdessen der Grundriss in Zellen zerlegt. Eine Wand
+  //  entsteht genau dort, wo zwei benachbarte Zellen zu VERSCHIEDENEN
+  //  Raeumen gehoeren (oder eine davon draussen liegt). Zwei Zellen
+  //  desselben Raumes bekommen keine — damit ist die Innenkante des L
+  //  erledigt, ohne dass sie irgendwo als Sonderfall auftaucht.
   // ---------------------------------------------------------------
   function waende() {
+    var teile = [], rk, i;
+    for (rk in RAUM)
+      for (i = 0; i < RAUM[rk].teile.length; i++)
+        teile.push({ raum: rk, r: RAUM[rk].teile[i] });
+
+    // 1 · Gitterlinien: jede vorkommende Koordinate, dazu die Tuerraender.
+    var xs = [], zs = [];
+    function fuege(a, v) {
+      for (var j = 0; j < a.length; j++) if (Math.abs(a[j] - v) < 1e-9) return;
+      a.push(v);
+    }
+    for (i = 0; i < teile.length; i++) {
+      fuege(xs, teile[i].r[0]); fuege(xs, teile[i].r[1]);
+      fuege(zs, teile[i].r[2]); fuege(zs, teile[i].r[3]);
+    }
+    for (i = 0; i < TUER.length; i++) {
+      var d = TUER[i], ziel = (d.achse === "x") ? zs : xs;
+      fuege(ziel, d.mitte - d.breite / 2);
+      fuege(ziel, d.mitte + d.breite / 2);
+    }
+    xs.sort(function (a, b) { return a - b; });
+    zs.sort(function (a, b) { return a - b; });
+
+    // 2 · Zu welchem Raum gehoert jede Zelle?
+    function raumInZelle(x, z) {
+      for (var j = 0; j < teile.length; j++) {
+        var r = teile[j].r;
+        if (x > r[0] && x < r[1] && z > r[2] && z < r[3]) return teile[j].raum;
+      }
+      return null;
+    }
+    var zelle = [];
+    for (i = 0; i < xs.length - 1; i++) {
+      zelle[i] = [];
+      for (var j2 = 0; j2 < zs.length - 1; j2++)
+        zelle[i][j2] = raumInZelle((xs[i] + xs[i + 1]) / 2, (zs[j2] + zs[j2 + 1]) / 2);
+    }
+    function holen(ix, iz) {
+      if (ix < 0 || ix >= xs.length - 1 || iz < 0 || iz >= zs.length - 1) return null;
+      return zelle[ix][iz];
+    }
+
     var w = [], pf = [];
-    // Jede Raumkante wird zu einer Wandstrecke. Doppelte Kanten (die
-    // gemeinsame Wand zweier Raeume) werden ueber ihren Schluessel
-    // zusammengefasst, sonst staende dort eine doppelt dicke Wand.
-    var kanten = {};
-    function kante(achse, bei, a0, a1) {
-      var k = achse + "|" + bei.toFixed(3) + "|" + a0.toFixed(3) + "|" + a1.toFixed(3);
-      if (!kanten[k]) kanten[k] = { achse: achse, bei: bei, a0: a0, a1: a1 };
+
+    // 3 · Ueber jede Gitterlinie laufen, gleiche Nachbarpaare zu LAEUFEN
+    //     zusammenfassen. Das Zusammenfassen ist kein Feinschliff: ohne es
+    //     zerfiele jede Wand in so viele Quader, wie das Gitter Linien hat,
+    //     und der Marsch muesste sie alle abfragen.
+    function linie(achse, linien, quer, hol) {
+      for (var li = 0; li < linien.length; li++) {
+        var lauf = null;
+        for (var qi = 0; qi <= quer.length - 1; qi++) {
+          var paar = (qi < quer.length - 1) ? hol(li, qi) : null;
+          var schl = paar ? (paar.a + "|" + paar.b) : null;
+          if (lauf && lauf.schl === schl) { lauf.bis = quer[qi + 1]; continue; }
+          if (lauf) baue(achse, linien[li], lauf);
+          lauf = schl ? { schl: schl, a: paar.a, b: paar.b,
+                          von: quer[qi], bis: quer[qi + 1] } : null;
+        }
+        if (lauf) baue(achse, linien[li], lauf);
+      }
     }
-    for (var rk in RAUM) {
-      var r = RAUM[rk];
-      kante("x", r.x0, r.z0, r.z1);   // linke Wand
-      kante("x", r.x1, r.z0, r.z1);   // rechte Wand
-      kante("z", r.z0, r.x0, r.x1);   // hintere Wand
-      kante("z", r.z1, r.x0, r.x1);   // vordere Wand
-    }
-    for (var kk in kanten) {
-      var e = kanten[kk];
-      // Alle Oeffnungen, die in dieser Kante liegen, als Luecken sammeln
+
+    function baue(achse, bei, lauf) {
+      // Hoehe: die Wand steht auf dem TIEFEREN Boden und reicht ueber den
+      // hoeheren hinaus. Zwischen zwei Ebenen wird sie dadurch von selbst
+      // hoeher, ohne dass es irgendwo einen Sonderfall braucht.
+      var ya = lauf.a === "" ? null : RAUM[lauf.a].y;
+      var yb = lauf.b === "" ? null : RAUM[lauf.b].y;
+      var lo = (ya === null) ? yb : (yb === null ? ya : Math.min(ya, yb));
+      var hi = (ya === null) ? yb : (yb === null ? ya : Math.max(ya, yb));
+
       var luecken = [];
-      for (var ti = 0; ti < TUER.length; ti++) {
-        var t = TUER[ti];
-        if (t.achse !== e.achse || Math.abs(t.bei - e.bei) > 1e-6) continue;
-        if (t.mitte - t.breite / 2 < e.a0 - 1e-6) continue;
-        if (t.mitte + t.breite / 2 > e.a1 + 1e-6) continue;
-        luecken.push(t);
-        pf.push({ achse: e.achse, bei: e.bei, a: t.mitte - t.breite / 2 - PFOSTEN_B });
-        pf.push({ achse: e.achse, bei: e.bei, a: t.mitte + t.breite / 2 + PFOSTEN_B });
+      for (var t = 0; t < TUER.length; t++) {
+        var d = TUER[t];
+        if (d.achse !== achse || Math.abs(d.bei - bei) > 1e-9) continue;
+        if (d.mitte - d.breite / 2 < lauf.von - 1e-9) continue;
+        if (d.mitte + d.breite / 2 > lauf.bis + 1e-9) continue;
+        luecken.push(d);
+        pf.push({ achse: achse, bei: bei, a: d.mitte - d.breite / 2 - PFOSTEN_B,
+                  lo: lo, hi: hi });
+        pf.push({ achse: achse, bei: bei, a: d.mitte + d.breite / 2 + PFOSTEN_B,
+                  lo: lo, hi: hi });
       }
-      luecken.sort(function (a, b) { return a.mitte - b.mitte; });
-      var von = e.a0;
-      for (var li = 0; li <= luecken.length; li++) {
-        var bis = (li < luecken.length) ? luecken[li].mitte - luecken[li].breite / 2 : e.a1;
-        if (bis - von > 1e-4) w.push(quader(e.achse, e.bei, von, bis, WAND_H));
-        if (li < luecken.length) von = luecken[li].mitte + luecken[li].breite / 2;
+      luecken.sort(function (p, q) { return p.mitte - q.mitte; });
+      var von = lauf.von;
+      for (var li2 = 0; li2 <= luecken.length; li2++) {
+        var bis = (li2 < luecken.length)
+                ? luecken[li2].mitte - luecken[li2].breite / 2 : lauf.bis;
+        if (bis - von > 1e-4) w.push(quader(achse, bei, von, bis, lo, hi + WAND_H));
+        if (li2 < luecken.length) von = luecken[li2].mitte + luecken[li2].breite / 2;
       }
     }
-    // Tuerpfosten: schmale Saeulen links und rechts der Oeffnung. Sie sind
-    // hoeher UND eine Spur dicker als die Wand — nur hoeher genuegte nicht,
-    // dann verschwaende der Pfosten bis auf einen Absatz in der Wandflucht.
-    // So steht er als Rahmen davor, und ein Durchgang liest sich als Tuer.
-    for (var pi = 0; pi < pf.length; pi++) {
-      var p = pf[pi];
+
+    linie("x", xs, zs, function (li, qi) {
+      var a = holen(li - 1, qi), b = holen(li, qi);
+      return (a === b) ? null : { a: a || "", b: b || "" };
+    });
+    linie("z", zs, xs, function (li, qi) {
+      var a = holen(qi, li - 1), b = holen(qi, li);
+      return (a === b) ? null : { a: a || "", b: b || "" };
+    });
+
+    // 4 · Tuerpfosten: hoeher UND eine Spur dicker als die Wand, sonst
+    //     verschwaenden sie in der Wandflucht.
+    for (i = 0; i < pf.length; i++) {
+      var p = pf[i];
       w.push(quader(p.achse, p.bei, p.a - PFOSTEN_B, p.a + PFOSTEN_B,
-                    PFOSTEN_H, WAND_D + 0.030));
+                    p.lo, p.hi + PFOSTEN_H, WAND_D + 0.030));
+    }
+
+    // 5 · Die Treppenstufen. Die unterste liegt buendig im Werkraumboden
+    //     und braucht deshalb keinen Quader.
+    var T = TREPPE, uy = RAUM[T.raum].y;
+    for (var k = 1; k < T.stufen; k++) {
+      var xa = T.xOben - k * T.tritt, xb = T.xOben - (k - 1) * T.tritt;
+      w.push({ cx: (xa + xb) / 2, cz: (T.z0 + T.z1) / 2,
+               hx: (xb - xa) / 2,  hz: (T.z1 - T.z0) / 2,
+               cy: (uy + (-T.steig * k)) / 2, hy: ((-T.steig * k) - uy) / 2,
+               stufe: true });
     }
     return w;
   }
 
-  function quader(achse, bei, a0, a1, h, d) {
+  function quader(achse, bei, a0, a1, y0, y1, d) {
     if (d === undefined) d = WAND_D;
+    var g = { cy: (y0 + y1) / 2, hy: (y1 - y0) / 2 };
     if (achse === "x") {
-      return { cx: bei, cz: (a0 + a1) / 2, hx: d, hz: (a1 - a0) / 2, h: h };
+      g.cx = bei; g.cz = (a0 + a1) / 2; g.hx = d; g.hz = (a1 - a0) / 2;
+    } else {
+      g.cx = (a0 + a1) / 2; g.cz = bei; g.hx = (a1 - a0) / 2; g.hz = d;
     }
-    return { cx: (a0 + a1) / 2, cz: bei, hx: (a1 - a0) / 2, hz: d, h: h };
+    return g;
   }
 
   var WAENDE = waende();
@@ -553,14 +692,23 @@
   // sechzehn Quader den Marsch nicht ausbremsen: ein Strahl, der weit
   // draussen laeuft, bekommt EINE Kastendistanz zurueck statt sechzehn.
   var HAUS = (function () {
-    var b = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9, y1: 0 };
+    var b = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9, y0: 1e9, y1: -1e9 };
     for (var i = 0; i < WAENDE.length; i++) {
       var q = WAENDE[i];
       b.x0 = Math.min(b.x0, q.cx - q.hx); b.x1 = Math.max(b.x1, q.cx + q.hx);
       b.z0 = Math.min(b.z0, q.cz - q.hz); b.z1 = Math.max(b.z1, q.cz + q.hz);
-      b.y1 = Math.max(b.y1, q.h);
+      b.y0 = Math.min(b.y0, q.cy - q.hy); b.y1 = Math.max(b.y1, q.cy + q.hy);
     }
     return b;
+  })();
+
+  // Die vorkommenden Fussbodenebenen, aufsteigend. Der analytische Boden
+  // schneidet gegen jede einzeln — bei zwei Ebenen sind das zwei Tests.
+  var EBENEN = (function () {
+    var e = [];
+    for (var k in RAUM) if (e.indexOf(RAUM[k].y) < 0) e.push(RAUM[k].y);
+    e.sort(function (a, b) { return a - b; });
+    return e;
   })();
 
   // Der GLSL-Text der Umgebung. Er wird unten in den Shader eingesetzt —
@@ -574,18 +722,21 @@
       "vec2 mapWelt(vec3 p){",
       "  vec2 r = vec2(1e9, M_WAND);",
       "  if (u_welt < 0.5) return r;",
-      "  vec3 bd = abs(p - vec3(" + f((HAUS.x0 + HAUS.x1) / 2) + ", " + f(HAUS.y1 / 2)
-        + ", " + f((HAUS.z0 + HAUS.z1) / 2) + ")) - vec3("
-        + f((HAUS.x1 - HAUS.x0) / 2) + ", " + f(HAUS.y1 / 2) + ", "
-        + f((HAUS.z1 - HAUS.z0) / 2) + ");",
+      "  vec3 bd = abs(p - vec3(" + f((HAUS.x0 + HAUS.x1) / 2) + ", "
+        + f((HAUS.y0 + HAUS.y1) / 2) + ", " + f((HAUS.z0 + HAUS.z1) / 2)
+        + ")) - vec3(" + f((HAUS.x1 - HAUS.x0) / 2) + ", "
+        + f((HAUS.y1 - HAUS.y0) / 2) + ", " + f((HAUS.z1 - HAUS.z0) / 2) + ");",
       "  float bb = length(max(bd, 0.0)) + min(max(bd.x, max(bd.y, bd.z)), 0.0);",
       "  if (bb > 0.25) return vec2(bb, M_WAND);"
     ];
     for (var i = 0; i < WAENDE.length; i++) {
       var q = WAENDE[i];
-      var m = (q.h > WAND_H + 1e-6) ? "M_RAHMEN" : "M_WAND";
-      z.push("  r = opU(r, vec2(sdRoundBox(p - vec3(" + f(q.cx) + ", " + f(q.h / 2)
-        + ", " + f(q.cz) + "), vec3(" + f(q.hx) + ", " + f(q.h / 2) + ", "
+      // Pfosten stehen hoeher als die Wand, Stufen sind eigenes Material —
+      // beides nur, damit sich Rahmen und Tritte vom Rest abheben.
+      var m = q.stufe ? "M_RAHMEN"
+            : (q.hy * 2 > WAND_H + 1e-6 ? "M_RAHMEN" : "M_WAND");
+      z.push("  r = opU(r, vec2(sdRoundBox(p - vec3(" + f(q.cx) + ", " + f(q.cy)
+        + ", " + f(q.cz) + "), vec3(" + f(q.hx) + ", " + f(q.hy) + ", "
         + f(q.hz) + "), 0.012), " + m + "));");
     }
     z.push("  return r;");
@@ -602,25 +753,64 @@
   //       Durchgang. Ueberall sonst liegt diese Kante unter einer Wand
   //       und ist unsichtbar; genau in der Tueroeffnung wird sie zum
   //       Strich am Boden, der den Raumwechsel markiert.
+  // Der Bodenanstrich, je Ebene einmal entfaltet. Zwei Ebenen sind zwei
+  // Bloecke — eine Schleife braeuchte dynamische Grenzen, und WebGL 1 mag
+  // die nicht.
+  function bodenEbenenGLSL() {
+    var f = function (v) { return v.toFixed(4); };
+    var z = [];
+    var eb = EBENEN.slice().sort(function (a, b) { return b - a; });   // oben zuerst
+    for (var i = 0; i < eb.length; i++) {
+      var E = f(eb[i]), F = "fp" + i;
+      z.push("      if (!gemalt){");
+      z.push("        float tf" + i + " = (" + E + " - ro.y) / rd.y;");
+      z.push("        if (tf" + i + " > 0.0){");
+      z.push("          vec3 " + F + " = ro + rd * tf" + i + ";");
+      z.push("          vec4 ra = raumAt(" + F + ".xz);");
+      z.push("          float innen = 1.0 - smoothstep(-0.02, 0.30, ra.y);");
+      z.push("          if (innen > 0.002 && abs(ra.w - (" + E + ")) < 0.001){");
+      z.push("            vec3 falb = vec3(0.150, 0.155, 0.166) * (1.0 + ra.x);");
+      z.push("            falb *= 1.0 - 0.30 * (1.0 - smoothstep(0.004, 0.016, ra.z));");
+      z.push("            falb *= mix(0.62, 1.0, smoothstep(0.0, 0.42, ra.z));");
+      z.push("            float nah = 1.0 - smoothstep(0.55, 1.50, length("
+             + F + ".xz - vec2(u_pos.x, u_pos.y)));");
+      z.push("            float fsha = 1.0;");
+      z.push("            if (nah > 0.004) fsha = mix(1.0, softShadow("
+             + F + " + vec3(0.0, 0.006, 0.0), L1, 9.0), nah);");
+      z.push("            vec3 fn = vec3(0.0, 1.0, 0.0);");
+      z.push("            vec3 famb = mix(u_envBot, u_envTop, 0.75) * 0.60;");
+      z.push("            vec3 fcol = falb * (c1 * max(dot(fn, L1), 0.0) * fsha");
+      z.push("                              + c2 * max(dot(fn, L2), 0.0) + famb);");
+      z.push("            col = mix(col, fcol, innen * u_ground);");
+      z.push("            gemalt = true;");
+      z.push("          }");
+      z.push("        }");
+      z.push("      }");
+    }
+    return z.join("\n");
+  }
+
   function bodenGLSL() {
     var f = function (v) { return v.toFixed(4); };
-    var z = ["vec3 raumAt(vec2 q){",
-             "  vec3 r = vec3(0.0, 9.0, 9.0);",
+    var z = ["vec4 raumAt(vec2 q){",
+             "  vec4 r = vec4(0.0, 9.0, 9.0, 0.0);",
              "  vec2 d; float s;"];
     for (var k in RAUM) {
-      var r = RAUM[k];
-      var cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
-      var hx = (r.x1 - r.x0) / 2, hz = (r.z1 - r.z0) / 2;
-      // Die Bodenflaeche reicht um eine halbe Wanddicke ueber den Raum
-      // hinaus, damit sie unter der Wand durchlaeuft und an der Fuge
-      // zweier Raeume kein Spalt aufreisst.
-      z.push("  d = abs(q - vec2(" + f(cx) + ", " + f(cz) + ")) - vec2("
-        + f(hx + WAND_D) + ", " + f(hz + WAND_D) + ");");
-      z.push("  s = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);");
-      z.push("  if (s < r.y) r = vec3(" + f(r.ton) + ", s, r.z);");
-      z.push("  d = abs(q - vec2(" + f(cx) + ", " + f(cz) + ")) - vec2("
-        + f(hx) + ", " + f(hz) + ");");
-      z.push("  r.z = min(r.z, abs(length(max(d, 0.0)) + min(max(d.x, d.y), 0.0)));");
+      var R = RAUM[k];
+      for (var i = 0; i < R.teile.length; i++) {
+        var t = R.teile[i];
+        var cx = (t[0] + t[1]) / 2, cz = (t[2] + t[3]) / 2;
+        var hx = (t[1] - t[0]) / 2, hz = (t[3] - t[2]) / 2;
+        // Die Bodenflaeche reicht um eine halbe Wanddicke ueber den Teil
+        // hinaus, damit sie unter der Wand durchlaeuft.
+        z.push("  d = abs(q - vec2(" + f(cx) + ", " + f(cz) + ")) - vec2("
+          + f(hx + WAND_D) + ", " + f(hz + WAND_D) + ");");
+        z.push("  s = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);");
+        z.push("  if (s < r.y) r = vec4(" + f(R.ton) + ", s, r.z, " + f(R.y) + ");");
+        z.push("  d = abs(q - vec2(" + f(cx) + ", " + f(cz) + ")) - vec2("
+          + f(hx) + ", " + f(hz) + ");");
+        z.push("  r.z = min(r.z, abs(length(max(d, 0.0)) + min(max(d.x, d.y), 0.0)));");
+      }
     }
     z.push("  return r;");
     z.push("}");
@@ -1205,29 +1395,15 @@ weltGLSL(),
 "    // stehenden Figur aendert das nichts — wo nichts Schatten wirft, bleibt",
 "    // die Farbe gleich, wie weit die Ausblendung auch reicht.",
 "    if (u_welt > 0.5){",
-"      // --- Raumboden ---",
-"      vec3 ra = raumAt(fp.xz);",
-"      float innen = 1.0 - smoothstep(-0.02, 0.30, ra.y);   // Hausrand ausblenden",
-"      if (innen > 0.002){",
-"        vec3 falb = vec3(0.150, 0.155, 0.166) * (1.0 + ra.x);",
-"        // Die Fuge im Durchgang: nur dort sichtbar, sonst unter der Wand.",
-"        falb *= 1.0 - 0.30 * (1.0 - smoothstep(0.004, 0.016, ra.z));",
-"        // Verdunklung an den Waenden, aus dem Kantenabstand statt aus einem",
-"        // Schattenmarsch. Ein marschierter Schatten ueber die ganze Flaeche",
-"        // haette sechzehn Quader JE BODENPIXEL gekostet; diese eine",
-"        // Interpolation sieht an einer Wandfuge kaum anders aus.",
-"        falb *= mix(0.62, 1.0, smoothstep(0.0, 0.42, ra.z));",
-"        // Der geworfene Schatten der Figur bleibt marschiert — er ist der",
-"        // eine, der wirklich traegt, und nur in ihrer Naehe noetig.",
-"        float nah = 1.0 - smoothstep(0.55, 1.50, length(fp.xz - vec2(u_pos.x, u_pos.y)));",
-"        float fsha = 1.0;",
-"        if (nah > 0.004) fsha = mix(1.0, softShadow(fp + vec3(0.0, 0.006, 0.0), L1, 9.0), nah);",
-"        vec3 fn = vec3(0.0, 1.0, 0.0);",
-"        vec3 famb = mix(u_envBot, u_envTop, 0.75) * 0.60;",
-"        vec3 fcol = falb * (c1 * max(dot(fn, L1), 0.0) * fsha",
-"                          + c2 * max(dot(fn, L2), 0.0) + famb);",
-"        col = mix(col, fcol, innen * u_ground);",
-"      }",
+"      // --- Raumboden, Ebene fuer Ebene ---",
+"      // Der Boden bleibt analytisch geschnitten; nur gibt es jetzt mehr",
+"      // als eine Ebene. Geprueft wird von OBEN nach UNTEN: der erste",
+"      // Schnitt, dessen Ebene zu dem Raum an dieser Stelle passt, ist der",
+"      // sichtbare. Trifft der Strahl die obere Ebene ueber einem tiefer",
+"      // liegenden Raum, faellt der Test durch und die naechste Ebene kommt",
+"      // dran. Die Treppenstufen selbst stehen im Distanzfeld, nicht hier.",
+"      bool gemalt = false;",
+bodenEbenenGLSL(),
 "    } else {",
 "    float fade = 1.0 - smoothstep(0.30, 1.45, length(fp.xz));",
 "    if (fade > 0.002){",
@@ -1806,18 +1982,25 @@ weltGLSL(),
   // ---------------------------------------------------------------
   var welt = {
     an: true,          // #welt=0 stellt die alte leere Buehne wieder her
-    x: 0, z: 0,        // Standort
+    x: 2.00, z: 1.20,  // Standort — Mitte des Hauptbereichs
+    y: 0,              // Fussbodenhoehe an dieser Stelle (Ebene oder Stufe)
     kurs: 0,           // Blickrichtung; 0 heisst nach +z
     kursZ: 0,          // gewuenschte Blickrichtung
     tempo: 0           // 0 … 1, kommt vom Joystick
   };
+  var WELT_GANG  = 3.0;    // Weltstrecke je Fussweg — siehe die Begruendung unten
+  var HUEPF_SCHUB = 0.85;  // Vorwaertsfahrt je Sekunde waehrend des Fluges
+  var BODEN_RATE = 1.6;    // wie schnell er einer Stufe folgt, Einheiten je Sekunde
   var KURS_RATE = 3.2;         // rad je Sekunde, feste Rate statt Exponentialkurve
-  var zielIst = [0, 0.500, 0]; // Kameraziel, weich nachgefuehrt
+  var zielIst = [2.00, 0.500, 1.20]; // Kameraziel, weich nachgefuehrt
 
   function raumBei(x, z) {
     for (var k in RAUM) {
-      var r = RAUM[k];
-      if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return k;
+      var tl = RAUM[k].teile;
+      for (var i = 0; i < tl.length; i++) {
+        var r = tl[i];
+        if (x >= r[0] && x <= r[1] && z >= r[2] && z <= r[3]) return k;
+      }
     }
     return null;
   }
@@ -1826,6 +2009,10 @@ weltGLSL(),
   function frei(x, z, r) {
     for (var i = 0; i < WAENDE.length; i++) {
       var q = WAENDE[i];
+      // Stufen stehen zwar im Distanzfeld, sind aber Fussboden und kein
+      // Hindernis. Ohne diese Zeile waere die Treppe genau das, was sie
+      // nicht sein soll: eine Wand quer im Durchgang.
+      if (q.stufe) continue;
       var dx = Math.max(Math.abs(x - q.cx) - q.hx, 0);
       var dz = Math.max(Math.abs(z - q.cz) - q.hz, 0);
       if (dx * dx + dz * dz < r * r) return false;
@@ -3828,7 +4015,35 @@ weltGLSL(),
       while (dk >  Math.PI) dk -= 2 * Math.PI;
       while (dk < -Math.PI) dk += 2 * Math.PI;
       welt.kurs += clamp(dk, -KURS_RATE * dt, KURS_RATE * dt);
-      if (schritt > 0) schiebe(Math.sin(welt.kurs) * schritt, Math.cos(welt.kurs) * schritt);
+      // Weltstrecke = Fussweg mal WELT_GANG.
+      //
+      // Bis hierher galt: Noki rueckt um GENAU den Weg vor, den der
+      // abstossende Fuss zurueckgelegt hat — deshalb rutschte er nicht, und
+      // das war die Zusicherung, die dieses Projekt seit dem Gang-Kapitel
+      // gehalten hat. Sie ist mit WELT_GANG = 3 bewusst aufgegeben.
+      //
+      // Der Grund ist Geometrie, nicht Bequemlichkeit: Nokis Bein misst 8.3 %
+      // seiner Koerperhoehe, ein Mensch kommt auf 49 %. Sein Schritt ist damit
+      // 6.2-mal kuerzer. Menschentempo (0.80 Koerperhoehen/s) braeuchte bei
+      // seinem Schritt 12.3 Schritte je Sekunde. Der Faktor 3 kauft das Tempo
+      // stattdessen mit sichtbarem Rutschen — eine Entscheidung des Nutzers,
+      // kein Versehen. Der Selbsttest weist den Faktor deshalb aus, statt
+      // weiter Rutschfreiheit zu behaupten.
+      if (schritt > 0) {
+        var wS = schritt * WELT_GANG;
+        schiebe(Math.sin(welt.kurs) * wS, Math.cos(welt.kurs) * wS);
+      }
+      // Im Flug traegt ihn der Huepfer weiter — sonst kaeme er die Treppe
+      // nie hinauf, denn der Hopser endet sonst genau dort, wo er begann.
+      if (hz.lift > 0 && welt.tempo > 0) {
+        var hS = HUEPF_SCHUB * dt * clamp(welt.tempo, 0, 1);
+        schiebe(Math.sin(welt.kurs) * hS, Math.cos(welt.kurs) * hS);
+      }
+      // Der Boden unter ihm. Auf der Treppe springt er je Stufe um 0.045;
+      // mit fester Rate nachgefuehrt liest sich das als Tritt, nicht als
+      // Ruck. Steht er, aendert sich nichts.
+      var zielY = bodenHoehe(welt.x, welt.z);
+      welt.y += clamp(zielY - welt.y, -BODEN_RATE * dt, BODEN_RATE * dt);
     }
 
     // --- 4 · Aktive Einlage, plus Ausblendung einer unterbrochenen ---
@@ -4271,7 +4486,7 @@ weltGLSL(),
     // Der Auftrieb liegt AUSSERHALB der Einlagenklammer (-0.020 … 0.050).
     // Die Klammer gehoert den Einlagen und behaelt ihre volle Kraft; der
     // Hopser weicht sie nicht auf, sondern kommt daneben dazu.
-    rig.body[1] = bodyYGes + hz.lift;
+    rig.body[1] = bodyYGes + hz.lift + welt.y;
     rig.body[2] = clamp(o.bz, -0.020, 0.050) + sz.bz + lz.bz;
     rig.body[3] = clamp(rollGes, -0.075, 0.075);
     rig.pose[0] = pitchGes;
@@ -4295,7 +4510,7 @@ weltGLSL(),
     // stehen lassen. Mit demselben Betrag auf beiden steigt die Figur als
     // Ganzes, und die Sohle liegt bei BODEN_FUSS + hz.lift: im Flug genau
     // `lift` ueber dem Boden, sonst bitgleich darauf.
-    rig.hueft = [0.085, BODEN_FUSS - bk.fussY + hz.lift, sz.hz + lz.hz];
+    rig.hueft = [0.085, BODEN_FUSS - bk.fussY + hz.lift + welt.y, sz.hz + lz.hz];
 
     // Glimm — eigener Kanal, pulst auch bei geschlossenen Augen weiter
     // Der Glimm pulst im Schlaf weiter, nur gedimmt und langsam. Genau das
@@ -5304,8 +5519,16 @@ weltGLSL(),
       }
     })();
 
-    // Gang: In jedem Augenblick muss genau ein Fuß relativ zum Boden
-    // stillstehen — sonst rutscht Noki, statt zu treten.
+    // Gang: In jedem Augenblick muss genau ein Fuss relativ zum GANGMUSTER
+    // stillstehen.
+    //
+    // Diese Pruefung hiess einmal „Noki rutscht nicht", und das stimmt nicht
+    // mehr: seit `WELT_GANG` = 3 rueckt er dreimal so weit vor, wie sein Fuss
+    // zurueckgelegt hat. Das ist eine bewusste Entscheidung — sein Bein misst
+    // 8.3 % seiner Koerperhoehe, Menschentempo braeuchte sonst 12 Schritte je
+    // Sekunde. Was hier weiterhin geprueft wird, ist die INNERE Stimmigkeit
+    // des Gangmusters: dass Fussweg und Bodenversatz zueinander passen. Der
+    // Rutschfaktor steht im Bericht, damit ihn niemand uebersieht.
     (function () {
       var schritt = 0.083, boden = 0, N = 600;
       var fzV = schritt * Math.sin(SCHWUNG * schrittProfil(0));
@@ -5318,7 +5541,7 @@ weltGLSL(),
         var beste = Math.min(Math.abs(nR - bandR), Math.abs(nL - bandL));
         var schrittweite = Math.abs(fz - fzV);
         if (schrittweite > 1e-9 && beste > 1e-6)
-          melde("gang-rutsch", "Beide Füße rutschen bei Zyklus " + (u / 2).toFixed(3)
+          melde("gang-muster", "Gangmuster inkonsistent bei Zyklus " + (u / 2).toFixed(3)
             + " um " + beste.toFixed(6));
         if (beste < 1e-9) ruhig++;
         fzV = fz; bandR = nR; bandL = nL;
@@ -5613,6 +5836,7 @@ weltGLSL(),
       function inWand(x, z) {
         for (var i = 0; i < WAENDE.length; i++) {
           var q = WAENDE[i];
+          if (q.stufe) continue;          // Stufen sind Boden, kein Hindernis
           if (Math.abs(x - q.cx) < q.hx && Math.abs(z - q.cz) < q.hz) return i;
         }
         return -1;
@@ -5673,9 +5897,26 @@ weltGLSL(),
         }
         return false;
       }
-      function mitte(k) { return [(RAUM[k].x0 + RAUM[k].x1) / 2, (RAUM[k].z0 + RAUM[k].z1) / 2]; }
+      // Mitte des GROESSTEN Teils eines Raumes — bei einem L-foermigen Raum
+      // liegt der Schwerpunkt sonst womoeglich in der Kerbe, also draussen.
+      function mitte(k) {
+        var best = null, bA = -1, tl = RAUM[k].teile;
+        for (var i = 0; i < tl.length; i++) {
+          var t = tl[i], A = (t[1] - t[0]) * (t[3] - t[2]);
+          if (A > bA) { bA = A; best = t; }
+        }
+        return [(best[0] + best[1]) / 2, (best[2] + best[3]) / 2];
+      }
+      // Anfahrpunkt vor einer Tuer, auf der gewuenschten Seite. Gilt fuer
+      // beide Achsen — es gibt jetzt Tueren in Laengs- und in Querwaenden.
       function tuerPunkt(t, seite) {
-        return [t.bei + seite * (WAND_D + FIGUR_R + 0.05), t.mitte];
+        var ab = WAND_D + FIGUR_R + 0.06;
+        return (t.achse === "x") ? [t.bei + seite * ab, t.mitte]
+                                 : [t.mitte, t.bei + seite * ab];
+      }
+      function tuerMit(id) {
+        for (var i = 0; i < TUER.length; i++) if (TUER[i].id === id) return TUER[i];
+        return null;
       }
 
       // 0 · RICHTUNGEN
@@ -5753,10 +5994,15 @@ weltGLSL(),
           // Sollrichtung in der Welt
           var sx = nx * Math.cos(cam.yaw) + (-ny) * (-Math.sin(cam.yaw));
           var sz = nx * (-Math.sin(cam.yaw)) + (-ny) * (-Math.cos(cam.yaw));
-          stelle(0, 0, Math.atan2(sx, sz));      // schon ausgerichtet: kein Bogen
+          // Mitten in den groessten Raum stellen und nur kurz fahren: mit
+          // Wandkontakt maesse man das Gleiten statt der Richtung. Beim
+          // ersten Entwurf stand er zu nah an einer Wand, und der Test
+          // meldete 36 Grad Abweichung, die es gar nicht gab.
+          var mm = mitte("main_room");
+          stelle(mm[0], mm[1], Math.atan2(sx, sz));
           stickSetzen(nx, ny);
           var x0 = welt.x, z0 = welt.z;
-          for (var fi = 0; fi < 90; fi++) { ruhe = 0; gehBis = 0; time += 1/60; updateRig(1/60); }
+          for (var fi = 0; fi < 45; fi++) { ruhe = 0; gehBis = 0; time += 1/60; updateRig(1/60); }
           var dx2 = welt.x - x0, dz2 = welt.z - z0;
           var weg = Math.sqrt(dx2 * dx2 + dz2 * dz2);
           if (weg < 0.02) {
@@ -5784,41 +6030,75 @@ weltGLSL(),
       cam.yaw = camVor;
 
       // 1 · Er startet im Hauptbereich.
-      stelle(0, 0, 0);
-      if (raumBei(welt.x, welt.z) !== "main_room") melde("raum-start",
-        "Noki startet nicht im Hauptbereich, sondern in " + raumBei(welt.x, welt.z));
+      // Die ANFANGSSTELLUNG pruefen, nicht irgendeinen Punkt: sie steht im
+      // `welt`-Literal und ist das, was der Nutzer beim Laden sieht.
+      if (raumBei(2.00, 1.20) !== "main_room") melde("raum-start",
+        "Die Anfangsstellung liegt nicht im Hauptbereich, sondern in "
+        + raumBei(2.00, 1.20));
 
       // 2 · Der Weg: Hauptbereich → Schlafzimmer → zurueck → Nebenraum.
       //     Erst auf die Tuerhoehe, dann seitwaerts hindurch — genau so
       //     faehrt es auch ein Mensch.
       stelle(0, TUER[0].mitte, 0);
       merke();
-      var tS = TUER[0], tN = TUER[1];
+      // Ein Rundgang durch ALLE fuenf Raeume, jede Tuer einmal benutzt und
+      // die Treppe hinunter. Gesteuert wird wie mit der Hand am Joystick:
+      // je Bild den Kurs auf den naechsten Punkt nachfuehren.
+      var tSchlaf = tuerMit("tuer_schlaf"), tWerk = tuerMit("tuer_werk"),
+          tFlur  = tuerMit("tuer_flur"),   tDiele = tuerMit("tuer_diele"),
+          tNeben = tuerMit("tuer_neben");
       var wege = [
-        [tuerPunkt(tS,  1), "vor die Schlafzimmertuer"],
-        [tuerPunkt(tS, -1), "durch die Schlafzimmertuer"],
-        [mitte("bedroom"),  "ins Schlafzimmer"],
-        [tuerPunkt(tS, -1), "zurueck zur Tuer"],
-        [tuerPunkt(tS,  1), "zurueck in den Hauptbereich"],
-        [tuerPunkt(tN, -1), "vor die Nebenraumtuer"],
-        [tuerPunkt(tN,  1), "durch die Nebenraumtuer"],
-        [mitte("room_3"),   "in den Nebenraum"]
+        [mitte("flur"),               "in den Flur"],
+        [tuerPunkt(tFlur,  -1),       "vor die Flurtuer"],
+        [tuerPunkt(tFlur,  +1),       "durch die Flurtuer"],
+        [tuerPunkt(tNeben, +1),       "vor die Nebenraumtuer"],
+        [tuerPunkt(tNeben, -1),       "durch die Nebenraumtuer"],
+        [mitte("room_3"),             "in den Nebenraum"],
+        [tuerPunkt(tNeben, -1),       "zurueck an die Tuer"],
+        [tuerPunkt(tNeben, +1),       "zurueck in den Hauptbereich"],
+        [[2.00, 2.20],                "nach oben in den Hauptbereich"],
+        [[-0.50, 2.10],               "in den oberen Arm des L"],
+        [tuerPunkt(tSchlaf, +1),      "vor die Schlafzimmertuer"],
+        [tuerPunkt(tSchlaf, -1),      "durch die Schlafzimmertuer"],
+        [mitte("bedroom"),            "ins Schlafzimmer"],
+        [tuerPunkt(tSchlaf, -1),      "zurueck an die Tuer"],
+        [tuerPunkt(tSchlaf, +1),      "zurueck in den Hauptbereich"],
+        [tuerPunkt(tDiele,  +1),      "vor die Dielentuer"],
+        [tuerPunkt(tDiele,  -1),      "durch die Dielentuer in den Flur"],
+        [tuerPunkt(tWerk,   +1),      "vor die Werkraumtuer"],
+        [tuerPunkt(tWerk,   -1),      "durch die Werkraumtuer auf die Treppe"],
+        [mitte("werkstatt"),          "die Treppe hinunter in den Werkraum"]
       ];
+      stelle(mitte("flur")[0], mitte("flur")[1], 0);
+      merke();
       for (var wi = 0; wi < wege.length; wi++) {
-        if (!fahreZu(wege[wi][0][0], wege[wi][0][1], 2400, wege[wi][1]))
+        if (!fahreZu(wege[wi][0][0], wege[wi][0][1], 2600, wege[wi][1]))
           melde("raum-weg-steckt", "Noki kommt nicht " + wege[wi][1]
-            + " — steht bei (" + welt.x.toFixed(2) + ", " + welt.z.toFixed(2) + ")");
+            + " — steht bei (" + welt.x.toFixed(2) + ", " + welt.z.toFixed(2)
+            + "), Raum " + raumBei(welt.x, welt.z));
       }
       haltAn();
-      if (besucht.indexOf("bedroom") < 0) melde("raum-weg",
-        "Der Weg nach links erreicht das Schlafzimmer nicht (" + besucht.join(" → ") + ")");
-      if (besucht.indexOf("room_3") < 0) melde("raum-weg",
-        "Der Weg nach rechts erreicht den Nebenraum nicht (" + besucht.join(" → ") + ")");
-      // Zurueck heisst zurueck: der Hauptbereich muss zwischen beiden liegen.
-      var iB = besucht.indexOf("bedroom"), iH = besucht.lastIndexOf("main_room"),
-          iN = besucht.indexOf("room_3");
-      if (iB >= 0 && iN >= 0 && !(iB < iH && iH < iN)) melde("raum-reihenfolge",
-        "Die Raumfolge ergibt keinen Weg durch den Hauptbereich: " + besucht.join(" → "));
+      for (var rn in RAUM) if (besucht.indexOf(rn) < 0)
+        melde("raum-weg", "Der Rundgang erreicht " + rn + " nicht ("
+          + besucht.join(" → ") + ")");
+
+      // Er muss unten angekommen sein — die Treppe ist der Zweck der Uebung.
+      if (Math.abs(welt.y - RAUM.werkstatt.y) > 0.01) melde("treppe-unten",
+        "Noki steht am Ende auf " + welt.y.toFixed(3) + " statt auf "
+        + RAUM.werkstatt.y.toFixed(3) + " — die Treppe traegt ihn nicht hinunter");
+
+      // Kein Riegel im L: innerhalb von main_room von einem Arm in den
+      // anderen, OHNE eine Tuer zu benutzen. Genau das konnte die alte
+      // Wandableitung nicht — sie haette hier eine Wand gebaut.
+      stelle(2.00, 2.20, 0);
+      var vorL = raumBei(welt.x, welt.z);
+      fahreZu(-0.90, 2.20, 1800, "quer durch das L");
+      haltAn();
+      if (raumBei(welt.x, welt.z) !== "main_room" || vorL !== "main_room")
+        melde("raum-l-riegel",
+          "Der Weg durch den eigenen Raum ist versperrt — im L steht eine Wand");
+      if (Math.abs(welt.x - (-0.90)) > 0.25) melde("raum-l-riegel",
+        "Im L bleibt Noki bei x=" + welt.x.toFixed(2) + " haengen statt bei -0.90");
 
       // 3 · Gegen jede Wand und in jede Ecke fahren. Er muss draussen
       //     bleiben — und er muss gleiten, statt sich festzufahren.
@@ -5826,7 +6106,8 @@ weltGLSL(),
                         Math.PI / 4, 3 * Math.PI / 4, -Math.PI / 4, -3 * Math.PI / 4];
       for (var rk in RAUM) {
         for (var ri = 0; ri < richtungen.length; ri++) {
-          stelle((RAUM[rk].x0 + RAUM[rk].x1) / 2, (RAUM[rk].z0 + RAUM[rk].z1) / 2, richtungen[ri]);
+          var m0 = mitte(rk);
+          stelle(m0[0], m0[1], richtungen[ri]);
           fahreWeg(richtungen[ri], 420, rk + " gegen die Wand");
           haltAn();
         }
@@ -5836,23 +6117,26 @@ weltGLSL(),
       //     Hindernis, und die freie Breite reicht fuer die Figur.
       for (var ti = 0; ti < TUER.length; ti++) {
         var t = TUER[ti], offen = 0, N = 400;
+        // Quer durch die Oeffnung tasten. Die Achse entscheidet, welche
+        // Koordinate laeuft — beim ersten Entwurf stand hier fest die
+        // x-Wand, und die drei Tueren in Querwaenden meldeten Unsinn.
         for (var q = 0; q <= N; q++) {
-          var zz = t.mitte - t.breite / 2 + t.breite * q / N;
-          if (frei(t.bei, zz, FIGUR_R)) offen++;
+          var w2 = t.mitte - t.breite / 2 + t.breite * q / N;
+          var pxx = (t.achse === "x") ? t.bei : w2;
+          var pzz = (t.achse === "x") ? w2   : t.bei;
+          if (frei(pxx, pzz, FIGUR_R)) offen++;
         }
         // Gemessen wird das Band, in dem Nokis MITTELPUNKT stehen darf. Es
-        // ist naturgemaess um seinen Durchmesser schmaler als die Oeffnung
-        // — eine 0.80 breite Tuer laesst 0.40 Mittelpunkte zu. Gefordert
-        // ist ein Spielraum von einem Radius: dann muss man nicht zielen.
+        // ist um seinen Durchmesser schmaler als die Oeffnung.
         var breiteFrei = t.breite * offen / (N + 1);
         if (breiteFrei < FIGUR_R) melde("raum-tuer-eng",
           t.id + ": nur " + breiteFrei.toFixed(3) + " Spielraum in der Mitte, "
           + "gefordert " + FIGUR_R.toFixed(3) + " (Oeffnung " + t.breite + ")");
-        // Und wirklich hindurch: mittig anfahren, Wand passieren, drueben ankommen
-        var vorz = (t.bei < 0) ? -1 : 1;
-        stelle(t.bei + vorz * -0.55, t.mitte, vorz > 0 ? Math.PI / 2 : -Math.PI / 2);
+        // Und wirklich hindurch: von der einen Seite anfahren, drueben ankommen
+        var vonP = tuerPunkt(t, -1), nachP = tuerPunkt(t, 1);
+        stelle(vonP[0], vonP[1], 0);
         var vonR = raumBei(welt.x, welt.z);
-        fahreWeg(vorz > 0 ? Math.PI / 2 : -Math.PI / 2, 700, t.id);
+        fahreZu(nachP[0], nachP[1], 900, t.id);
         haltAn();
         var nachR = raumBei(welt.x, welt.z);
         if (nachR === vonR || nachR === null) melde("raum-tuer-zu",
@@ -5861,7 +6145,11 @@ weltGLSL(),
 
       // 5 · Raumgroessen gegen das Mass der Figur.
       for (var rg in RAUM) {
-        var r = RAUM[rg], br = r.x1 - r.x0, tf = r.z1 - r.z0;
+        var tl0 = RAUM[rg].teile, br = 0, tf = 0;
+        for (var ti0 = 0; ti0 < tl0.length; ti0++) {
+          br = Math.max(br, tl0[ti0][1] - tl0[ti0][0]);
+          tf = Math.max(tf, tl0[ti0][3] - tl0[ti0][2]);
+        }
         if (Math.min(br, tf) < 6 * FIGUR_R) melde("raum-eng",
           rg + " ist mit " + Math.min(br, tf).toFixed(2) + " zu eng zum Bewegen");
         // Liegend misst Noki rund 0.85 — er muss sich in jedem Raum
@@ -5880,8 +6168,11 @@ weltGLSL(),
       welt.an = vorAn;
       stelle(0, 0, 0);
       setGehen(vorG === 1);
-      raumBericht = "Raeume: " + Object.keys(RAUM).length + " Raeume, "
-        + TUER.length + " Durchgaenge, Weg " + besucht.slice(0, 5).join(" → ")
+      raumBericht = "Raeume: " + Object.keys(RAUM).length + " Raeume auf "
+        + EBENEN.length + " Ebenen, " + TUER.length + " Durchgaenge, "
+        + TREPPE.stufen + " Stufen a " + TREPPE.steig.toFixed(3)
+        + ", Weltstrecke " + WELT_GANG.toFixed(1) + "x Fussweg (Fuesse rutschen)"
+        + ", Weg " + besucht.slice(0, 5).join(" → ")
         + ", Wandfahrten aus " + (Object.keys(RAUM).length * richtungen.length)
         + " Richtungen geprueft";
     })();
@@ -6035,7 +6326,7 @@ weltGLSL(),
     // Bild — die Kamera umkreiste bisher einen fest einkompilierten Punkt.
     // Nachgefuehrt wird weich: die Ansicht soll ihm folgen, nicht an ihm
     // kleben, sonst wirkt jeder Schritt wie ein Ruck der ganzen Welt.
-    var zz = welt.an ? [welt.x, 0.500, welt.z] : [0, 0.500, 0];
+    var zz = welt.an ? [welt.x, 0.500 + welt.y, welt.z] : [0, 0.500, 0];
     var zk = still ? 1 : 1 - Math.pow(0.0015, dt);
     for (var zi = 0; zi < 3; zi++) zielIst[zi] = lerp(zielIst[zi], zz[zi], zk);
 
@@ -6188,7 +6479,11 @@ weltGLSL(),
     welt.x = num(pv[0], 0);
     welt.z = num(pv[1], 0);
     welt.kurs = welt.kursZ = num(pv[2], 0);
-    zielIst = [welt.x, 0.500, welt.z];
+    // Die Hoehe wird NICHT mit angegeben, sondern abgeleitet — sonst
+    // schwebte die Figur im Standbild ueber der Treppe, weil `#pos=` nur
+    // x und z kennt.
+    welt.y = bodenHoehe(welt.x, welt.z);
+    zielIst = [welt.x, 0.500 + welt.y, welt.z];
   }
   if (hash.achtung !== undefined) { achtung = achtungZ = num(hash.achtung, 0); }
   if (hash.obj !== undefined) {

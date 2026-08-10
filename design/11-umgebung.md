@@ -1,8 +1,8 @@
 # 11 · Die Umgebung — Boden, Wände, Räume, Durchgänge
 
-> Drei Räume, zwei Durchgänge, ein Boden. Bewusst minimalistisch: eine saubere
-> räumliche Grundlage, kein fertiges Zuhause. Keine Möbel, keine Dekoration,
-> keine Agentenlogik.
+> Fünf Räume auf zwei Ebenen, fünf Durchgänge, eine Treppe. Bewusst
+> minimalistisch: eine saubere räumliche Grundlage, kein fertiges Zuhause.
+> Keine Möbel, keine Dekoration, keine Agentenlogik.
 >
 > Alles hier Beschriebene läuft in `noki.html`. Die Zahlen sind aus dem Code
 > abgeschrieben, nicht umgekehrt.
@@ -33,39 +33,79 @@ Alles Übrige liegt additiv daneben:
 
 ## Grundriss
 
+Fünf Räume auf **zwei Ebenen**, kein Riegel mehr. Der Hauptbereich ist selbst
+L-förmig, der Werkraum liegt 0.36 tiefer und wird über eine Treppe erreicht.
+
 ```
-        z
-        ↑
- +1.20  ┌────────────┬──────────────────┬───────────┐
-        │            │                  │           │
-        │  bedroom   │    main_room     │  room_3   │
-  0.00  │  2.0 × 2.4 ▯   2.6 × 2.4      ▯ 1.9 × 2.4 │
-        │            │                  │           │
- -1.20  └────────────┴──────────────────┴───────────┘
-      -3.30        -1.30              +1.30       +3.20  → x
-
-        ▯ = Durchgang, 0.80 breit, Mitte bei z = -0.15
+   z
+   ↑
+ 3.0 ┌────────────┬────────────────────────────┐
+     │  bedroom   ▯                            │
+     │ 3.2 × 1.6  │        main_room           │
+ 1.4 ├────────────┼──────▯─────┐   L-förmig    │
+     │ werkstatt  ▯   flur      │   13.6 E²     │
+     │ 3.2 × 2.0  │ 2.2 × 2.0  │               │
+     │  −0.36 !   │            │               │
+-0.6 └────────────┴────────────┼──────▯────────┤
+                               │    room_3     │
+                               │  2.8 × 2.0    │
+-2.6                           └───────────────┘
+    -4.8       -1.6          0.6              3.4  → x
 ```
 
-| Kennung | Name | Bereich x | Bereich z | Maße | Bodenton |
-|---|---|---|---|---|---|
-| `main_room` | Hauptbereich | −1.30 … +1.30 | −1.20 … +1.20 | 2.60 × 2.40 | ±0 |
-| `bedroom` | Schlafzimmer | −3.30 … −1.30 | −1.20 … +1.20 | 2.00 × 2.40 | −0.170 |
-| `room_3` | Nebenraum | +1.30 … +3.20 | −1.20 … +1.20 | 1.90 × 2.40 | +0.155 |
-
-| Durchgang | von → nach | in der Wand bei | Mitte | Breite |
+| Kennung | Name | Ebene | Fläche | im Menschmaßstab |
 |---|---|---|---|---|
-| `tuer_schlaf` | `main_room` → `bedroom` | x = −1.30 | z = −0.15 | 0.80 |
-| `tuer_neben` | `main_room` → `room_3` | x = +1.30 | z = −0.15 | 0.80 |
+| `main_room` | Hauptbereich (L) | 0 | 13.6 E² | 42 m² |
+| `room_3` | Nebenraum | 0 | 5.6 E² | 17 m² |
+| `bedroom` | Schlafzimmer | 0 | 5.1 E² | 16 m² |
+| `werkstatt` | Werkraum | **−0.36** | 6.4 E² | 20 m² |
+| `flur` | Flur | 0 | 4.4 E² | 13 m² |
 
-Wandhöhe `0.62`, halbe Wanddicke `0.12`, Türpfosten `0.78` hoch und
-`0.15` halbdick. Kollisionsradius der Figur `0.20`.
+**Zusammen 35 E² — im Menschmaßstab 107 m².** Rechnet man `1.0 = 1.75 m`, sind
+das die Maße einer echten Wohnung; die Räume sind damit im selben Verhältnis
+zur Figur wie beim Menschen zum Zimmer.
 
-**Warum alle Räume gleich tief sind.** Nicht aus Bequemlichkeit: dadurch fällt
-die gemeinsame Wand zweier Räume auf genau dieselbe Kante, und die
-Zusammenfassung in `waende()` erkennt sie als *eine* Wand. Bei verschiedenen
-Tiefen stünden dort zwei überlappende Quader, jede Tür würde doppelt gebaut und
-die Pfosten stünden zweimal ineinander.
+Fünf Durchgänge, zwei davon zwischen Flur und Hauptbereich — daraus wird ein
+Rundweg statt lauter Sackgassen.
+
+---
+
+## Die Treppe — bemessen nach seinem Bein, nicht nach dem Bauwesen
+
+Eine im Menschmaßstab proportionale Stufe (0.17 m bei 1.75 m Körperhöhe)
+entspräche bei Noki **0.097 — also 117 % seiner gesamten Beinlänge** von 0.083.
+Er könnte sie so wenig begehen wie ein Mensch einen meterhohen Absatz.
+
+Gebaut ist sie deshalb nach dem, was sein Körper hergibt:
+
+| | |
+|---|---|
+| Steigung | **0.045** = 54 % seiner Beinlänge |
+| Auftritt | 0.16 |
+| Stufen | 8, zusammen 0.36 |
+| hinunter | mit dem vorhandenen Gang |
+| hinauf | mit dem Hüpfer — sein Scheitel liegt bei 0.060, also über der Stufe |
+
+Damit der Hüpfer ihn hinaufträgt, darf er im Flug vorwärts fahren
+(`HUEPF_SCHUB`); ohne das endete er per Endpunktgleichheit genau dort, wo er
+begann. Die Stufen stehen im Distanzfeld, sind für die Kollision aber
+**Fußboden und kein Hindernis** — sonst stünde die Treppe als Wand im
+Durchgang.
+
+---
+
+## Zwei Ebenen
+
+Jeder Raum trägt eine Höhe `y`. `welt.y` folgt der Bodenhöhe an seinem
+Standort mit fester Rate, damit eine Stufe als Tritt liest und nicht als Ruck.
+Angehoben wird an genau zwei Stellen — `rig.body[1]` und `rig.hueft[1]` —,
+alles Übrige rechnet weiter relativ zum örtlichen Fußboden, auch die
+Bodenbedingung des Liegens. Der analytische Boden schneidet gegen jede Ebene
+einzeln, von oben nach unten; der erste Treffer, dessen Ebene zum Raum an
+dieser Stelle passt, ist der sichtbare.
+
+Eine Wand zwischen zwei Ebenen steht auf dem tieferen Boden und reicht über
+den höheren hinaus — das ergibt sich aus der Ableitung, ohne Sonderfall.
 
 ---
 
@@ -85,77 +125,25 @@ Wand hängen, die man nicht sieht — oder liefe durch eine, die man sieht.
 
 ---
 
-## Warum die Räume so klein sind
+## Tempo — und was es kostet
 
-Nokis Bein misst von der Hüfte bis zum Knöchel `0.083` — **8.3 % seiner Höhe**.
-Seine Schrittlänge folgt daraus zu `0.068`, ein voller Zyklus trägt `0.135`.
+Nokis Bein misst **8.3 % seiner Körperhöhe**; beim Menschen sind es 49 %. Seine
+Schrittlänge ist damit 6.2-mal kürzer. Menschentempo (0.80 Körperhöhen je
+Sekunde) bräuchte bei diesem Schritt **12.3 Schritte je Sekunde**.
 
-| Schrittfrequenz | Schritte/s | Tempo | 2.6 breiter Raum |
-|---|---|---|---|
-| 0.72 (bisher) | 1.4 | 0.097 /s | 26.7 s |
-| 2.05 (Vollausschlag) | 4.1 | 0.278 /s | 9.4 s |
+`WELT_GANG = 3` löst das anders: die Weltstrecke ist das Dreifache des
+Fußwegs. Das ergibt 0.83 Körperhöhen je Sekunde — genau Menschentempo — bei
+unverändertem Gangbild.
 
-Für ein Streifenmuster war das gleichgültig. Für einen Weg durch drei Räume sind
-es halbe Minuten. Zwei Dinge folgen daraus:
-
-1. Der Joystick setzt die **Schrittfrequenz**, nicht die Strecke. Schneller
-   heißt schneller treten. Würde stattdessen die Strecke skaliert, glitte Noki
-   bei halber Kraft über den Boden.
-2. Die **Räume sind nach seiner Schrittlänge bemessen**, nicht umgekehrt. Ein
-   Haus in menschlichen Proportionen wäre für ihn ein Marathon.
-
-Die Strecke bleibt exakt an den Fuß gekoppelt: `welt` rückt je Bild um genau
-den Weg vor, den der abstoßende Fuß relativ zum Boden zurücklegt. Die
-Zusicherung des Selbsttests, dass **immer genau ein Fuß stillsteht**, bedeutet
-damit ab jetzt buchstäblich: *Noki rutscht nicht, während er läuft* — bei jedem
-Tempo.
-
----
-
-## Die Richtungskonvention
-
-Sie steht hier, weil sie einmal falsch war und niemand es dem Code ansehen
-konnte. Drei Dinge müssen dieselbe Zahl meinen:
-
-```
-Nokis Gesicht     lokal +z          (CANON.visorC = [0, 0.255, +0.200])
-Welt → lokal      rotY(p − pos, +kurs)      in `zuFigur`
-Weltvorwärts      (sin kurs, 0, cos kurs)   in `schiebe`
-```
-
-Aus den ersten beiden folgt die dritte: `lokal → Welt` ist `rotY(v, −kurs)`,
-und das bildet lokales `+z` auf `(sin kurs, 0, cos kurs)` ab. **Stünde in
-`zuFigur` ein `−kurs`, wäre die Blickrichtung an der x-Achse gespiegelt** —
-bei ±90° zeigten Blick und Bewegung exakt entgegengesetzt, und die Augen
-lägen auf der falschen Kopfseite.
-
-Genau dieser Fehler war einmal drin, zusammen mit einer Umkehrung zu viel in
-der Joystickachse (`atan2(nx, −ny)` statt `atan2(nx, ny)`). Der Selbsttest
-prüft beides jetzt: er liest das Vorzeichen **aus dem Shader-Text** statt es
-abzuschreiben, und er fährt acht Stickrichtungen über vier Kamerawinkel und
-vergleicht den tatsächlichen Versatz mit dem Sollwert.
-
-Ein dritter Ort hängt daran: die Zuhör-Haltung dreht den Kopf mit
-`welt.kurs − camY` zum Betrachter. Das blosse `−camY` war richtig, solange
-der Rumpf sich nie drehen konnte.
-
-### Und die Bemalung gehört in denselben Rahmen
-
-`mapChar` bekommt `zuFigur(p)` — die **Form** steht damit richtig. Die
-**Bemalung** ist ein zweiter Ort, an den man nicht denkt: `paintWhite` und
-`paintGlass` laufen erst im Schattierungsschritt, mit dem Trefferpunkt aus dem
-Marsch, und der ist in Weltkoordinaten. `toHead` und `toBody` darin wissen von
-`zuFigur` nichts.
-
-Solange die Figur im Ursprung stand, fiel das nicht auf. Sobald sie sich
-versetzte oder drehte, standen Augen, Mundlinie und Fugen in der **Welt**
-still, während der Kopf sich darunter wegbewegte: **das Visier war schwarz und
-leer**, und die Linien wanderten beim Gehen über den Körper, statt an ihrem
-Platz zu bleiben. Schon reines Versetzen genügte — Drehung war gar nicht nötig.
-
-Richtig ist: Normale, Licht und Spiegelung bleiben in Weltkoordinaten, die
-Bemalung bekommt `pFig = zuFigur(p)`. Der Selbsttest liest das im Shader-Text
-nach; rechnen kann er es nicht, weil er nicht zeichnet.
+**Der Preis ist ausdrücklich zu nennen:** damit ist die Rutschfreiheit
+aufgegeben. Bis dahin galt, dass Noki um genau den Weg vorrückt, den sein
+abstoßender Fuß zurückgelegt hat; der Selbsttest hat das über drei Stufen
+hinweg zugesichert. Jetzt rutscht er sichtbar. Das war eine bewusste
+Entscheidung gegen die Alternativen (12 Schritte je Sekunde, oder ein deutlich
+anderes Gangbild mit weit ausholenden Schritten). Die alte Prüfung heißt
+deshalb nicht mehr „rutscht nicht", sondern prüft nur noch die innere
+Stimmigkeit des Gangmusters — und der Faktor steht im Selbsttest-Bericht,
+damit ihn niemand übersieht.
 
 ---
 
@@ -175,7 +163,7 @@ Wand ist schlimmer als ein Halt.
   Kamera beim Neigen nach unten irgendwann darunter, der erste Abtastpunkt läge
   im Boden und die Figur verschwände. Niedrige Wände ändern daran nichts.
 * **Wandschatten am Boden sind gerechnet, nicht marschiert.** Ein weicher
-  Schattenmarsch über die ganze Fläche hätte sechzehn Quader *je Bodenpixel*
+  Schattenmarsch über die ganze Fläche hätte jeden Wandquader *je Bodenpixel*
   gekostet; die Verdunklung aus dem Kantenabstand sieht an einer Wandfuge kaum
   anders aus. Der geworfene Schatten der **Figur** bleibt marschiert — er ist
   der eine, der trägt — und nur in ihrer Nähe.
