@@ -16533,7 +16533,8 @@
   // DIE eine Aufraeumfunktion — Taste, Space, Verbergen, Ende. Sie
   // entscheidet auch, wie der echte Noki zurueckkommt.
   function schwarmStopp(grund) {
-    var S = schwarm; if (!S) return;
+    var S = schwarm;
+    if (!S) { if (parade) { paradeEnde(grund || ""); paradeEbenePruefen(); } return; }   // Timer-Runde ohne Klone
     schwarm = null;
     if (S.raf) cancelAnimationFrame(S.raf);
     window.removeEventListener("keydown", schwarmTaste, true);
@@ -16578,7 +16579,8 @@
     if (gehenZ === 1) return "walk";
     return "idle";
   }
-  function paradeStart() {
+  // runde: Timer-Ende ohne Effekt-Klone - Rueckkehr von der Gegenseite.
+  function paradeStart(runde) {
     var nein = versteckt ? "verborgen" : shell !== "desktop" ? "shell" : parade ? "parade" : spaceZug ? "space"
              : raum.getragen || griff.an ? "getragen" : spawn.lauf ? "spawn" : (typeof mf !== "undefined" && mf.an) ? "maus"
              : hoverDefekt ? "hover" : bueroAktiv() ? "buero" : "";
@@ -16586,7 +16588,7 @@
     var flog = flug.an || !inLaufZone();
     parade = { phase: "steigen", t: 0, dir: raum.x < buehne.w / 2 ? 1 : -1,
                merk: { x: raum.x, y: raum.y, dreh: raum.dreh, flog: flog, zustand: paradeZustand(), energie: energie },
-               V: 0, wvx: 0, wvy: 0, schnell: false };
+               V: 0, wvx: 0, wvy: 0, schnell: false, runde: !!runde };
     paradeEbenePruefen();
     // Laufendes beenden — wie vor einem Space-Transfer.
     fGruss.t = -1; fGruss.c1 = false; clip = null; letzteOff = null; fadeOff = null; achtungZ = 0;
@@ -16664,7 +16666,9 @@
     P.schnell = !!schnell;
     if (P.phase === "aus" || paradeDraussen()) {
       // Von der Kante, die dem Ziel naeher ist, wieder herein — nie Spawn.
-      var links = P.zx < buehne.w / 2;
+      // Timer-Runde: von der GEGENUEBERLIEGENDEN Kante (hinaus rechts ->
+      // herein links), also in derselben Flugrichtung weiter - kein Rueckwaertsflug.
+      var links = P.runde ? P.dir > 0 : P.zx < buehne.w / 2;
       raum.x = links ? -H * (schnell ? 0.9 : 1.6) : buehne.w + H * (schnell ? 0.9 : 1.6);
       raum.y = clamp(P.zy - H * (schnell ? 0.3 : 1.2), g.oben, g.unten); raum.ix = raum.x; raum.iy = raum.y;
       // Eintrittsfahrt nach dem Bremsweg bis zum Ziel (nahe Kante: langsamer).
@@ -16760,7 +16764,8 @@
       } else if (P.t > 6) { paradeHeim(true); }
     } else if (P.phase === "aus") {
       flug.vx = 0; flug.vy = 0; flug.phase = "ruhen";        // ausserhalb stillhalten
-      if (!schwarm && P.t > 0.5) paradeHeim(false);          // Schwarm weg ohne Rueckmeldung
+      // Timer-Runde: nur ein kurzer Moment "nebenan", dann weiter.
+      if (!schwarm && P.t > (P.runde ? 0.25 : 0.5)) paradeHeim(false);   // Schwarm weg ohne Rueckmeldung
     } else if (P.phase === "heim") {
       var nah = Math.hypot(P.zx - raum.x, P.zy - raum.y);
       var art = P.schnell ? "speed" : nah > H * 6 ? "speed" : nah > H * 2.5 ? "flitzen" : "normal";
@@ -16789,22 +16794,17 @@
     // Test: Klone sichtbar machen (Pose je Muster) — kein Zustand des echten Noki.
     klone: function () { return schwarm ? schwarm.klone.map(function (k) { return { m: k.muster, nh: +k.NH.toFixed(1), d: +k.dauer.toFixed(2), pr: k.profil, t0: +k.t0.toFixed(2), x: Math.round(k.p ? k.p[0] : 0), y: Math.round(k.p ? k.p[1] : 0), dreh: +(k.dreh || 0).toFixed(2), neig: +k.neig.toFixed(2), bank: +k.bank.toFixed(2), spin: +(k.spin || 0).toFixed(2), heb: +k.heb.toFixed(2), kd: +k.kdreh.toFixed(2), bein: +k.bein.toFixed(2), lang: +k.lang.toFixed(2), spur: +k.spurU.toFixed(2) }; }) : []; },
     paradeZustand: function () { return parade ? { phase: parade.phase, x: Math.round(raum.x), y: Math.round(raum.y), merk: parade.merk } : null; } };
-  // TIMER-ENDE (ersetzt die Parade): Noki wird voruebergehend sehr gross,
-  // fliegt GENAU EINMAL die bestehende Aktion "Einmal durch den Desktop"
-  // (SPEED, hin und zurueck) und kehrt in seinen vorherigen Zustand zurueck.
-  // Ueberschrieben wird nur die Groesse; danach exakt die vorherige
-  // Benutzergroesse (eine Aenderung waehrend des Effekts gilt als neue).
+  // TIMER-ENDE: Noki wird voruebergehend sehr gross und fliegt EINE Runde -
+  // der bestehende Flug des echten Noki aus der Parade (Winken, Abheben,
+  // SPEED seitlich hinaus, Rueckkehr) OHNE Effekt-Klone: hinaus auf der
+  // einen Seite, herein von der GEGENUEBERLIEGENDEN (paradeStart(true)).
+  // Danach exakt die vorherige Benutzergroesse (eine Aenderung waehrend des
+  // Effekts gilt als neue), Energie und Haltung (paradeFertig).
   var timerGross = null;
   function timerGrossStart() {
     if (timerGross || versteckt || shell !== "desktop") return;
     timerGross = { phase: "wachsen", t0: performance.now(), groesse: groesseZiel !== null ? groesseZiel : NOKI_HOCH,
                    energie: energie, zustand: paradeZustand(), flog: flug.an || !inLaufZone() };
-    // Ruhen beenden (sonst lehnt die Aktion ab) - wie vor einem Space-Transfer.
-    if (aktion.name) aktionEnde();
-    if (manuellSchlaf) schlafWecken();
-    sitzWunsch = null; liegeWunsch = null; schlafWunsch = "wach";
-    if (typeof fensterSitz !== "undefined" && fensterSitz) fensterSitz.an = false;
-    autoAbbrechen();
     groesseZiel = clamp(Math.max(timerGross.groesse * 2.6, 150), 20, 400);
     appRuf("noki_log", { msg: "[TIMER_ENDE] gross von=" + Math.round(timerGross.groesse) + " auf=" + Math.round(groesseZiel) + " zustand=" + timerGross.zustand });
   }
@@ -16812,21 +16812,23 @@
     var G = timerGross, t = (performance.now() - G.t0) / 1000;
     if (versteckt || shell !== "desktop") { timerGrossEnde("verborgen"); return; }
     if (G.phase === "wachsen") {
-      // Gross (spaetestens nach 2 s) und frei: genau EINE Aktion.
+      // Gross (spaetestens nach 2 s), dann genau EINE Runde.
       if (groesseZiel !== null && t < 2) return;
-      if (aktionHindernis("desktop") === "" && nokiAktion("desktop")) { G.phase = "flug"; G.t0 = performance.now(); }
-      else if (t > 4) timerGrossEnde("abgelehnt: " + aktionHindernis("desktop"));
+      if (paradeStart(true)) { G.phase = "runde"; G.t0 = performance.now(); }
+      else if (t > 4) timerGrossEnde("abgelehnt");
       return;
     }
-    // Vom Boden hebt er erst ab (aktionNachAbheben), dann laeuft die Aktion.
-    if (aktion.name !== "desktop" && !aktionNachAbheben) timerGrossEnde("fertig");
+    if (!parade) timerGrossEnde("fertig");
   }
   function timerGrossEnde(grund) {
     var G = timerGross; if (!G) return;
     timerGross = null;
+    var runde = G.phase === "runde";
+    if (parade) paradeEnde(grund === "verborgen" ? "verborgen" : "abbruch");
     groesseZiel = G.groesse;
     if (energie !== G.energie && ENERGIE_NAME[G.energie]) energieSetzen(G.energie);
-    spaceStateRestore({ prevState: G.flog ? "fly" : (G.zustand === "fly" ? "idle" : G.zustand) });
+    // Haltung: nach einer Runde stellt paradeFertig sie wieder her.
+    if (!runde) spaceStateRestore({ prevState: G.flog ? "fly" : (G.zustand === "fly" ? "idle" : G.zustand) });
     appRuf("noki_log", { msg: "[TIMER_ENDE] zurueck grund=" + grund + " groesse=" + Math.round(G.groesse) + " zustand=" + G.zustand });
   }
   function timerTakt() {

@@ -62,34 +62,53 @@ const server = http.createServer((req, res) => {
   check(await panel(), 'Timer-Panel waehrend laufendem Timer offen');
   await page.waitForFunction(() => window.NokiTimer.zustand().ende !== null, null, { timeout: 30000 });
   const ende = await page.evaluate(() => ({ panel: window.NokiWerk.zustand().offen, effekt: window.NokiTimer.zustand().ende,
-    parade: window.NokiSchwarm.paradeZustand(), schwarm: window.NokiSchwarm.zustand().an,
-    klone: !!document.getElementById('nokiSchwarm'),
-    layer: window.__calls.filter(c => c.name === 'noki_parade_ebene' || (c.name === 'noki_schwarm' && c.args && c.args.an)).length }));
+    schwarm: window.NokiSchwarm.zustand().an, klone: !!document.getElementById('nokiSchwarm'),
+    schwarmAn: window.__calls.filter(c => c.name === 'noki_schwarm' && c.args && c.args.an).length }));
   check(!ende.panel, 'Timer-Ende schliesst ein offenes Timer-Panel');
-  check(!ende.parade && !ende.schwarm && !ende.klone && ende.layer === 0, 'keine Parade, keine Klone, kein Parade-Layer');
+  check(!ende.schwarm && !ende.klone && ende.schwarmAn === 0, 'keine Logo-Parade, keine Klone');
   await page.waitForFunction(() => window.NokiRaum.groesse() > 54 * 1.4 * 2, null, { timeout: 30000 }).catch(() => {});
   const gross = await page.evaluate(() => window.NokiRaum.groesse());
   check(gross > 54 * 1.4 * 2, `Noki wird voruebergehend sehr gross (${gross.toFixed(1)} px)`);
-  // Headless WebGL runs at ~1-2 fps and the simulation clock advances per
-  // frame: lift-off + flight take minutes here (seconds on the Mac).
-  await page.waitForFunction(() => window.NokiAktion.laeuft() === 'desktop', null, { timeout: 600000 }).catch(() => {});
-  const flug = await page.evaluate(() => ({ e: window.NokiTimer.zustand().ende, a: window.NokiAktion.laeuft() }));
-  check(flug.e === 'flug' && flug.a === 'desktop', `genau "Einmal durch den Desktop" laeuft (${flug.e}/${flug.a})`);
-  // A user size change during the effect becomes the size to return to.
-  await page.evaluate(() => window.NokiRaum.groesseZiel(54 * 1.2));
+  // Follow the ONE round (headless: ~1-2 fps, simulation time per frame).
+  const W = await page.evaluate(() => window.NokiRaum.buehne().w);
+  const phasen = [], spur = [];
   const t0 = Date.now();
-  await page.waitForFunction(() => window.NokiTimer.zustand().ende === null, null, { timeout: 1500000 }).catch(() => {});
+  let warGross = true;
+  while (Date.now() - t0 < 1500000) {
+    const z = await page.evaluate(() => ({ p: window.NokiSchwarm.paradeZustand(), e: window.NokiTimer.zustand().ende,
+      g: window.NokiRaum.groesse(), a: window.NokiAktion.laeuft(), x: window.NokiRaum.ort().x }));
+    if (z.p && phasen[phasen.length - 1] !== z.p.phase) { phasen.push(z.p.phase); spur.push(Math.round(z.p.x)); }
+    if (z.p && z.p.phase !== 'landen' && z.g < 54 * 1.4 * 2) warGross = false;
+    if (z.a === 'desktop') { check(false, 'keine "Einmal durch den Desktop"-Choreografie'); break; }
+    if (z.e === null) break;
+    await page.waitForTimeout(300);
+  }
+  console.log(`  Phasen: ${phasen.join(' > ')}  x beim Phasenwechsel: ${spur.join(', ')}  (Breite ${W})`);
   console.log(`  Effekt-Dauer im Headless-Browser: ${((Date.now() - t0) / 1000).toFixed(1)} s`);
-  let starts = await page.evaluate(() => window.__calls.length);
+  check(phasen[0] === 'winken', 'beginnt mit dem Winken');
+  const iAus = phasen.indexOf('aus'), iHeim = phasen.indexOf('heim');
+  check(iAus > 0 && iHeim > iAus, 'fliegt hinaus und kommt zurueck (eine Runde)');
+  if (iAus > 0 && iHeim > iAus) {
+    const rausRechts = spur[iAus] > W / 2, reinLinks = spur[iHeim] < W / 2;
+    check(rausRechts === reinLinks, `hinaus auf der einen, herein von der gegenueberliegenden Seite (aus x=${spur[iAus]}, heim x=${spur[iHeim]})`);
+  }
+  check(warGross, 'bleibt waehrend der Runde gross');
+  await page.waitForFunction(() => Math.abs(window.NokiRaum.groesse() - 54 * 1.4) < 0.1, null, { timeout: 120000 }).catch(() => {});
+  const zurueckG = await page.evaluate(() => window.NokiRaum.groesse());
+  check(Math.abs(zurueckG - 54 * 1.4) < 0.15, `danach exakt die vorherige Benutzergroesse (${zurueckG})`);
+  // Normal size control works again afterwards.
+  await page.evaluate(() => window.NokiRaum.groesseZiel(54 * 1.2));
   await page.waitForFunction(() => Math.abs(window.NokiRaum.groesse() - 54 * 1.2) < 0.1, null, { timeout: 60000 }).catch(() => {});
-  const danach = await page.evaluate(() => ({ e: window.NokiTimer.zustand().ende, g: window.NokiRaum.groesse(), en: window.NokiEnergie.lesen(), a: window.NokiAktion.laeuft() }));
-  check(danach.e === null && !danach.a, 'Effekt beendet, keine Aktion laeuft mehr');
-  check(Math.abs(danach.g - 54 * 1.2) < 0.1, `danach exakt die (waehrenddessen gewaehlte) Benutzergroesse (${danach.g})`);
+  const danach = await page.evaluate(() => ({ e: window.NokiTimer.zustand().ende, p: window.NokiSchwarm.paradeZustand(), g: window.NokiRaum.groesse(), en: window.NokiEnergie.lesen() }));
+  check(danach.e === null && !danach.p, 'Runde beendet');
+  check(Math.abs(danach.g - 54 * 1.2) < 0.15, `normale Groessensteuerung danach (${danach.g})`);
   check(danach.en === 'normal', `Energie unveraendert (${danach.en})`);
-  // Exactly one action: no second start after the end.
+  // 3. Waving still works afterwards, repeatedly (petting greeting path).
   await page.waitForTimeout(3000);
-  check(!(await page.evaluate(() => window.NokiAktion.laeuft())) && starts >= 0, 'keine zweite Timer-Animation');
-
+  const w1 = await page.evaluate(() => window.NokiTestGruss());
+  await page.waitForTimeout(6000);
+  const w2 = await page.evaluate(() => window.NokiTestGruss());
+  check(w1 && w2, `Winken danach sofort und wiederholt moeglich (${w1}, ${w2})`);
   await browser.close();
   server.close();
   console.log(fehler ? `${fehler} FEHLER` : 'ALLES OK');

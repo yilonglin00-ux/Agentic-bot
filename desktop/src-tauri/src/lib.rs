@@ -5077,15 +5077,57 @@ fn app_icons_laden(pfade: Vec<String>) -> std::collections::HashMap<String, Stri
 /// Arbeitsplatz-Fokus Start: eine Fenster-Sitzung auf dem AKTUELLEN
 /// Schreibtisch (siehe fokus_sitzung.rs). `apps` = gewaehlte App-Bundles.
 #[tauri::command]
-async fn fokus_sitzung_start(apps: Vec<String>, prior_energy: String, profil: Option<String>) -> serde_json::Value {
+async fn fokus_sitzung_start(app: tauri::AppHandle, apps: Vec<String>, prior_energy: String, profil: Option<String>) -> serde_json::Value {
     #[cfg(target_os = "macos")]
     {
         fokus_sitzung::profil_merken(profil.as_deref().unwrap_or(""));
-        let space = cgs::aktiver_space().map(|(s, _)| s).unwrap_or(0);
-        tauri::async_runtime::spawn_blocking(move || fokus_sitzung::starten(&apps, &prior_energy, space, || cgs::aktiver_space().map(|(s, _)| s).unwrap_or(0))).await.unwrap_or_default()
+        let r = tauri::async_runtime::spawn_blocking(move || {
+            // Native full screen: the session never starts inside it. First
+            // the nearest normal Desktop becomes active (verified arrival),
+            // then the unchanged start runs there - that Desktop is the
+            // session's focusSpace for start AND Beenden.
+            let space = match vollbild_zum_schreibtisch() {
+                Ok(s) => s,
+                Err(e) => return serde_json::json!({ "ok": false, "error": e }),
+            };
+            fokus_sitzung::starten(&apps, &prior_energy, space, || cgs::aktiver_space().map(|(s, _)| s).unwrap_or(0))
+        }).await.unwrap_or_default();
+        noki_vorn_sichern_app(&app);
+        r
     }
     #[cfg(not(target_os = "macos"))]
-    { let _ = (apps, prior_energy, profil); serde_json::json!({}) }
+    { let _ = (app, apps, prior_energy, profil); serde_json::json!({}) }
+}
+
+/// The Space the focus session starts on. A normal Desktop: itself. Native
+/// full screen (type 4): the nearest normal Desktop in Mission-Control order
+/// - to the right first, else to the left - never Noki's own reserved
+/// Desktop while another exists. The switch is the existing visible
+/// navigation (`sichtbar_zum_space`: one Ctrl+Arrow step at a time, each
+/// arrival read back from WindowServer); it returns only when the target
+/// is really active, so nothing of the session runs before that.
+#[cfg(target_os = "macos")]
+fn vollbild_zum_schreibtisch() -> Result<u64, String> {
+    let (aktiv, typ) = cgs::aktiver_space().ok_or("Aktiver Schreibtisch nicht lesbar")?;
+    if typ != 4 {
+        return Ok(aktiv);
+    }
+    let ordnung = cgs::space_reihenfolge().ok_or("Schreibtisch-Reihenfolge nicht lesbar")?;
+    let i = ordnung.iter().position(|s| *s == aktiv).ok_or("Vollbild-Space steht nicht in der Reihenfolge")?;
+    let reserviert = ARBEITSPLATZ.lock().ok().and_then(|g| g.as_ref().map(|r| r.id));
+    let normal = |s: &u64| cgs::space_typ(*s) == Some(arbeitsplatz::TYP_SCHREIBTISCH);
+    let suche = |ohne_reserviert: bool| {
+        let ok = |s: &&u64| normal(s) && !(ohne_reserviert && Some(**s) == reserviert);
+        ordnung[i + 1..].iter().find(ok).or_else(|| ordnung[..i].iter().rev().find(ok)).copied()
+    };
+    let ziel = suche(true).or_else(|| suche(false)).ok_or("Kein normaler Schreibtisch vorhanden")?;
+    virtual_workspace::trace(&format!("FOCUS_FULLSCREEN_EXIT from={aktiv} to={ziel}"));
+    cgs::sichtbar_zum_space(ziel)?;
+    let jetzt = cgs::aktiver_space().map(|(s, _)| s).unwrap_or(0);
+    if jetzt != ziel {
+        return Err(format!("Schreibtisch {ziel} nicht erreicht (aktuell {jetzt})"));
+    }
+    Ok(ziel)
 }
 
 /// Trockenlauf des Fokus-Starts: nur Bericht, kein Fenster wird beruehrt.
@@ -5111,11 +5153,15 @@ async fn fokus_sitzung_status() -> serde_json::Value {
 /// Arbeitsplatz-Fokus Ende: nur Sitzungsfenster schliessen, nur selbst
 /// minimierte Fenster zurueck.
 #[tauri::command]
-async fn fokus_sitzung_ende() -> serde_json::Value {
+async fn fokus_sitzung_ende(app: tauri::AppHandle) -> serde_json::Value {
     #[cfg(target_os = "macos")]
-    { tauri::async_runtime::spawn_blocking(fokus_sitzung::beenden).await.unwrap_or_default() }
+    {
+        let r = tauri::async_runtime::spawn_blocking(fokus_sitzung::beenden).await.unwrap_or_default();
+        noki_vorn_sichern_app(&app);
+        r
+    }
     #[cfg(not(target_os = "macos"))]
-    { serde_json::json!({}) }
+    { let _ = app; serde_json::json!({}) }
 }
 
 #[tauri::command]
@@ -14828,6 +14874,9 @@ fn space_waechter(app: tauri::AppHandle) {
                 let _ = app.run_on_main_thread(move || window_overview::space_gewechselt(&h));
             }
             if sid_neu {
+                // Visible => frontmost on every Space change (also full screen
+                // in/out): re-assert the layer, order front without activation.
+                noki_vorn_sichern_app(&app);
                 // Every Space change re-reads the real topology (validated).
                 let _ = cgs::desktops();
                 reconcile_target_topology(&app, TargetChangeSource::SpaceWatcher, "space_watcher_sid_neu");
@@ -15117,13 +15166,9 @@ fn sicht_waechter(app: tauri::AppHandle) {
                 // Ebene wieder nach hinten; dann schiebt sich ein Fenster
                 // davor. Waehrend eines Durchgangs (Noki laeuft ABSICHTLICH
                 // hinter einem Fenster entlang) bleibt das aus.
-                let lage = h2.state::<Lage>();
-                if *lage.ebene.lock().unwrap() == "vorn"
-                    && !lage.durchgang.load(Ordering::Relaxed)
-                    && !im_vollbild()
-                {
-                    nach_vorn_holen(&w);
-                }
+                // Also in native full screen and during a Durchgang (the
+                // native layer no longer goes back for it): visible => front.
+                noki_vorn_sichern(&w);
             }
             sicht_menue(&h2);
         });
@@ -15322,6 +15367,55 @@ fn nach_vorn_holen(win: &WebviewWindow) {
 
 #[cfg(not(target_os = "macos"))]
 fn nach_vorn_holen(_: &WebviewWindow) {}
+
+/// VISIBLE => FRONTMOST (2026-10-03). Only while Noki is visible (a hidden
+/// Noki stays hidden - nothing here shows a window) and the effective layer
+/// is "vorn" (user choice, native full screen or the timer round): the
+/// floating level is re-asserted if anything lowered it, then the window is
+/// ordered front with orderFrontRegardless - no activation, the user's app
+/// keeps keyboard focus. Called on events (Space change, focus session
+/// start/end) and from the existing 1 s visibility watcher; no new loop.
+/// A "Durchgang" no longer changes the native layer (Noki's depth is his
+/// own masking), so it does not block this either.
+fn noki_vorn_sichern(win: &WebviewWindow) {
+    if !win.is_visible().unwrap_or(false) || global_verborgen() || !NOKI_GEZEIGT.load(Ordering::Relaxed) {
+        return;
+    }
+    let lage = win.state::<Lage>();
+    let vorn = PARADE_EBENE.load(Ordering::Relaxed) || im_vollbild() || *lage.ebene.lock().unwrap() == "vorn";
+    if !vorn {
+        return; // the user explicitly chose "In den Hintergrund"
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use std::ffi::c_void;
+        #[link(name = "objc")]
+        extern "C" {
+            fn sel_registerName(n: *const std::os::raw::c_char) -> *const c_void;
+            fn objc_msgSend();
+        }
+        if let Ok(nw) = win.ns_window() {
+            let level: i64 = unsafe {
+                let f: unsafe extern "C" fn(*mut c_void, *const c_void) -> i64 =
+                    std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+                f(nw, sel_registerName(b"level\0".as_ptr() as *const _))
+            };
+            // 3 = NSFloatingWindowLevel; Freeze (23) stays as it is.
+            if level < 3 {
+                virtual_workspace::trace(&format!("NOKI_FRONT level_repaired from={level}"));
+                ebene_setzen(win, "vorn");
+                return;
+            }
+        }
+    }
+    nach_vorn_holen(win);
+}
+fn noki_vorn_sichern_app(app: &tauri::AppHandle) {
+    let h = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Some(w) = h.get_webview_window(FENSTER) { noki_vorn_sichern(&w); }
+    });
+}
 
 fn ebene_setzen(win: &WebviewWindow, ebene: &str) {
     match ebene {
