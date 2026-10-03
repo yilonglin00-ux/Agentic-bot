@@ -41,6 +41,10 @@ extern "C" {
     fn AXValueGetValue(v: Id, t: u32, p: *mut c_void) -> bool;
     fn AXValueCreate(t: u32, p: *const c_void) -> Id;
     fn _AXUIElementGetWindow(e: Id, wid: *mut u32) -> i32;
+    // Same signatures as kind_fenster.rs / mission_control.rs.
+    fn AXObserverCreate(pid: i32, cb: unsafe extern "C" fn(Id, *mut c_void, *const c_void, *mut c_void), out: *mut Id) -> i32;
+    fn AXObserverAddNotification(o: Id, e: *mut c_void, n: *const c_void, refcon: *mut c_void) -> i32;
+    fn AXObserverGetRunLoopSource(o: Id) -> *mut c_void;
 }
 #[link(name = "CoreFoundation", kind = "framework")]
 extern "C" {
@@ -58,6 +62,11 @@ extern "C" {
     fn CFNumberGetValue(n: Id, t: isize, out: *mut c_void) -> bool;
     static kCFBooleanTrue: Id;
     static kCFBooleanFalse: Id;
+    fn CFRunLoopGetCurrent() -> *mut c_void;
+    fn CFRunLoopAddSource(rl: *mut c_void, src: *mut c_void, mode: *const c_void);
+    fn CFRunLoopRemoveSource(rl: *mut c_void, src: *mut c_void, mode: *const c_void);
+    fn CFRunLoopRunInMode(mode: *const c_void, sec: f64, ret: bool) -> i32;
+    static kCFRunLoopDefaultMode: *const c_void;
 }
 #[link(name = "objc")]
 extern "C" {
@@ -323,6 +332,14 @@ impl Drop for FensterIdentitaet {
     }
 }
 
+impl FensterIdentitaet {
+    /// Same window for another thread (own retain of the AX handle).
+    fn kopie(&self) -> FensterIdentitaet {
+        let ax = if self.ax != 0 { unsafe { CFRetain(self.ax as Id) as usize } } else { 0 };
+        FensterIdentitaet { pid: self.pid, wid: self.wid, ax }
+    }
+}
+
 unsafe fn identitaet(pid: i32, w: Id) -> Option<FensterIdentitaet> {
     let mut wid = 0u32;
     if _AXUIElementGetWindow(w, &mut wid) != 0 || wid == 0 { return None; }
@@ -464,37 +481,25 @@ fn einklemmen(r: Rect) -> Rect {
     let y = r.y.max(d.y + menue).min(d.y + d.h - h);
     Rect { x, y, w, h }
 }
-/// One session window: short settle (frame stable 250 ms, max ~1 s - no
-/// permanent watch), then decide ONCE. BetterTouchTool moved it during the
-/// settle -> its frame wins and is never written against. Otherwise the
-/// saved frame of this profile/app is applied (clamped).
-unsafe fn layout_anwenden(i: &FensterIdentitaet, bid: &str, name: &str, profil: &str, space: u64) {
+/// One session window, decided at once (no settle wait). `frueh`: the saved
+/// frame was put on it when it was created. If it now sits elsewhere, the
+/// user's layout tool (BetterTouchTool) or the app placed it afterwards -
+/// that wins, Noki never writes against it. Without an early frame the
+/// saved one is applied here (clamped).
+unsafe fn layout_anwenden(i: &FensterIdentitaet, bid: &str, name: &str, profil: &str, space: u64, frueh: bool) {
     let Some(w) = identitaet_fenster(i) else { return };
-    let start = rahmen(w);
-    let t0 = Instant::now();
-    let (mut letzt, mut stabil_seit, mut bewegt) = (start, Instant::now(), false);
-    while t0.elapsed() < Duration::from_millis(1000) {
-        std::thread::sleep(Duration::from_millis(50));
-        let jetzt = rahmen(w);
-        let gleich = match (jetzt, letzt) { (Some(a), Some(b)) => gleiche_lage(&a, &b), (None, None) => true, _ => false };
-        if !gleich { bewegt = true; stabil_seit = Instant::now(); letzt = jetzt; }
-        else if stabil_seit.elapsed() >= Duration::from_millis(250) { break; }
-    }
-    let ist = letzt.unwrap_or_default();
+    let ist = rahmen(w).unwrap_or_default();
     let log = |grund: &str, f: Rect| crate::virtual_workspace::trace(&format!(
         "FOCUS_LAYOUT_FRAME app={name} bundle={bid} window={} space={space} frame={},{},{}x{} reason={grund}",
         i.wid, f.x as i64, f.y as i64, f.w as i64, f.h as i64));
-    if bewegt {
-        // Someone else placed it right after it appeared (BetterTouchTool or
-        // another layout tool, or the app restoring its own frame): that
-        // position wins - Noki never writes against it.
-        log(if btt_laeuft() { "user_layout_tool_kept btt=1" } else { "external_layout_kept btt=0" }, ist);
-    } else if let Some(ziel) = layout_frame(profil, bid).map(einklemmen) {
-        if gleiche_lage(&ziel, &ist) { log("saved_already", ist); }
-        else if rahmen_setzen(w, ziel) { log("restored_saved", rahmen(w).unwrap_or(ziel)); }
-        else { log("restore_refused_by_app", ist); }
-    } else {
-        log("app_default_no_saved", ist);
+    match layout_frame(profil, bid).map(einklemmen) {
+        Some(ziel) if gleiche_lage(&ziel, &ist) => log(if frueh { "restored_saved_on_create" } else { "saved_already" }, ist),
+        Some(_) if frueh => log(if btt_laeuft() { "user_layout_tool_kept btt=1" } else { "external_layout_kept btt=0" }, ist),
+        Some(ziel) => {
+            if rahmen_setzen(w, ziel) { log("restored_saved", rahmen(w).unwrap_or(ziel)); }
+            else { log("restore_refused_by_app", ist); }
+        }
+        None => log("app_default_no_saved", ist),
     }
     CFRelease(w);
 }
@@ -557,12 +562,37 @@ pub fn pruefen(apps: &[String]) -> serde_json::Value {
 }
 
 /// Bundle id and executable of an app bundle (from its Info.plist).
+/// Start speed: this ran `plutil` twice per call, up to six processes per
+/// selected app before and after its launch. Now read in-process and kept.
 fn bundle_info(pfad: &str) -> (String, String) {
-    let lies = |k: &str| std::process::Command::new("/usr/bin/plutil")
-        .args(["-extract", k, "raw", "-o", "-", &format!("{pfad}/Contents/Info.plist")])
+    (plist_wert(pfad, "CFBundleIdentifier"), plist_wert(pfad, "CFBundleExecutable"))
+}
+static PLIST_CACHE: Mutex<Vec<(String, String, String)>> = Mutex::new(Vec::new());
+/// One Info.plist string value, read with Foundation (binary and XML
+/// plists); `plutil` only as fallback.
+fn plist_lesen(pfad: &str, schluessel: &str) -> String {
+    let wert = unsafe {
+        let pool = objc_autoreleasePoolPush();
+        let s = |n: &[u8]| sel_registerName(n.as_ptr() as *const i8);
+        let ms: unsafe extern "C" fn(Id, Id, *const i8) -> Id = std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+        let m1: unsafe extern "C" fn(Id, Id, Id) -> Id = std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+        let mb: unsafe extern "C" fn(Id, Id, Id) -> bool = std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+        let mc: unsafe extern "C" fn(Id, Id) -> *const i8 = std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+        let nsstring = objc_getClass(b"NSString\0".as_ptr() as *const i8);
+        let datei = CString::new(format!("{pfad}/Contents/Info.plist")).unwrap_or_default();
+        let k = CString::new(schluessel).unwrap_or_default();
+        let dict = m1(objc_getClass(b"NSDictionary\0".as_ptr() as *const i8), s(b"dictionaryWithContentsOfFile:\0"),
+            ms(nsstring, s(b"stringWithUTF8String:\0"), datei.as_ptr()));
+        let v = if dict.is_null() { std::ptr::null_mut() } else { m1(dict, s(b"objectForKey:\0"), ms(nsstring, s(b"stringWithUTF8String:\0"), k.as_ptr())) };
+        let c = if !v.is_null() && mb(v, s(b"isKindOfClass:\0"), nsstring) { mc(v, s(b"UTF8String\0")) } else { std::ptr::null() };
+        let r = if c.is_null() { None } else { Some(std::ffi::CStr::from_ptr(c).to_string_lossy().trim().to_string()) };
+        objc_autoreleasePoolPop(pool);
+        r
+    };
+    wert.unwrap_or_else(|| std::process::Command::new("/usr/bin/plutil")
+        .args(["-extract", schluessel, "raw", "-o", "-", &format!("{pfad}/Contents/Info.plist")])
         .output().ok().filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
-    (lies("CFBundleIdentifier"), lies("CFBundleExecutable"))
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default())
 }
 /// pid of a running app by bundle id (NSRunningApplication).
 fn pid_fuer(bid: &str) -> Option<i32> {
@@ -582,11 +612,95 @@ fn pid_fuer(bid: &str) -> Option<i32> {
         r
     }
 }
+// ---- Window events + saved frame at creation ----------------------------
+// Start speed / no visible jump (2026-10-03): new windows were found by 50 ms
+// polling and got their saved frame only after every app was ready, the N/N
+// check and a 250-1000 ms settle - the user saw the default frame, then the
+// jump. Now each app thread waits on the app's own AX window events and puts
+// the saved frame on its new window the moment the window exists.
+thread_local! {
+    /// Saved frame (profile + app) of the app this thread prepares.
+    static FRUEH_RAHMEN: std::cell::Cell<Option<Rect>> = const { std::cell::Cell::new(None) };
+    /// Window ids that already got it (one per app, like before).
+    static FRUEH_GESETZT: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+unsafe extern "C" fn ax_ereignis(_o: Id, _e: *mut c_void, _n: *const c_void, refcon: *mut c_void) {
+    if !refcon.is_null() { *(refcon as *mut bool) = true; }
+}
+/// AX observer for ONE app on this thread's run loop (window created /
+/// became main / focused). Dropped = removed.
+struct FensterWacht { obs: Id, app: Id, quelle: Id, rl: Id, signal: Box<bool> }
+impl FensterWacht {
+    unsafe fn neu(pid: i32) -> Option<FensterWacht> {
+        let mut obs: Id = std::ptr::null_mut();
+        if AXObserverCreate(pid, ax_ereignis, &mut obs) != 0 || obs.is_null() { return None; }
+        let app = AXUIElementCreateApplication(pid);
+        let mut signal = Box::new(false);
+        let ref_ = &mut *signal as *mut bool as *mut c_void;
+        let mut ok = false;
+        for n in ["AXWindowCreated", "AXMainWindowChanged", "AXFocusedWindowChanged"] {
+            ok |= AXObserverAddNotification(obs, app, cfs(n).0 as *const c_void, ref_) == 0;
+        }
+        if !ok {
+            // App still launching (its AX side not up yet): caller retries.
+            if !app.is_null() { CFRelease(app); }
+            CFRelease(obs);
+            return None;
+        }
+        let quelle = AXObserverGetRunLoopSource(obs);
+        let rl = CFRunLoopGetCurrent();
+        CFRunLoopAddSource(rl, quelle, kCFRunLoopDefaultMode);
+        Some(FensterWacht { obs, app, quelle, rl, signal })
+    }
+    /// Sleeps until a window event of the app or `max`; true = event.
+    unsafe fn warten(&mut self, max: Duration) -> bool {
+        *self.signal = false;
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, max.as_secs_f64(), true);
+        std::mem::replace(&mut *self.signal, false)
+    }
+}
+impl Drop for FensterWacht {
+    fn drop(&mut self) {
+        unsafe {
+            CFRunLoopRemoveSource(self.rl, self.quelle, kCFRunLoopDefaultMode);
+            if !self.app.is_null() { CFRelease(self.app); }
+            CFRelease(self.obs);
+        }
+    }
+}
+/// The saved frame goes on the app's FIRST new window as soon as it exists
+/// (also before WindowServer lists it on this Desktop), so it appears where
+/// it belongs. A window known to live on another Desktop is never touched.
+unsafe fn frueh_rahmen_anwenden(pid: i32, vorher: &[Id], space: u64) {
+    let Some(ziel) = FRUEH_RAHMEN.with(|f| f.get()) else { return };
+    if FRUEH_GESETZT.with(|g| !g.borrow().is_empty()) { return; }
+    let alle = fenster(pid);
+    for w in alle.iter().copied() {
+        if vorher.iter().any(|v| CFEqual(*v, w)) || !standard(w) || bool_attr(w, "AXMinimized") || bool_attr(w, "AXFullScreen") { continue; }
+        let mut wid = 0u32;
+        if _AXUIElementGetWindow(w, &mut wid) != 0 || wid == 0 { continue; }
+        if crate::cgs::spaces_des_fensters(wid as i64).is_some_and(|sp| !sp.is_empty() && sp.as_slice() != [space]) { continue; }
+        let vorher_r = rahmen(w).unwrap_or_default();
+        let ok = gleiche_lage(&vorher_r, &ziel) || rahmen_setzen(w, ziel);
+        FRUEH_GESETZT.with(|g| g.borrow_mut().push(wid));
+        crate::virtual_workspace::trace(&format!(
+            "FOCUS_LAYOUT_FRAME pid={pid} window={wid} space={space} frame={},{},{}x{} reason={}",
+            ziel.x as i64, ziel.y as i64, ziel.w as i64, ziel.h as i64, if ok { "restored_saved_on_create" } else { "restore_refused_by_app" }));
+        break;
+    }
+    freigeben(alle);
+}
+
 /// Short, bounded condition wait on ONE app: a standard window of `pid` that
-/// is on THIS desktop and not in `vorher`. 50 ms steps - no blind sleeps.
+/// is on THIS desktop and not in `vorher`. Woken by the app's own window
+/// events (AXObserver); only right after an event a few 20 ms re-checks
+/// (WindowServer orders the window in), otherwise a 100 ms safety step.
 unsafe fn warte_hier(pid: i32, vorher: &[Id], frist: Duration, space: u64) -> Vec<Id> {
     let t0 = Instant::now();
+    let mut wacht: Option<FensterWacht> = None;
+    let mut nach_ereignis = 0u32;
     loop {
+        frueh_rahmen_anwenden(pid, vorher, space);
         let schirm = auf_dem_schreibtisch(space);
         let alle = fenster(pid);
         let gueltig: Vec<usize> = alle.iter().copied()
@@ -599,7 +713,15 @@ unsafe fn warte_hier(pid: i32, vorher: &[Id], frist: Duration, space: u64) -> Ve
         freigeben(alt);
         if !neu.is_empty() || t0.elapsed() > frist { return neu; }
         freigeben(neu);
-        std::thread::sleep(Duration::from_millis(50));
+        if wacht.is_none() { wacht = FensterWacht::neu(pid); }
+        let schritt = if nach_ereignis > 0 { nach_ereignis -= 1; Duration::from_millis(20) }
+            else if wacht.is_some() { Duration::from_millis(100) } else { Duration::from_millis(50) };
+        let schritt = schritt.min(frist.saturating_sub(t0.elapsed())).max(Duration::from_millis(1));
+        let ereignis = match wacht.as_mut() {
+            Some(w) => w.warten(schritt),
+            None => { std::thread::sleep(schritt); false }
+        };
+        if ereignis { nach_ereignis = 10; }
     }
 }
 fn oeffnen(args: &[&str]) -> bool {
@@ -647,10 +769,12 @@ fn skript_fenster_url(bid: &str, url: Option<&str>, space_jetzt: fn() -> u64) ->
     r
 }
 fn plist_wert(pfad: &str, schluessel: &str) -> String {
-    std::process::Command::new("/usr/bin/plutil")
-        .args(["-extract", schluessel, "raw", "-o", "-", &format!("{pfad}/Contents/Info.plist")])
-        .output().ok().filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default()
+    if let Some(v) = PLIST_CACHE.lock().ok().and_then(|c| c.iter().find(|(p, k, _)| p == pfad && k == schluessel).map(|x| x.2.clone())) {
+        return v;
+    }
+    let v = plist_lesen(pfad, schluessel);
+    if let Ok(mut c) = PLIST_CACHE.lock() { c.push((pfad.to_string(), schluessel.to_string(), v.clone())); }
+    v
 }
 /// Chrome web app (GitHub.app). A running shim's window HERE is reused;
 /// otherwise a NEW normal Chrome window with the app's URL is made by script
@@ -946,7 +1070,11 @@ fn app_vorbereiten_innen(pfad: String, laufend_pid: Option<i32>, t0: Instant, sp
         let mut neu_pid = pid;
         let t_w = Instant::now();
         while neu.is_empty() && t_w.elapsed() < Duration::from_secs(8) {
-            let mut pids = vec![pid];
+            // Main process: woken by its own window events (short slice).
+            let rest = Duration::from_secs(8).saturating_sub(t_w.elapsed());
+            let w = warte_hier(pid, &chrome_vorher, Duration::from_millis(250).min(rest), space);
+            if !w.is_empty() { neu = w; neu_pid = pid; break; }
+            let mut pids = Vec::new();
             // A web-app window is owned by the shim process, not by Chrome
             // (measured: GitHub.app cold launch waited on Chrome -> "kein Fenster").
             if shim { pids.extend(pid_fuer(&bid).filter(|p| *p != pid)); }
@@ -955,10 +1083,9 @@ fn app_vorbereiten_innen(pfad: String, laufend_pid: Option<i32>, t0: Instant, sp
                 pids.extend(laufende_apps().into_iter().filter(|(p, pf, _)| *p != pid && pf.starts_with(&innen)).map(|x| x.0));
             }
             for p in pids {
-                let w = warte_hier(p, if p == pid { &chrome_vorher } else { &[] }, Duration::from_millis(0), space);
+                let w = warte_hier(p, &[], Duration::from_millis(0), space);
                 if !w.is_empty() { neu = w; neu_pid = p; break; }
             }
-            if neu.is_empty() { std::thread::sleep(Duration::from_millis(50)); }
         }
         let pid = neu_pid;
         freigeben(chrome_vorher);
@@ -993,14 +1120,23 @@ pub fn starten(apps: &[String], prior_energy: &str, space: u64, space_jetzt: fn(
     // Selected apps are known BEFORE any minimize: their windows are never
     // cleanup candidates, and newly launched ones are not in the snapshot.
     let gewaehlt = |pfad: &str| apps.iter().any(|a| a == pfad);
-    let ziele: Vec<(i32, String)> = laufend.iter().filter(|(p, pf, _)| *p != eigen && !gewaehlt(pf)).map(|(p, pf, _)| (*p, pf.clone())).collect();
-    // A: minimize (own thread, starts immediately).
+    // Only apps that own a window on this Desktop can have one to minimize
+    // (nutzbar_hier needs a WindowServer match) - the others are not asked.
+    let ziele: Vec<(i32, String)> = laufend.iter()
+        .filter(|(p, pf, _)| *p != eigen && !gewaehlt(pf))
+        .filter(|(p, _, _)| schirm.iter().any(|(sp, _)| sp == p || Some(*sp) == shim_partner(*p)))
+        .map(|(p, pf, _)| (*p, pf.clone())).collect();
+    // A: minimize (own thread, starts immediately), every app in parallel:
+    // an app slow to answer AX no longer delays the others.
     let min = std::thread::spawn(move || {
         let mut out: Vec<FensterIdentitaet> = Vec::new();
         let mut erst: Option<u64> = None;
-        unsafe {
-            let pool = objc_autoreleasePoolPush();
-            for (pid, _) in ziele {
+        let schirm = std::sync::Arc::new(schirm);
+        let teile: Vec<_> = ziele.into_iter().map(|(pid, _)| {
+            let schirm = std::sync::Arc::clone(&schirm);
+            std::thread::spawn(move || unsafe {
+                let pool = objc_autoreleasePoolPush();
+                let (mut out, mut erst) = (Vec::new(), None);
                 let ws = fenster(pid);
                 for w in ws.iter().copied().filter(|w| nutzbar_hier(pid, *w, &ws, &schirm)) {
                     if AXUIElementSetAttributeValue(w, cfs("AXMinimized").0, kCFBooleanTrue) == 0 {
@@ -1009,7 +1145,18 @@ pub fn starten(apps: &[String], prior_energy: &str, space: u64, space_jetzt: fn(
                     }
                 }
                 freigeben(ws);
+                objc_autoreleasePoolPop(pool);
+                (out, erst)
+            })
+        }).collect();
+        for h in teile {
+            if let Ok((o, e)) = h.join() {
+                out.extend(o);
+                if let Some(e) = e { erst = Some(erst.map_or(e, |x: u64| x.min(e))); }
             }
+        }
+        unsafe {
+            let pool = objc_autoreleasePoolPush();
             // Verify the Dock really got them (an accepted AX write is not a
             // minimize: Grapher once stayed visible -> restore reported
             // "not_minimized"). Bounded wait, one retry via the native
@@ -1039,16 +1186,24 @@ pub fn starten(apps: &[String], prior_energy: &str, space: u64, space_jetzt: fn(
         }
         (out, erst, t0.elapsed().as_millis() as u64)
     });
-    // B: every selected app in parallel - no app waits for another.
+    // B: every selected app in parallel - no app waits for another. Its
+    // saved frame (profile + app) is known BEFORE the launch and goes on the
+    // new window when it is created (no visible default frame, no jump).
+    let profil_jetzt = PROFIL.lock().map(|g| if g.is_empty() { "Standard".to_string() } else { g.clone() }).unwrap_or_else(|_| "Standard".into());
     let laeufe: Vec<_> = apps.iter().map(|a| {
         let pid = laufend.iter().find(|(_, p, _)| p == a).map(|x| x.0);
         let a = a.clone();
+        let profil = profil_jetzt.clone();
         std::thread::spawn(move || {
             unsafe {
                 let pool = objc_autoreleasePoolPush();
+                let ziel = layout_frame(&profil, &bundle_info(&a).0).map(einklemmen);
+                FRUEH_RAHMEN.with(|f| f.set(ziel));
+                FRUEH_GESETZT.with(|g| g.borrow_mut().clear());
                 let r = app_vorbereiten(a, pid, t0, space, space_jetzt);
+                let frueh = FRUEH_GESETZT.with(|g| g.borrow().clone());
                 objc_autoreleasePoolPop(pool);
-                r
+                (r, frueh)
             }
         })
     }).collect();
@@ -1064,10 +1219,11 @@ pub fn starten(apps: &[String], prior_energy: &str, space: u64, space_jetzt: fn(
         erstellt: Vec::new(),
     };
     let mut apps_json = Vec::new();
-    let mut layout_jobs: Vec<(i32, u32, String, String)> = Vec::new();
+    let mut layout_jobs: Vec<(i32, u32, String, String, bool)> = Vec::new();
     let mut ergebnisse: Vec<(String, AppErgebnis)> = Vec::new();
+    let mut frueh_alle: Vec<u32> = Vec::new();
     for (pfad, h) in apps.iter().zip(laeufe) {
-        if let Ok(r) = h.join() { ergebnisse.push((pfad.clone(), r)); }
+        if let Ok((r, frueh)) = h.join() { ergebnisse.push((pfad.clone(), r)); frueh_alle.extend(frueh); }
     }
     // N/N rule: every selected app is verified against the REAL WindowServer
     // state (window on exactly focusSpace AND ordered in = not hidden, not
@@ -1103,16 +1259,17 @@ pub fn starten(apps: &[String], prior_energy: &str, space: u64, space_jetzt: fn(
         }
         apps_json.push(serde_json::json!({ "name": r.name, "art": r.art, "ms": r.ms, "grund": r.grund }));
         for w in &r.erstellt { s.fenster_app.push((w.wid, bid.clone())); }
-        if erfolg(&r.art) && !r.erstellt.is_empty() { layout_jobs.push((r.erstellt[0].pid, r.erstellt[0].wid, bid.clone(), r.name.clone())); }
+        if erfolg(&r.art) && !r.erstellt.is_empty() { layout_jobs.push((r.erstellt[0].pid, r.erstellt[0].wid, bid.clone(), r.name.clone(), frueh_alle.contains(&r.erstellt[0].wid))); }
         s.erstellt.extend(r.erstellt);
     }
-    // Layout: all session windows settle in parallel (one bounded settle).
+    // Layout: the saved frame is normally already on the window (applied at
+    // creation); this only checks it - no settle wait any more.
     let profil = s.profil.clone();
-    let jobs: Vec<_> = layout_jobs.into_iter().map(|(pid, wid, bid, name)| {
+    let jobs: Vec<_> = layout_jobs.into_iter().map(|(pid, wid, bid, name, frueh)| {
         let profil = profil.clone();
         std::thread::spawn(move || unsafe {
             let pool = objc_autoreleasePoolPush();
-            layout_anwenden(&FensterIdentitaet { pid, wid, ax: 0 }, &bid, &name, &profil, space);
+            layout_anwenden(&FensterIdentitaet { pid, wid, ax: 0 }, &bid, &name, &profil, space, frueh);
             objc_autoreleasePoolPop(pool);
         })
     }).collect();
@@ -1141,6 +1298,50 @@ pub fn beenden() -> serde_json::Value {
     beenden_innen()
 }
 
+/// Closes ONE session window (native close button; a chooser sheet the
+/// session itself opened is cancelled first). (already gone -> 1 / pressed ->
+/// handle to verify).
+unsafe fn sitzungsfenster_schliessen(i: &FensterIdentitaet) -> (u32, Option<usize>) {
+    let space_jetzt = || crate::cgs::aktiver_space().map(|x| x.0).unwrap_or(0);
+    let Some(w) = identitaet_fenster(i) else {
+        crate::virtual_workspace::trace(&format!("FOCUS_CLOSE_SKIPPED pid={} window={} reason=identity_missing", i.pid, i.wid));
+        return (0, None);
+    };
+    let mut knopf = attr(w, "AXCloseButton");
+    // A window this SESSION created can carry the app's own new-
+    // document chooser sheet (Grapher "Neu …": no close button while
+    // it is up - measured). Cancel exactly that sheet, then close.
+    if knopf.0.is_null() || !bool_attr(knopf.0, "AXEnabled") {
+        if blatt_abbrechen(w) {
+            let frist = Instant::now() + Duration::from_millis(600);
+            loop {
+                knopf = attr(w, "AXCloseButton");
+                if (!knopf.0.is_null() && bool_attr(knopf.0, "AXEnabled")) || attr(w, "AXRole").0.is_null() || Instant::now() > frist { break; }
+                std::thread::sleep(Duration::from_millis(30));
+            }
+        }
+    }
+    let b = space_jetzt();
+    if attr(w, "AXRole").0.is_null() {
+        // The chooser window itself was cancelled: it is gone.
+        space_action("focus_end_cancel_session_chooser", &format!("pid{}", i.pid), &i.wid.to_string(), b, space_jetzt());
+        CFRelease(w);
+        return (1, None);
+    }
+    if knopf.0.is_null() {
+        crate::virtual_workspace::trace(&format!("FOCUS_CLOSE_SKIPPED pid={} window={} reason=no_close_button", i.pid, i.wid));
+        CFRelease(w);
+        return (0, None);
+    }
+    // Judge by the result, not the AX return code: Chrome reports an
+    // error for a press that DID close the window (measured: window
+    // 32743 gone, geschlossen=0).
+    let ok = aktion(knopf.0, "AXPress");
+    space_action(if ok { "focus_end_close_session_window" } else { "focus_end_close_session_window_ax_error" },
+        &format!("pid{}", i.pid), &i.wid.to_string(), b, space_jetzt());
+    (0, Some(w as usize))
+}
+
 fn beenden_innen() -> serde_json::Value {
     // In-process session, else the one a previous Noki saved (restart).
     let Some(s) = SITZUNG.lock().ok().and_then(|mut g| g.take()).or_else(sitzung_von_datei) else {
@@ -1151,70 +1352,18 @@ fn beenden_innen() -> serde_json::Value {
     crate::virtual_workspace::trace(&format!(
         "FOCUS_SESSION_END session={} focus_space={} current_space={space_start} minimized={} created={}",
         s.id, s.space, s.minimiert.len(), s.erstellt.len()));
-    let (mut geschlossen, mut wartet, mut zurueck) = (0, 0, 0);
+    let (mut geschlossen, mut wartet) = (0, 0);
+    let zurueck;
+    // Stop speed (2026-10-03): restore, close and the front handoff ran one
+    // after another, every window in turn. Now independent steps run in
+    // parallel; the only ordering kept is the one that protects the Space:
+    // a session window of the FRONTMOST app closes only after the restored
+    // windows are back and the front was handed to one of them.
+    let vorn = crate::blende::vorn_pid();
     unsafe {
         let pool = objc_autoreleasePoolPush();
-        // 1. Restore FIRST: the focus Desktop gets the user's windows back
-        //    before any session window disappears.
-        let mut zurueckgeholt: Vec<(i32, Id)> = Vec::new();
-        for i in &s.minimiert {
-            let Some(w) = identitaet_fenster(i) else {
-                crate::virtual_workspace::trace(&format!(
-                    "WINDOW_RESTORE_SKIPPED pid={} window={} reason=identity_missing space={}",
-                    i.pid, i.wid, s.space
-                ));
-                continue;
-            };
-            // Still there AND still minimized: otherwise the user decided.
-            let vorhanden = !attr(w, "AXRole").0.is_null();
-            let mini = vorhanden && bool_attr(w, "AXMinimized");
-            let code = if mini {
-                AXUIElementSetAttributeValue(w, cfs("AXMinimized").0, kCFBooleanFalse)
-            } else {
-                -1
-            };
-            if code == 0 {
-                zurueck += 1;
-                crate::virtual_workspace::trace(&format!(
-                    "WINDOW_RESTORED pid={} window={} space={}", i.pid, i.wid, s.space
-                ));
-                zurueckgeholt.push((i.pid, w));
-            } else {
-                let reason = if !vorhanden { "window_missing" } else if !mini { "not_minimized" } else { "ax_unminimize_failed" };
-                crate::virtual_workspace::trace(&format!(
-                    "WINDOW_RESTORE_SKIPPED pid={} window={} reason={} ax_error={} space={}",
-                    i.pid, i.wid, reason, code, s.space
-                ));
-                CFRelease(w);
-            }
-        }
-        // 2. Close exactly the session's windows. If the FRONTMOST app owns
-        //    one, closing its last window here makes macOS follow that app to
-        //    its other Space (Chrome -> its full-screen Space). Hand the front
-        //    to a restored window on THIS Desktop first (AXRaise + AXFrontmost
-        //    of an app that has a window here: no Space switch). Only while
-        //    the user is on the focus Desktop.
-        let vorn = crate::blende::vorn_pid();
-        if s.erstellt.iter().any(|i| i.pid == vorn) {
-            match zurueckgeholt.iter().find(|(p, _)| *p != vorn) {
-                Some((pid, w)) if space_start == s.space => {
-                    let b = space_jetzt();
-                    let _ = aktion(*w, "AXRaise");
-                    let app = Cf(AXUIElementCreateApplication(*pid));
-                    let _ = AXUIElementSetAttributeValue(app.0, cfs("AXFrontmost").0, kCFBooleanTrue);
-                    let frist = Instant::now() + Duration::from_millis(400);
-                    while Instant::now() < frist && crate::blende::vorn_pid() != *pid {
-                        std::thread::sleep(Duration::from_millis(20));
-                    }
-                    space_action("focus_end_front_handoff", &format!("pid{pid}"), &format!("from_pid{vorn}"), b, space_jetzt());
-                }
-                _ => crate::virtual_workspace::trace(&format!(
-                    "SPACE_RISK focus_end_close_of_frontmost pid={vorn} no_handoff current_space={space_start} focus_space={}", s.space)),
-            }
-        }
-        for (_, w) in zurueckgeholt.drain(..) { CFRelease(w); }
-        // Remember the REAL final frame of every session window (whatever
-        // the user or BetterTouchTool made of it) before it closes.
+        // 0. Remember the REAL final frame of every session window (whatever
+        //    the user or BetterTouchTool made of it) before anything closes.
         let mut rahmen_liste: Vec<(String, Rect)> = Vec::new();
         for i in &s.erstellt {
             let Some(bid) = s.fenster_app.iter().find(|(w, _)| *w == i.wid).map(|x| x.1.clone()) else { continue };
@@ -1232,46 +1381,85 @@ fn beenden_innen() -> serde_json::Value {
             }
         }
         layout_speichern(&s.profil, &rahmen_liste);
-        let mut offen: Vec<Id> = Vec::new();
-        for i in &s.erstellt {
-            let Some(w) = identitaet_fenster(i) else {
-                crate::virtual_workspace::trace(&format!("FOCUS_CLOSE_SKIPPED pid={} window={} reason=identity_missing", i.pid, i.wid));
-                continue;
-            };
-            let mut knopf = attr(w, "AXCloseButton");
-            // A window this SESSION created can carry the app's own new-
-            // document chooser sheet (Grapher "Neu …": no close button while
-            // it is up - measured). Cancel exactly that sheet, then close.
-            if knopf.0.is_null() || !bool_attr(knopf.0, "AXEnabled") {
-                if blatt_abbrechen(w) {
-                    let frist = Instant::now() + Duration::from_millis(600);
-                    loop {
-                        knopf = attr(w, "AXCloseButton");
-                        if (!knopf.0.is_null() && bool_attr(knopf.0, "AXEnabled")) || attr(w, "AXRole").0.is_null() || Instant::now() > frist { break; }
-                        std::thread::sleep(Duration::from_millis(30));
-                    }
+        // 1. Close session windows of apps that are NOT frontmost right away
+        //    (closing them never changes the active app or Space).
+        let schliessen = |liste: Vec<FensterIdentitaet>| -> Vec<std::thread::JoinHandle<(u32, Option<usize>)>> {
+            liste.into_iter().map(|i| std::thread::spawn(move || {
+                let pool = objc_autoreleasePoolPush();
+                let r = sitzungsfenster_schliessen(&i);
+                objc_autoreleasePoolPop(pool);
+                r
+            })).collect()
+        };
+        let (spaeter, sofort): (Vec<FensterIdentitaet>, Vec<FensterIdentitaet>) =
+            s.erstellt.iter().map(|i| i.kopie()).partition(|i| i.pid == vorn);
+        let mut schliesser = schliessen(sofort);
+        // 2. Restore the minimized windows, every app in parallel (still
+        //    there AND still minimized - otherwise the user decided).
+        let mut je_app: Vec<(i32, Vec<FensterIdentitaet>)> = Vec::new();
+        for i in &s.minimiert {
+            match je_app.iter_mut().find(|(p, _)| *p == i.pid) {
+                Some((_, v)) => v.push(i.kopie()),
+                None => je_app.push((i.pid, vec![i.kopie()])),
+            }
+        }
+        let fs = s.space;
+        let wieder: Vec<_> = je_app.into_iter().map(|(_, liste)| std::thread::spawn(move || {
+            let pool = objc_autoreleasePoolPush();
+            let mut zurueck = Vec::new();
+            for i in &liste {
+                let Some(w) = identitaet_fenster(i) else {
+                    crate::virtual_workspace::trace(&format!(
+                        "WINDOW_RESTORE_SKIPPED pid={} window={} reason=identity_missing space={fs}", i.pid, i.wid));
+                    continue;
+                };
+                let vorhanden = !attr(w, "AXRole").0.is_null();
+                let mini = vorhanden && bool_attr(w, "AXMinimized");
+                let code = if mini { AXUIElementSetAttributeValue(w, cfs("AXMinimized").0, kCFBooleanFalse) } else { -1 };
+                if code == 0 {
+                    crate::virtual_workspace::trace(&format!("WINDOW_RESTORED pid={} window={} space={fs}", i.pid, i.wid));
+                    zurueck.push((i.pid, w as usize));
+                } else {
+                    let reason = if !vorhanden { "window_missing" } else if !mini { "not_minimized" } else { "ax_unminimize_failed" };
+                    crate::virtual_workspace::trace(&format!(
+                        "WINDOW_RESTORE_SKIPPED pid={} window={} reason={} ax_error={} space={fs}", i.pid, i.wid, reason, code));
+                    CFRelease(w);
                 }
             }
-            let b = space_jetzt();
-            if attr(w, "AXRole").0.is_null() {
-                // The chooser window itself was cancelled: it is gone.
-                space_action("focus_end_cancel_session_chooser", &format!("pid{}", i.pid), &i.wid.to_string(), b, space_jetzt());
-                geschlossen += 1;
-                CFRelease(w);
-                continue;
+            objc_autoreleasePoolPop(pool);
+            zurueck
+        })).collect();
+        let mut zurueckgeholt: Vec<(i32, usize)> = Vec::new();
+        for h in wieder { if let Ok(z) = h.join() { zurueckgeholt.extend(z); } }
+        zurueck = zurueckgeholt.len();
+        // 3. The FRONTMOST app owns a session window: closing its last
+        //    window here makes macOS follow that app to its other Space
+        //    (Chrome -> its full-screen Space). Hand the front to a restored
+        //    window on THIS Desktop first (AXRaise + AXFrontmost of an app
+        //    that has a window here: no Space switch). Only while the user
+        //    is on the focus Desktop.
+        if !spaeter.is_empty() {
+            match zurueckgeholt.iter().find(|(p, _)| *p != vorn) {
+                Some((pid, w)) if space_start == s.space => {
+                    let b = space_jetzt();
+                    let _ = aktion(*w as Id, "AXRaise");
+                    let app = Cf(AXUIElementCreateApplication(*pid));
+                    let _ = AXUIElementSetAttributeValue(app.0, cfs("AXFrontmost").0, kCFBooleanTrue);
+                    let frist = Instant::now() + Duration::from_millis(400);
+                    while Instant::now() < frist && crate::blende::vorn_pid() != *pid {
+                        std::thread::sleep(Duration::from_millis(20));
+                    }
+                    space_action("focus_end_front_handoff", &format!("pid{pid}"), &format!("from_pid{vorn}"), b, space_jetzt());
+                }
+                _ => crate::virtual_workspace::trace(&format!(
+                    "SPACE_RISK focus_end_close_of_frontmost pid={vorn} no_handoff current_space={space_start} focus_space={}", s.space)),
             }
-            if knopf.0.is_null() {
-                crate::virtual_workspace::trace(&format!("FOCUS_CLOSE_SKIPPED pid={} window={} reason=no_close_button", i.pid, i.wid));
-                CFRelease(w);
-                continue;
-            }
-            // Judge by the result, not the AX return code: Chrome reports an
-            // error for a press that DID close the window (measured: window
-            // 32743 gone, geschlossen=0).
-            let ok = aktion(knopf.0, "AXPress");
-            space_action(if ok { "focus_end_close_session_window" } else { "focus_end_close_session_window_ax_error" },
-                &format!("pid{}", i.pid), &i.wid.to_string(), b, space_jetzt());
-            offen.push(w);
+            schliesser.extend(schliessen(spaeter));
+        }
+        for (_, w) in zurueckgeholt.drain(..) { CFRelease(w as Id); }
+        let mut offen: Vec<Id> = Vec::new();
+        for h in schliesser {
+            if let Ok((g, w)) = h.join() { geschlossen += g; if let Some(w) = w { offen.push(w as Id); } }
         }
         // Did the windows really close? A save sheet keeps them open - that
         // is the app's decision, never overridden.

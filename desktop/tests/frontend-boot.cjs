@@ -215,16 +215,21 @@ const SETTINGS_OK = { intelligence_settings: { settings: { level: 'off', ask: tr
       await page.waitForTimeout(900);
       const ende = await page.evaluate(() => ({
         prop: getComputedStyle(document.querySelector('#timerProp')).display,
-        parade: window.NokiSchwarm.paradeZustand(),
-        layer: window.__nokiInvokes.filter(x => x.name === 'noki_parade_ebene').length
+        parade: window.NokiSchwarm.paradeZustand(), schwarm: window.NokiSchwarm.zustand().an,
+        layer: window.__nokiInvokes.filter(x => x.name === 'noki_parade_ebene').length,
+        effekt: window.NokiTimer.zustand().ende
       }));
       check(ende.prop === 'none', 'Uhr ist bei 00:00 sofort weg');
-      check(ende.parade && ende.parade.phase === 'winken', `Parade wartet sichtbar auf das Winken (${ende.parade && ende.parade.phase})`);
-      check(ende.layer > 0, 'ein gemeinsamer Parade-Layer wurde aktiviert');
-      await page.keyboard.press('a');
-      await page.waitForTimeout(150);
-      const abbruch = await page.evaluate(() => ({ schwarm: window.NokiSchwarm.zustand().an, parade: window.NokiSchwarm.paradeZustand() }));
-      check(!abbruch.schwarm && !abbruch.parade, 'Any-Key raeumt Schwarm und echte Parade auf');
+      check(!ende.parade && !ende.schwarm && ende.layer === 0, 'keine Parade, kein Schwarm, kein Parade-Layer');
+      check(ende.effekt === 'wachsen' || ende.effekt === 'flug', `Timer-Ende: grosser Noki laeuft (${ende.effekt})`);
+      await page.waitForFunction(() => window.NokiRaum.groesse() > 54 * 2, null, { timeout: 15000 }).catch(() => {});
+      check(await page.evaluate(() => window.NokiRaum.groesse() > 54 * 2), 'Noki wird voruebergehend sehr gross');
+      await page.waitForFunction(() => window.NokiTimer.zustand().ende === 'flug', null, { timeout: 15000 }).catch(() => {});
+      check(await page.evaluate(() => window.NokiAktion.laeuft() === 'desktop'), 'genau die Aktion "Einmal durch den Desktop" laeuft');
+      await page.waitForFunction(() => window.NokiTimer.zustand().ende === null, null, { timeout: 120000 }).catch(() => {});
+      await page.waitForTimeout(2500);
+      const danach = await page.evaluate(() => ({ ende: window.NokiTimer.zustand().ende, g: window.NokiRaum.groesse(), e: window.NokiEnergie.lesen() }));
+      check(danach.ende === null && Math.abs(danach.g - 54) < 0.2 && danach.e === 'energisch', `danach exakt vorherige Groesse und Energie (${danach.g}, ${danach.e})`);
 
       s.server.close();
     }

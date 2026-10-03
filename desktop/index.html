@@ -16005,7 +16005,7 @@
       if (werk.leerT && performance.now() - werk.leerT < 3000) { werk.leerT = 0; abRuf("clip_leeren").catch(function () {}); }
       else werk.leerT = performance.now();
     }
-    else if (a === "tstart") { if (!timerEingabeLesen(werk.el)) return; timerStart(werk.eigenMin); }
+    else if (a === "tstart") { if (!timerEingabeLesen(werk.el)) return; timerStart(werk.eigenMin); werkZu(); return; }
     else if (a === "tset") { werk.eigenMin = timerMinGrenze(v, 25); werkBauen(); }
     else if (a === "tmin") { werk.eigenMin = clamp((werk.eigenMin || 25) + (+v || 0), 1, 600); werkBauen(); }
     else if (a === "tzurueck") timerZurueck();
@@ -16036,7 +16036,8 @@
   }
   // Test-/Automationszugang (dieselben Funktionen wie die Knoepfe).
   window.NokiTimer = { start: function (min) { timerStart(min); }, abbrechen: function () { timerEnde(false); },
-    zustand: function () { return { laeuft: timer.laeuft, pause: timer.pause, rest: timerRest(), fertig: timerFertig() }; } };
+    zustand: function () { return { laeuft: timer.laeuft, pause: timer.pause, rest: timerRest(), fertig: timerFertig(),
+                                     ende: timerGross ? timerGross.phase : null }; } };
   function timerPause() { if (!timer.laeuft) return; timer.rest = timerRest(); timer.pause = true; timer.laeuft = false; timerSichern(); }
   function timerFort() { if (!timer.pause) return; timer.ende = Date.now() + timer.rest; timer.pause = false; timer.laeuft = true; timerSichern(); }
   function timerPlus(m) {
@@ -16788,19 +16789,55 @@
     // Test: Klone sichtbar machen (Pose je Muster) — kein Zustand des echten Noki.
     klone: function () { return schwarm ? schwarm.klone.map(function (k) { return { m: k.muster, nh: +k.NH.toFixed(1), d: +k.dauer.toFixed(2), pr: k.profil, t0: +k.t0.toFixed(2), x: Math.round(k.p ? k.p[0] : 0), y: Math.round(k.p ? k.p[1] : 0), dreh: +(k.dreh || 0).toFixed(2), neig: +k.neig.toFixed(2), bank: +k.bank.toFixed(2), spin: +(k.spin || 0).toFixed(2), heb: +k.heb.toFixed(2), kd: +k.kdreh.toFixed(2), bein: +k.bein.toFixed(2), lang: +k.lang.toFixed(2), spur: +k.spurU.toFixed(2) }; }) : []; },
     paradeZustand: function () { return parade ? { phase: parade.phase, x: Math.round(raum.x), y: Math.round(raum.y), merk: parade.merk } : null; } };
+  // TIMER-ENDE (ersetzt die Parade): Noki wird voruebergehend sehr gross,
+  // fliegt GENAU EINMAL die bestehende Aktion "Einmal durch den Desktop"
+  // (SPEED, hin und zurueck) und kehrt in seinen vorherigen Zustand zurueck.
+  // Ueberschrieben wird nur die Groesse; danach exakt die vorherige
+  // Benutzergroesse (eine Aenderung waehrend des Effekts gilt als neue).
+  var timerGross = null;
+  function timerGrossStart() {
+    if (timerGross || versteckt || shell !== "desktop") return;
+    timerGross = { phase: "wachsen", t0: performance.now(), groesse: groesseZiel !== null ? groesseZiel : NOKI_HOCH,
+                   energie: energie, zustand: paradeZustand(), flog: flug.an || !inLaufZone() };
+    // Ruhen beenden (sonst lehnt die Aktion ab) - wie vor einem Space-Transfer.
+    if (aktion.name) aktionEnde();
+    if (manuellSchlaf) schlafWecken();
+    sitzWunsch = null; liegeWunsch = null; schlafWunsch = "wach";
+    if (typeof fensterSitz !== "undefined" && fensterSitz) fensterSitz.an = false;
+    autoAbbrechen();
+    groesseZiel = clamp(Math.max(timerGross.groesse * 2.6, 150), 20, 400);
+    appRuf("noki_log", { msg: "[TIMER_ENDE] gross von=" + Math.round(timerGross.groesse) + " auf=" + Math.round(groesseZiel) + " zustand=" + timerGross.zustand });
+  }
+  function timerGrossTakt() {
+    var G = timerGross, t = (performance.now() - G.t0) / 1000;
+    if (versteckt || shell !== "desktop") { timerGrossEnde("verborgen"); return; }
+    if (G.phase === "wachsen") {
+      // Gross (spaetestens nach 2 s) und frei: genau EINE Aktion.
+      if (groesseZiel !== null && t < 2) return;
+      if (aktionHindernis("desktop") === "" && nokiAktion("desktop")) { G.phase = "flug"; G.t0 = performance.now(); }
+      else if (t > 4) timerGrossEnde("abgelehnt: " + aktionHindernis("desktop"));
+      return;
+    }
+    // Vom Boden hebt er erst ab (aktionNachAbheben), dann laeuft die Aktion.
+    if (aktion.name !== "desktop" && !aktionNachAbheben) timerGrossEnde("fertig");
+  }
+  function timerGrossEnde(grund) {
+    var G = timerGross; if (!G) return;
+    timerGross = null;
+    groesseZiel = G.groesse;
+    if (energie !== G.energie && ENERGIE_NAME[G.energie]) energieSetzen(G.energie);
+    spaceStateRestore({ prevState: G.flog ? "fly" : (G.zustand === "fly" ? "idle" : G.zustand) });
+    appRuf("noki_log", { msg: "[TIMER_ENDE] zurueck grund=" + grund + " groesse=" + Math.round(G.groesse) + " zustand=" + G.zustand });
+  }
   function timerTakt() {
     if (!timer.el) timer.el = document.getElementById("timerBlase");
     if (timer.laeuft && timerRest() <= 0) {
       timerEnde(true);
-      // Parade: der echte Noki fliegt zuerst los; geht das gerade nicht
-      // (getragen, Transfer, Buero ...), gibt es nur den Effekt-Schwarm.
-      var mitNoki = paradeStart();
-      schwarmStart();
-      if (!mitNoki) {
-        setTimeout(schwarmLos, 600);
-        if (timerEinstellungen.gruss) streichelGruss();   // bestehende Reaktion: froh, zur Front, winken
-      }
+      // Ein noch offenes Timer-Panel (Shortcut 7) geht mit zu.
+      if (werk.offen && werk.was === "timer") werkZu();
+      timerGrossStart();
     }
+    if (timerGross) timerGrossTakt();
     var fertig = timerFertig();
     if (timer.el) stilWert(timer.el, "display", "none");      // keine Blase mehr ueber dem Kopf
     if (timerPropAktiv()) {
@@ -21603,7 +21640,11 @@
     spaceSync:        function () { spaceSync(); },
     spaceVorbereiten: function (d) { spaceVorbereiten(+d || 1); },
     spaceEintreten:   function (d) { spaceEintreten(+d || 1); },
-    groesseZiel:  function (px) { groesseZiel = clamp(num(px, 54), 20, 400); },
+    groesseZiel:  function (px) {
+      var z = clamp(num(px, 54), 20, 400);
+      if (typeof timerGross !== "undefined" && timerGross) { timerGross.groesse = z; return; }   // Timer-Ende: danach diese Groesse
+      groesseZiel = z;
+    },
     buehne:       function () { return { w: buehne.w, h: buehne.h }; },
     buehneSetzen: buehneSetzen,
     grenzen:      function () {
