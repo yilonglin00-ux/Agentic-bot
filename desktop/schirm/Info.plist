@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>com.noki.desktop.schirm</string>
+  <key>CFBundleName</key><string>Noki Arbeitsplatz-Vorschau</string>
+  <key>CFBundleDisplayName</key><string>Noki Arbeitsplatz-Vorschau</string>
+  <key>CFBundleExecutable</key><string>nokischirm</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>0.1.0</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSScreenCaptureUsageDescription</key><string>Noki zeigt dir in der kleinen Vorschau unten links, woran er auf seinem eigenen Schreibtisch gerade arbeitet. Aufgenommen werden ausschliesslich die Fenster, die Noki fuer die laufende Aufgabe selbst geoeffnet hat.</string>
+</dict>
+</plist>

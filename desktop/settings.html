@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Noki Einstellungen</title>
+<link rel="stylesheet" href="intelligence.css">
+<!-- Styles of the Settings content: taken at load time from index.html (one
+     source, no copy). The overrides below make the panel fill this real,
+     normal macOS window; the native title bar replaces the HTML one. -->
+<style id="geteilt"></style>
+<style>
+  html, body { margin: 0; height: 100%; background: var(--noki-bg) !important; overflow: hidden !important; pointer-events: auto !important; cursor: default; }
+  body > *:not(#einstellungen) { display: none !important; }
+  #einstellungen { position: fixed !important; inset: 0 !important; left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important;
+    max-width: none !important; max-height: none !important; transform: none !important; display: flex !important; border-radius: 0 !important; border: 0 !important;
+    box-shadow: none !important; background: var(--noki-bg) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  #einstellungen .e-kopf { display: none !important; }
+  /* Warm neutral surface (no blue cast): the panel's own translucent blue-grey
+     base is replaced; all inner layers are white/beige overlays on top. */
+  /* Shared Noki tokens (Darstellung › Oberfläche) for the settings surfaces. */
+  #einstellungen .e-nav-btn.aktiv, #einstellungen .e-seg-btn.aktiv { background: var(--noki-selected) !important; color: var(--noki-text) !important; }
+  #einstellungen .e-kv-liste, #einstellungen .n-app-box, #einstellungen .n-app-liste, #einstellungen .e-seg { background: var(--noki-surface) !important; border-color: var(--noki-border) !important; }
+  #einstellungen .n-app-hinzu, #einstellungen .n-app-plus { color: var(--noki-accent) !important; }
+  #einstellungen .e-nav { background: rgba(0, 0, 0, 0.14) !important; border-right-color: rgba(255, 240, 215, 0.07) !important; }
+</style>
+</head>
+<body>
+<div id="einstellungen"></div>
+<script src="noki-oberflaeche.js"></script>
+<script>
+(function () {
+  "use strict";
+  // Noki Einstellungen as a NORMAL window. All settings state and logic stay
+  // in the main window (index.html): it renders into a detached element and
+  // mirrors that DOM here; this page only shows it and forwards what the user
+  // does. No timers, no z-order handling - the WindowServer does that.
+  var T = window.__TAURI__, ev = T && T.event;
+  var root = document.getElementById("einstellungen");
+  if (!ev) return;
+  function an(name, data) { ev.emitTo("main", name, data).catch(function () {}); }
+  function senden(d) { an("noki://einst_ereignis", d); }
+
+  // Shared styles: only the <style> blocks of index.html.
+  fetch("index.html").then(function (r) { return r.text(); }).then(function (t) {
+    var doc = new DOMParser().parseFromString(t, "text/html");
+    document.getElementById("geteilt").textContent = Array.from(doc.querySelectorAll("style")).map(function (s) { return s.textContent; }).join("\n");
+  }).catch(function () {});
+
+  // ---- mirror ------------------------------------------------------------
+  function attrs(alt, neu) {
+    var i, a, warAn = alt.hasAttribute("checked"), warSel = alt.hasAttribute("selected");
+    for (i = alt.attributes.length - 1; i >= 0; i--) { a = alt.attributes[i].name; if (!neu.hasAttribute(a)) alt.removeAttribute(a); }
+    for (i = 0; i < neu.attributes.length; i++) {
+      a = neu.attributes[i];
+      if (alt.getAttribute(a.name) === a.value) continue;
+      alt.setAttribute(a.name, a.value);
+      // Form state is a property; follow it only when the source changed it.
+      if (a.name === "value" && "value" in alt && document.activeElement !== alt) alt.value = a.value;
+    }
+    if (alt.tagName === "INPUT" && warAn !== neu.hasAttribute("checked")) alt.checked = neu.hasAttribute("checked");
+    if (alt.tagName === "OPTION" && warSel !== neu.hasAttribute("selected")) alt.selected = neu.hasAttribute("selected");
+  }
+  function morph(alt, neu) {
+    var a = alt.childNodes, n = neu.childNodes, i;
+    for (i = 0; i < n.length; i++) {
+      var x = a[i], y = n[i];
+      if (!x) { alt.appendChild(y.cloneNode(true)); continue; }
+      if (x.nodeType !== y.nodeType || (x.nodeType === 1 && x.tagName !== y.tagName)) { alt.replaceChild(y.cloneNode(true), x); continue; }
+      if (x.nodeType === 1) { attrs(x, y); morph(x, y); }
+      else if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue;
+    }
+    while (a.length > n.length) alt.removeChild(a[a.length - 1]);
+  }
+  ev.listen("noki://einst_html", function (e) {
+    var p = e.payload || {}, tpl = document.createElement("div");
+    tpl.innerHTML = p.html || "";
+    var tabAlt = root.getAttribute("data-tab");
+    morph(root, tpl);
+    if (p.tab != null) root.setAttribute("data-tab", p.tab);
+    if (p.tab != null && tabAlt !== p.tab) { var inh = root.querySelector(".e-inhalt"); if (inh) inh.scrollTop = 0; }
+    // Canvas pixels are not part of the DOM: drawn from the main window's copy.
+    var cv = root.querySelectorAll("canvas");
+    (p.canvases || []).forEach(function (url, k) {
+      var c = cv[k]; if (!c || !url || c.dataset.bild === url) return;
+      var img = new Image();
+      img.onload = function () { var g = c.getContext("2d"); g.clearRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0); c.dataset.bild = url; };
+      img.src = url;
+    });
+  });
+
+  // ---- forwarding ----------------------------------------------------------
+  function pfad(n) {
+    var p = [];
+    while (n && n !== root) { p.unshift(Array.prototype.indexOf.call(n.parentNode.childNodes, n)); n = n.parentNode; }
+    return n === root ? p : null;
+  }
+  root.addEventListener("click", function (e) {
+    var z = e.target.closest && e.target.closest("[data-zschritt]");
+    if (z) { e.preventDefault(); var f = z.parentNode.querySelector("[data-zeit]"); if (f) senden({ t: "zschritt", pfad: pfad(f), d: +z.getAttribute("data-zschritt") }); return; }
+    var b = e.target.closest && e.target.closest("[data-e]");
+    if (b) senden({ t: "click", pfad: pfad(b) });
+  });
+  root.addEventListener("change", function (e) {
+    var t = e.target; senden({ t: "change", pfad: pfad(t), value: t.value, checked: !!t.checked });
+  });
+  root.addEventListener("input", function (e) {
+    var t = e.target; senden({ t: "input", pfad: pfad(t), value: t.value });
+  });
+  // Colour fields: position relative to the field, computed here.
+  var farbe = null;
+  function farbPunkt(e, ende) {
+    var r = farbe.el.getBoundingClientRect();
+    senden({ t: "farbe", art: farbe.art, ziel: farbe.ziel, u: (e.clientX - r.left) / Math.max(r.width, 1), w: (e.clientY - r.top) / Math.max(r.height, 1), ende: !!ende });
+  }
+  root.addEventListener("pointerdown", function (e) {
+    var t = e.target, art = t.getAttribute && (t.getAttribute("data-farbfeld") || t.getAttribute("data-ofeld") ? "feld" : t.getAttribute("data-farbton") || t.getAttribute("data-oton") ? "ton" : "");
+    if (!art || e.button !== 0) return;
+    farbe = { art: art, el: t, pid: e.pointerId, ziel: t.getAttribute("data-ofeld") || t.getAttribute("data-oton") || null };
+    try { t.setPointerCapture(e.pointerId); } catch (x) {}
+    farbPunkt(e, false); e.preventDefault();
+  });
+  root.addEventListener("pointermove", function (e) { if (farbe && farbe.pid === e.pointerId) farbPunkt(e, false); });
+  function farbEnde(e) { if (farbe && farbe.pid === e.pointerId) { farbPunkt(e, true); farbe = null; } }
+  root.addEventListener("pointerup", farbEnde);
+  root.addEventListener("pointercancel", farbEnde);
+  // Timer fields: the main window's document-level helpers never see this page.
+  root.addEventListener("keydown", function (e) {
+    var f = e.target; if (!f || !f.hasAttribute || !f.hasAttribute("data-zeit")) return;
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); senden({ t: "zschritt", pfad: pfad(f), d: e.key === "ArrowUp" ? 1 : -1 }); return; }
+    if (e.key === "Enter") { e.preventDefault(); f.blur(); var b = root.querySelector('[data-e="tstart"]'); if (b) senden({ t: "click", pfad: pfad(b) }); return; }
+    if (e.key && e.key.length === 1 && !/\d/.test(e.key) && !e.metaKey && !e.ctrlKey) e.preventDefault();
+  });
+  root.addEventListener("focusin", function (e) { var f = e.target; if (f && f.hasAttribute && f.hasAttribute("data-zeit")) setTimeout(function () { try { f.select(); } catch (x) {} }, 0); });
+  root.addEventListener("focusout", function (e) { var f = e.target; if (f && f.hasAttribute && f.hasAttribute("data-zeit")) senden({ t: "zeit_fertig", pfad: pfad(f) }); });
+  var rad = 0;
+  root.addEventListener("wheel", function (e) {
+    var seg = e.target.closest && e.target.closest(".n-zseg"); if (!seg) return;
+    e.preventDefault(); rad += e.deltaY;
+    var f = seg.querySelector("[data-zeit]");
+    while (Math.abs(rad) >= 40) { senden({ t: "zschritt", pfad: pfad(f), d: rad < 0 ? 1 : -1 }); rad -= 40 * Math.sign(rad); }
+  }, { passive: false });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") senden({ t: "esc" }); });
+  an("noki://einst_bereit", {});
+})();
+</script>
+</body>
+</html>

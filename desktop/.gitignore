@@ -1,2 +1,5 @@
 # Ergebnis von bauen.sh — ein Bauprodukt, kein Quelltext.
+/Noki.app/
 /JARVIS.app/
+# Testabhaengigkeit (playwright-core) — nur lokal, nie im Repo.
+/node_modules/

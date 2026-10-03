@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -eu
+# Symlink-sicher: ~/.local/bin/noki -> ~/NOKI/noki
+src="${BASH_SOURCE[0]:-$0}"
+while [ -L "$src" ]; do
+  dir="$(cd "$(dirname "$src")" && pwd)"
+  src="$(readlink "$src")"
+  case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+done
+root="$(cd "$(dirname "$src")" && pwd)"
+# Dieselbe CLI wie der Desktop-Code-Tab: zuerst das gebaute App-Bundle.
+bin=""
+for c in "$root/desktop/Noki.app/Contents/Helpers/noki" \
+         "$root/desktop/src-tauri/target/release/noki" \
+         "$root/desktop/src-tauri/target/debug/noki"; do
+  if [ -x "$c" ]; then bin="$c"; break; fi
+done
+if [ -z "$bin" ]; then
+  echo "Noki Code ist noch nicht gebaut. Starte zuerst: desktop/bauen.sh" >&2
+  exit 1
+fi
+if [ "${1:-}" = "code" ]; then
+  shift
+  project="$PWD"
+  if [ "${1:-}" = "--project" ] && [ -n "${2:-}" ]; then project="$2"; shift 2; fi
+  exec "$bin" code --project "$project" "$@"
+fi
+exec "$bin" "$@"

@@ -1,0 +1,20 @@
+{
+  "rules": [
+    { "pattern": "developer.apple.com", "category": "official_docs", "description": "Apple Developer Documentation and Human Interface Guidelines" },
+    { "pattern": "developer.mozilla.org", "category": "official_docs", "description": "MDN Web Docs" },
+    { "pattern": "w3.org", "category": "official_docs", "description": "W3C Standards and Specifications" },
+    { "pattern": "doc.rust-lang.org", "category": "official_docs", "description": "Rust Language Official Documentation" },
+    { "pattern": "docs.rs", "category": "official_docs", "description": "Rust Crates Documentation" },
+    { "pattern": "crates.io", "category": "official_docs", "description": "Rust Package Registry" },
+    { "pattern": "nodejs.org", "category": "official_docs", "description": "Node.js Official Documentation" },
+    { "pattern": "en.wikipedia.org", "category": "official_platforms", "description": "Wikipedia Encyclopedia (English)" },
+    { "pattern": "de.wikipedia.org", "category": "official_platforms", "description": "Wikipedia Encyclopedia (German)" },
+    { "pattern": "github.com", "category": "official_platforms", "description": "GitHub Repositories" },
+    { "pattern": "raw.githubusercontent.com", "category": "trusted_code_sources", "description": "Raw GitHub Repository Content" },
+    { "pattern": "carbondesignsystem.com", "category": "trusted_design_sources", "description": "IBM Carbon Design System" },
+    { "pattern": "m3.material.io", "category": "trusted_design_sources", "description": "Material Design 3 Guidelines" },
+    { "pattern": "design.google", "category": "trusted_design_sources", "description": "Google Design Articles and Resources" },
+    { "pattern": "caniuse.com", "category": "trusted_reference_sites", "description": "Browser Feature Support Tables" },
+    { "pattern": "web.dev", "category": "trusted_reference_sites", "description": "Modern Web Development Best Practices" }
+  ]
+}

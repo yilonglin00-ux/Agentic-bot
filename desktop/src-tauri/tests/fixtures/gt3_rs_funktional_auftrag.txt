@@ -1,0 +1,1537 @@
+继续当前 ~/NOKI working tree。
+
+这是现有 FUNCTIONAL GT3 项目的继续任务。
+
+不要 reset。
+不要 revert。
+不要 checkout。
+不要删除 dirty changes。
+不要重新创建项目。
+不要从零重写。
+不要 commit，除非用户明确要求。
+
+==================================================
+绝对核心规则
+==================================================
+
+CONTINUE THE LATEST EXISTING FUNCTIONAL PROJECT.
+
+先找到当前最新、有效、已经存在的：
+
+FUNCTIONAL GT3 / Porsche-inspired Auto Project。
+
+使用它现有的：
+
+- Dateien
+- Geometrie
+- Fahrlogik
+- Kamera
+- Preview
+- Projekt-ID
+- Verlauf
+- bisherige Tests
+
+继续工作。
+
+不要创建：
+
+gt3-functional-new
+gt3-functional-final
+gt3-functional-v2
+或任何新的重复项目。
+
+只有在完全证明现有Functional项目不存在或无法恢复时，
+才允许新建。
+
+==================================================
+这一轮只做 FUNCTIONAL
+==================================================
+
+不要启动Creative。
+
+不要同时跑第二个Auto-Projekt。
+
+固定顺序继续保持：
+
+1. FUNCTIONAL现在完整做到真正完成
+2. 保存最终状态
+3. 停止Functional Session
+4. Creative以后再做
+
+==================================================
+任务目标
+==================================================
+
+把现有Functional Auto
+继续升级成一个：
+
+高度完整
+非常详细
+视觉清晰
+真实可驾驶
+技术正确
+稳定
+可维护
+
+的3D Sportwagen。
+
+视觉方向：
+
+明显受到现代 Porsche 911 GT3 RS
+尤其是最新一代极端Track-focused GT3-RS设计语言启发。
+
+但是：
+
+不要下载Porsche官方3D模型。
+不要使用proprietary Porsche assets。
+不要直接复制受版权保护的模型文件。
+
+所有车身、轮子、灯、空气动力学部件等
+都必须由项目自己的Code生成。
+
+==================================================
+最重要：
+不要只做“像一辆车”
+==================================================
+
+当前的问题是：
+
+车虽然部分能运行，
+但是Karosserie视觉质量仍然不够。
+
+所以这次必须非常明确地按照
+Sportwagen / 911 GT3 RS-like proportions
+来重新审视现有Geometry。
+
+目标不是：
+
+Boxen + Räder + Spoiler
+
+而是：
+
+一辆从任何常见视角看起来
+都像真正高性能Sportwagen的完整车辆。
+
+==================================================
+A. GESAMTPROPORTIONEN / SILHOUETTE
+==================================================
+
+整体车辆应该：
+
+- niedrig
+- breit
+- kompakt
+- sportlich
+- heckbetont
+- fließend
+- sehr standfest auf der Straße
+
+不要：
+
+- hoch wie SUV
+- lang wie Limousine
+- rechteckig
+- wie Karton
+- wie Spielzeugauto aus Würfeln
+
+==================================================
+典型911-artige比例
+==================================================
+
+车辆应具有：
+
+1. relativ kurze Front
+2. stark ausgeprägte vordere Kotflügel
+3. flache Motorhaube
+4. deutlich gewölbte Frontscheibe / Dachlinie
+5. Dachbogen从前向后连续流动
+6. kompakter Innenraum
+7. deutlich kräftigeres Heck
+8. sehr breite hintere Schulter
+9. breite hintere Spur
+10. optisch tiefer Schwerpunkt
+
+==================================================
+SIDE PROFILE
+==================================================
+
+侧视图必须清楚。
+
+Dachlinie:
+
+不要像：
+
+____
+|    |
+|____|
+
+这种Box。
+
+而应是一个连续的弧形轮廓：
+
+Motorhaube
+→ Windschutzscheibe
+→ Dachbogen
+→ Heckscheibe
+→ kräftiges Heck
+
+整个线条应该smooth。
+
+==================================================
+B. FRONTDESIGN
+==================================================
+
+前脸要具有明显高性能GT风格。
+
+需要：
+
+- sehr flache Front
+- stark ausgeformte Kotflügel
+- breite Frontschürze
+- tiefer Frontsplitter
+- große seitliche Lufteinlässe
+- mittlere Luftführung
+- flache Motorhaube
+- Motorsport-artige Aero-Elemente
+
+==================================================
+SCHEINWERFER
+==================================================
+
+不要：
+
+简单矩形盒子。
+
+需要：
+
+- oval / rundlich
+- leicht geneigt
+- in die Kotflügel integriert
+- moderne Leuchtgrafik
+- Glas-/Linsenwirkung
+- klare Trennung von Karosserie und Licht
+
+==================================================
+MOTORHAUBE
+==================================================
+
+应该有：
+
+- leichte Wölbung
+- definierte Kanten
+- Aero-Luftführungen / Öffnungen wenn passend
+- Übergang zu Kotflügeln
+
+不要是一块平平的BoxGeometry。
+
+==================================================
+C. VORDERE KOTFLÜGEL
+==================================================
+
+这是911视觉的重要部分。
+
+前Kotflügel应该：
+
+- deutlich höher als die Haubenmitte wirken
+- über den Vorderrädern sauber gewölbt sein
+- Radhaus realistisch umschließen
+- nach hinten fließend in Türen übergehen
+
+==================================================
+Radhäuser
+==================================================
+
+不要：
+
+rechteckige Löcher
+oder
+Reifen einfach vor die Karosserie stellen。
+
+需要：
+
+Karosserie围绕轮胎形成真正的Radhaus。
+
+==================================================
+D. SEITENANSICHT
+==================================================
+
+侧面要清楚区分：
+
+- Vorderkotflügel
+- Türbereich
+- Seitenschweller
+- hinterer Kotflügel
+- Heckschulter
+
+==================================================
+TÜRBEREICH
+==================================================
+
+可以有：
+
+- leichte Türkontur
+- Türgriff
+- seitliche Charakterlinie
+- kleine Einzüge / Formwechsel
+
+但是不要过度。
+
+==================================================
+SEITENSCHWELLER
+==================================================
+
+低而运动：
+
+- carbon-like / darker material
+- leicht nach außen gezogen
+- verbindet Vorder- und Hinterachse optisch
+
+==================================================
+SPIEGEL
+==================================================
+
+需要真正的Seitenspiegel：
+
+- kleiner sportlicher Spiegelkörper
+- dünne Halter
+- logisch an A-Säule / Türbereich positioniert
+
+不要悬浮。
+
+==================================================
+E. HECK / REAR HAUNCHES
+==================================================
+
+后部必须是整辆车最有力量的区域之一。
+
+需要：
+
+- breite hintere Kotflügel
+- kräftige Schulterlinie
+- breite Spur
+- optisch massive Heckpartie
+- tiefer Fahrzeugabschluss
+
+==================================================
+HECKLEUCHTEN
+==================================================
+
+现代911风格可参考：
+
+- horizontale Lichtsignatur
+- über Heckbreite optisch verbunden
+- klarer roter Lichtbereich
+- kein einfacher roter Würfel
+
+==================================================
+DIFFUSOR
+==================================================
+
+底部可以有：
+
+- dunkler Diffusor
+- vertikale Finnen
+- funktional wirkende Luftführung
+
+==================================================
+AUSPUFF
+==================================================
+
+如果实现：
+
+- sauber integriert
+- sportlich
+- symmetrisch / technisch logisch
+- nicht zufällig unter dem Auto
+
+==================================================
+F. GROSSER GT3-RS-ARTIGER HECKFLÜGEL
+==================================================
+
+非常重要。
+
+车辆需要一个大型、固定的Track-Wing。
+
+应该：
+
+- deutlich sichtbar
+- breit
+- aerodynamic shape
+- leicht gewölbt
+- sauber befestigt
+- stabil
+
+==================================================
+HALTER
+==================================================
+
+不要：
+
+Spoiler悬浮在空中。
+
+需要：
+
+真正的Wing Supports。
+
+可以使用：
+
+swan-neck-inspired supports
+
+也就是支架从上方/后方合理连接Wing，
+体现赛车空气动力学特征。
+
+==================================================
+Wing比例
+==================================================
+
+大，
+但不能像玩具或飞机翼一样夸张。
+
+应与车宽和Heck比例协调。
+
+==================================================
+G. RÄDER
+==================================================
+
+Räder必须是视觉重点之一。
+
+不要再是：
+
+schwarze einfache Zylinder。
+
+==================================================
+REIFEN
+==================================================
+
+需要：
+
+- klar erkennbare Reifenflanke
+- vernünftige Reifenbreite
+- sportlicher Niederquerschnitt
+- vorne etwas schmaler
+- hinten breiter möglich
+
+==================================================
+FELGEN
+==================================================
+
+需要Sportwagenfelgen：
+
+- Mehrspeichen-Design
+- sichtbare Felgenstruktur
+- metallisches Material
+- keine flache Scheibe
+
+==================================================
+BREMSEN
+==================================================
+
+如果性能允许：
+
+- Bremsscheiben
+- Bremssättel
+- sichtbare Trennung hinter den Felgen
+
+Bremssättel可以具有清晰的Akzentfarbe。
+
+==================================================
+RÄDER POSITION
+==================================================
+
+所有轮子必须：
+
+- exakt in den Radkästen sitzen
+- gleiche Bodenhöhe
+- kein Schweben
+- kein tiefes Einsinken
+- keine Karosserieüberschneidung
+
+==================================================
+H. RADDREHUNG —— ABSOLUT KORREKT
+==================================================
+
+这是一个现有真实问题。
+
+用户已经看到：
+
+有时Räder falsch herum drehen。
+
+必须彻底修复。
+
+==================================================
+不要使用：
+==================================================
+
+wheel.rotation += speed * magicNumber
+
+这种视觉hack。
+
+==================================================
+基于真实Fahrstrecke
+==================================================
+
+每个Frame：
+
+travelDistance = actual vehicle displacement
+
+wheelDelta =
+travelDistance / wheelRadius
+
+==================================================
+Vorwärtsfahrt
+==================================================
+
+所有四个Räder视觉上必须沿车辆真实前进方向
+正确滚动。
+
+==================================================
+Rückwärtsfahrt
+==================================================
+
+所有Räder rotation方向必须反转。
+
+==================================================
+IMPORTANT:
+LEFT / RIGHT WHEELS
+==================================================
+
+由于左右Wheel Mesh
+可能使用不同local transforms / mirror orientation，
+
+不能简单给四个轮子
+相同Euler sign
+然后假设视觉一样。
+
+==================================================
+对每个Wheel检查：
+==================================================
+
+- local axle
+- local rotation axis
+- mesh orientation
+- left/right transform
+- parent steering group
+
+==================================================
+真实测试：
+==================================================
+
+Auto langsam vorwärts fahren。
+
+看：
+
+linkes Vorderrad
+rechtes Vorderrad
+linkes Hinterrad
+rechtes Hinterrad
+
+视觉上是否全部像真实轮胎向前滚动。
+
+==================================================
+然后倒车：
+==================================================
+
+全部反向。
+
+==================================================
+Stillstand:
+==================================================
+
+speed ≈ 0
+→ no continuous wheel spin。
+
+==================================================
+I. LENKUNG
+==================================================
+
+Front wheels必须真正转向。
+
+==================================================
+输入：
+==================================================
+
+A / Pfeil links
+→ lenkt links
+
+D / Pfeil rechts
+→ lenkt rechts
+
+==================================================
+视觉：
+==================================================
+
+两只Vorderräder必须看到明显Steering Angle。
+
+后轮不转向。
+
+==================================================
+不要只旋转车辆Body
+==================================================
+
+需要：
+
+1. front wheel steering visually
+2. heading physically reacts
+
+==================================================
+建议 Fahrmodell
+==================================================
+
+使用稳定的Bicycle Model
+或者近似Ackermann模型。
+
+基本关系：
+
+yawRate =
+speed / wheelbase * tan(steeringAngle)
+
+==================================================
+更好：
+==================================================
+
+根据：
+
+wheelbase
+track width
+turn radius
+
+计算inner/outer wheel steering。
+
+这样：
+
+Kurveninneres Vorderrad
+lenkt稍微更多。
+
+==================================================
+不需要过度模拟
+==================================================
+
+但视觉和Fahrverhalten必须一致。
+
+==================================================
+LENKUNG FEEL
+==================================================
+
+需要：
+
+- smooth steering interpolation
+- max steering angle
+- self-centering
+- bei hoher Geschwindigkeit sanfter
+- bei niedriger Geschwindigkeit stärker möglich
+
+==================================================
+不要：
+==================================================
+
+instant 45° snap。
+
+==================================================
+J. BESCHLEUNIGUNG / BREMSEN / RÜCKWÄRTS
+==================================================
+
+Controls:
+
+W / Arrow Up
+→ Gas
+
+S / Arrow Down
+→ Bremsen
+
+如果车辆已经几乎停止并继续S：
+→ Rückwärts
+
+==================================================
+Fahrgefühl
+==================================================
+
+应运动但可控。
+
+包含：
+
+- acceleration
+- drag
+- rolling resistance
+- braking
+- reverse acceleration
+- bounded maximum speed
+
+==================================================
+不要：
+==================================================
+
+instant max speed
+instant stop
+无限加速
+像冰面一样滑动
+
+==================================================
+Forward schneller als reverse。
+
+==================================================
+K. ECHTE WORLD MOVEMENT
+==================================================
+
+汽车必须真的改变：
+
+position.x
+position.z
+heading/yaw
+
+==================================================
+禁止Fake：
+==================================================
+
+Auto静止，
+只有Boden纹理往后移动。
+
+==================================================
+真实World Position必须改变。
+
+==================================================
+L. BEFAHRBARE OBERFLÄCHE
+==================================================
+
+场景不要复杂。
+
+核心：
+
+一个高质量、清晰、宽大的
+fahrbare Oberfläche。
+
+==================================================
+视觉方向
+==================================================
+
+可以做成：
+
+minimalistischer Performance-Testbereich
++
+hochwertiger Studio-/Track-Look。
+
+==================================================
+Oberfläche:
+==================================================
+
+- groß genug für mehrere Kurven
+- sauber
+- hochwertig
+- gut beleuchtet
+- nicht schwarz
+- nicht leer
+- kein unendliches Nichts
+
+==================================================
+例如：
+==================================================
+
+约：
+
+60–100m breite/lange Testfläche
+
+不是必须精确这个尺寸，
+但需要明显有空间驾驶。
+
+==================================================
+BODENMATERIAL
+==================================================
+
+可以是：
+
+feiner Asphalt
+oder
+dunkler hochwertiger Beton
+
+但是：
+
+不能纯黑。
+
+需要：
+
+- leichte roughness variation
+- subtile Struktur
+- visuell lesbar
+- klare Bodenkontakt-Schatten
+
+==================================================
+可以加入非常轻微的：
+==================================================
+
+- Fahrbahnmarkierungen
+- Randlinien
+- kleine Track-Grenzen
+- dezente Raster-/Materialdetails
+
+==================================================
+不要：
+==================================================
+
+大量UI
+城市
+复杂建筑
+无关物体
+
+Auto是绝对主角。
+
+==================================================
+M. SZENE / HINTERGRUND
+==================================================
+
+不要黑屏。
+
+不要纯黑背景。
+
+==================================================
+使用：
+==================================================
+
+neutraler hochwertiger Hintergrund。
+
+例如：
+
+- dunkles Blau-Grau
+- warmes Studio-Grau
+- dezenter Horizont
+- weiche Umgebung
+
+==================================================
+重要：
+==================================================
+
+Karosserie必须从Hintergrund中清楚分离。
+
+==================================================
+N. LICHT
+==================================================
+
+需要专业的Auto-Studio-Lighting感觉。
+
+==================================================
+至少：
+==================================================
+
+1. weiches Environment / Hemisphere Light
+2. starkes Key Light
+3. Fill Light
+4. optional Rim Light
+5. saubere Schatten
+
+==================================================
+目标：
+==================================================
+
+通过高光清楚显示：
+
+- Dachbogen
+- Kotflügel
+- Türen
+- Heckschulter
+- Wing
+
+==================================================
+不要：
+==================================================
+
+一盏灯从上面
+然后整个车黑成一块。
+
+==================================================
+O. LACK / MATERIALIEN
+==================================================
+
+Karosserie需要真正的汽车Lack感。
+
+使用：
+
+MeshPhysicalMaterial
+或类似PBR material。
+
+==================================================
+可能属性：
+==================================================
+
+- moderate metalness
+- sensible roughness
+- clearcoat
+- clearcoat roughness
+- reflections
+
+==================================================
+颜色
+==================================================
+
+选择一个清楚、运动的主色。
+
+例如：
+
+kräftiges Rot
+Racing Yellow
+helles Grau
+Blau
+oder另一种高对比Sportfarbe。
+
+==================================================
+不要：
+==================================================
+
+纯黑车身，
+因为用户现在需要清楚看见Form。
+
+==================================================
+P. GLAS
+==================================================
+
+Fenster:
+
+- dunkel getönt
+- leichte Transparenz
+- Spiegelung
+- 但仍与Karosserie区分
+
+==================================================
+不要完全黑色不透明Block。
+==================================================
+
+==================================================
+Q. CARBON / AERO
+==================================================
+
+例如：
+
+- Frontsplitter
+- Seitenschweller
+- Wing
+- Diffusor
+
+可以使用：
+
+dunkles Carbon-artiges Material。
+
+==================================================
+但是：
+==================================================
+
+即使深色，也要能通过Lighting看到形状。
+
+==================================================
+R. DETAILS
+==================================================
+
+在大形状正确之后，
+再加小细节。
+
+可能包括：
+
+- Türgriffe
+- Spiegel
+- Scheinwerfer内部结构
+- Rücklichtband
+- Bremsscheiben
+- Bremssättel
+- Felgenspeichen
+- Hood vents
+- Fender vents
+- Front splitter
+- Rear diffuser
+- Wing supports
+- kleine Aero-Flaps
+
+==================================================
+顺序非常重要：
+==================================================
+
+先：
+
+SILHOUETTE
+
+然后：
+
+PROPORTIONS
+
+然后：
+
+BODY SURFACES
+
+然后：
+
+DETAILS。
+
+==================================================
+不要用100个小部件掩盖错误的车身比例。
+==================================================
+
+==================================================
+S. GEOMETRIE QUALITÄT
+==================================================
+
+不要主要依靠：
+
+BoxGeometry堆叠。
+
+==================================================
+优先考虑：
+==================================================
+
+- Shape
+- ExtrudeGeometry
+- custom BufferGeometry
+- profile curves
+- CatmullRomCurve
+- curved surfaces
+- appropriately segmented rounded primitives
+- custom body sections
+
+==================================================
+可以组合多个meshes，
+但最终视觉必须形成：
+
+一个coherent Fahrzeugkörper。
+
+==================================================
+如果现在 main.js 很大
+==================================================
+
+不要为了重构而重构。
+
+但如果继续添加高质量功能
+已经明显不易维护，
+
+可以合理拆成：
+
+vehicle/body.js
+vehicle/wheels.js
+vehicle/dynamics.js
+scene.js
+camera.js
+materials.js
+
+==================================================
+但：
+==================================================
+
+先保护现有工作。
+
+不要大爆炸式重写。
+
+==================================================
+T. KAMERA
+==================================================
+
+需要两个清楚的Camera体验。
+
+==================================================
+1. FOLLOW CAMERA
+==================================================
+
+在驾驶时：
+
+- behind + slightly above
+- smooth follow
+- look-at方向与车辆heading一致
+- acceleration时不过度摆动
+- steering时自然跟随
+- 不抖动
+- 不穿过车体
+
+==================================================
+2. ORBIT / VIEW CAMERA
+==================================================
+
+用户可以停止或低速时
+自由旋转查看车辆。
+
+==================================================
+不要让Orbit controls和Driving输入冲突。
+==================================================
+
+可以有简单明确的模式切换。
+
+==================================================
+U. KAMERA不能让车消失
+==================================================
+
+如果Auto离开当前区域，
+Follow Camera必须继续跟。
+
+==================================================
+V. PERFORMANCE
+==================================================
+
+视觉细节增加，
+但不要通过：
+
+数百万Polygons
+大量transparent layers
+大量动态shadow lights
+
+把Mac拖慢。
+
+==================================================
+目标：
+==================================================
+
+在真实Preview里保持稳定交互。
+
+==================================================
+Unfocused Preview
+继续遵守现有throttle。
+
+不要破坏thermal fixes。
+
+==================================================
+W. REAL FUNCTIONAL TEST
+==================================================
+
+在真实Preview中测试。
+
+不是只读Code。
+
+==================================================
+Test 1:
+Standstill
+==================================================
+
+Auto steht still。
+
+Expect:
+
+- keineWheel rotation
+- keindrift
+- camera stable
+
+==================================================
+Test 2:
+W halten
+==================================================
+
+Expect:
+
+- speed steigt
+- positionändert sich
+- heading bleibt gerade wenn steering=0
+- alle Räder drehen正确
+
+==================================================
+Test 3:
+W + A
+==================================================
+
+Expect:
+
+- Vorderräder lenken links
+- Fahrzeug heading dreht links
+- kurveninnere/-äußere wheel steering logisch
+- Wheel spin bleibt正确
+
+==================================================
+Test 4:
+W + D
+==================================================
+
+gleich für rechts。
+
+==================================================
+Test 5:
+S
+==================================================
+
+Expect:
+
+- bremsen
+- speed sinkt
+
+==================================================
+Test 6:
+nach vollständigem Stop weiter S
+==================================================
+
+Expect:
+
+- kontrollierte Rückwärtsfahrt
+- wheel rotation direction反转
+- heading / steering继续合理
+
+==================================================
+Test 7:
+Links/rechts Seitenansicht
+==================================================
+
+检查：
+
+没有Wheel visual counter-rotation。
+
+==================================================
+Test 8:
+Camera
+==================================================
+
+- Follow
+- Orbit
+- kein clipping
+- kein spring
+
+==================================================
+X. REAL VISUAL REVIEW
+==================================================
+
+然后真的观察Preview。
+
+不要只使用自动数字指标。
+
+==================================================
+依次评估：
+==================================================
+
+Gesamtsilhouette
+PASS / PARTIAL / FAIL
+
+911-artige Dachlinie
+PASS / PARTIAL / FAIL
+
+Front
+PASS / PARTIAL / FAIL
+
+Scheinwerfer
+PASS / PARTIAL / FAIL
+
+Vordere Kotflügel
+PASS / PARTIAL / FAIL
+
+Seitenprofil
+PASS / PARTIAL / FAIL
+
+Hintere Schulter
+PASS / PARTIAL / FAIL
+
+Heck
+PASS / PARTIAL / FAIL
+
+Wing
+PASS / PARTIAL / FAIL
+
+Räder
+PASS / PARTIAL / FAIL
+
+Felgen
+PASS / PARTIAL / FAIL
+
+Bodenkontakt
+PASS / PARTIAL / FAIL
+
+Materialien
+PASS / PARTIAL / FAIL
+
+Lighting
+PASS / PARTIAL / FAIL
+
+Fahrfläche
+PASS / PARTIAL / FAIL
+
+==================================================
+核心视觉要求如果仍是：
+==================================================
+
+FAIL
+或明显PARTIAL
+
+不要宣布Fertig。
+
+==================================================
+继续做真正的Refinement。
+==================================================
+
+==================================================
+Y. REFINE IN ROUNDS
+==================================================
+
+这不是一次Patch任务。
+
+允许多个真实工作轮次。
+
+==================================================
+Round可能是：
+==================================================
+
+1. inspect existing
+2. body proportions
+3. roofline/fenders
+4. front
+5. rear/wing
+6. wheels/brakes
+7. dynamics
+8. wheel rotation
+9. steering
+10. camera
+11. materials
+12. lighting
+13. surface
+14. preview test
+15. visual audit
+16. refinement
+17. retest
+18. final polish
+
+==================================================
+复杂任务可以使用现有Dynamic Budget。
+==================================================
+
+如果有真实progress，
+允许继续工作较长时间。
+
+30–50分钟真实productive coding
+是可以接受的。
+
+==================================================
+但是：
+==================================================
+
+不要故意sleep。
+
+时间不是目标。
+
+质量是目标。
+
+==================================================
+Z. NOKI TERMINAL / LIVE CODING VERLAUF
+==================================================
+
+整个过程用户必须在Noki Terminal
+真实看到。
+
+==================================================
+显示：
+==================================================
+
+Model
+
+kurze Analyse Summary
+
+Datei
+
+真实Diff
+
+Build
+
+Test
+
+Issue
+
+Fix
+
+Re-Test
+
+Visual Review
+
+Refinement
+
+Final Verify
+
+==================================================
+Code Diff必须真实：
+==================================================
+
+before
+vs
+after
+
+==================================================
+Added：
+==================================================
+
+绿色
++
+
+Removed：
+==================================================
+
+红色
+-
+
+==================================================
+不要private Chain-of-Thought。
+==================================================
+
+只使用短的user-readable work summaries。
+
+==================================================
+不要旧Result Card
+==================================================
+
+结束时不要出现：
+
+Code öffnen
+Vorschau öffnen
+Im Finder zeigen
+
+在Coding Chat内。
+
+这些只属于：
+
+Projekte。
+
+==================================================
+AA. DEFINITION OF DONE
+==================================================
+
+非常重要：
+
+下面这些任何一个单独都不等于Fertig：
+
+- Preview lädt
+- keineJS Errors
+- W funktioniert
+- Auto bewegt sich
+- Wing existiert
+
+==================================================
+真正DONE需要：
+==================================================
+
+FUNCTIONAL:
+PASS
+
++
+VISUAL:
+PASS / akzeptabel
+
++
+CODE QUALITY:
+akzeptabel
+
++
+REQUIREMENT COVERAGE:
+keine wichtigen FAILs
+
+==================================================
+至少必须满足：
+==================================================
+
+1. existing Functional project reused
+2. Preview sichtbar
+3. kein schwarzer Screen
+4. Auto vollständig sichtbar
+5. GT3-RS-inspired silhouette klar
+6. hochwertige Karosserie
+7. keine Box-Car Erscheinung
+8. Front sauber
+9. Dachlinie sauber
+10. Kotflügel sauber
+11. Heck sauber
+12. Wing sauber befestigt
+13. hochwertige Räder/Felgen
+14. W funktioniert
+15. S funktioniert
+16. A funktioniert
+17. D funktioniert
+18. Arrow Keys funktionieren
+19. Vorwärtsfahrt korrekt
+20. Rückwärtsfahrt korrekt
+21. wheel rotation direction korrekt
+22. links/rechts Wheels visuell gleich korrekt
+23. Vorderräder lenken
+24. Fahrzeugheading reagiert
+25. braking funktioniert
+26. Follow Camera funktioniert
+27. Orbit Camera funktioniert
+28. Fahrfläche sichtbar und befahrbar
+29. Auto steht auf dem Boden
+30. Lighting zeigtKarosserie
+31. kein fatalerJS/WebGL Fehler
+32. echteVisual Review durchgeführt
+33. echteFunctional Tests durchgeführt
+34. Live Coding Verlauf sichtbar
+35. echteDiffs sichtbar
+
+==================================================
+如果还不满足：
+==================================================
+
+WEITERARBEITEN。
+
+不要因为想结束Session
+提前说“fertig”。
+
+==================================================
+AB. 这一轮结束后
+==================================================
+
+只完成 FUNCTIONAL。
+
+不要自动启动Creative。
+
+==================================================
+保存Functional最终状态：
+==================================================
+
+- exact project ID
+- exact path
+- model history
+- total duration
+- changed files
+- diff totals
+- number of refinement rounds
+- functional test results
+- visual audit
+- final preview status
+
+==================================================
+然后停止。
+==================================================
+
+Creative下一轮再做。
+
+==================================================
+最终报告最多12行
+==================================================
+
+1. exact Functional project继续使用
+2. initial state
+3. major body/visual improvements
+4. wheel rotation fix/result
+5. steering/dynamics result
+6. braking/reverse result
+7. camera result
+8. surface/lighting result
+9. visual audit result
+10. functional test result
+11. model/time/refinement rounds
+12. exact remaining blocker if any
+
+==================================================
+最重要
+==================================================
+
+这一次不是：
+
+“做一个可以动的Auto。”
+
+而是：
+
+把现有FUNCTIONAL GT3项目
+真正完成成一辆：
+
+非常详细
+比例正确
+有明确911/GT3-RS式视觉语言
+车身连贯
+轮子物理方向正确
+前轮真正转向
+真实改变方向
+可前进
+可刹车
+可倒车
+有高质量可驾驶表面
+有清晰光照
+有稳定Camera
+
+的3D Sportwagen。
+
+CONTINUE EXISTING PROJECT.
+
+FUNCTIONAL ONLY.
+
+不要并行Creative。
+
+不要从零开始。
+
+不要在仍然明显丑陋或功能不完整时宣布Fertig。

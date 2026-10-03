@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- Nur zum Testen: feste Eingabeziele fuer das Fern-Tippen durch die
+     Miniatur (Noki Schreibtisch). Kein Produkt-UI. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Eingabe-Ziel</title>
+<style>
+  body { margin: 0; padding: 24px; font: 22px -apple-system, sans-serif; background: #fff; color: #111; }
+  input, textarea, #frei { display: block; width: 90%; font: inherit; margin: 0 0 18px; padding: 10px; border: 2px solid #888; }
+  textarea { height: 90px; }
+  #frei { min-height: 60px; }
+  #stand { font-size: 16px; color: #555; }
+  #absatz { margin: 0 0 14px; }
+</style>
+</head>
+<body>
+  <p id="absatz">Noki liest diesen ganz normalen Absatz zum Markieren.</p>
+  <input id="feld" placeholder="input" value="Hallo Noki Welt">
+  <textarea id="bereich" placeholder="textarea">erste Zeile zweite Zeile</textarea>
+  <div id="frei" contenteditable="true">Frei editierbarer Text hier</div>
+  <form id="formular"><input id="suche" name="q" placeholder="Enter sendet"></form>
+  <div id="stand">-</div>
+<script>
+  var stand = document.getElementById("stand");
+  function melden() {
+    var t = [document.getElementById("feld").value, document.getElementById("bereich").value,
+             document.getElementById("frei").innerText, document.getElementById("suche").value];
+    stand.textContent = JSON.stringify(t);
+    document.title = "Eingabe " + JSON.stringify(t);
+  }
+  document.addEventListener("input", melden);
+  // Markierung sichtbar machen: was gerade ausgewaehlt ist, steht im Titel.
+  document.addEventListener("selectionchange", function () {
+    var a = document.activeElement, t = "";
+    if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")) t = a.value.substring(a.selectionStart, a.selectionEnd);
+    else t = String(window.getSelection());
+    document.title = "Auswahl [" + t + "]";
+  });
+  document.getElementById("formular").addEventListener("submit", function (e) {
+    e.preventDefault();
+    document.title = "GESENDET " + document.getElementById("suche").value;
+    stand.textContent = document.title;
+  });
+</script>
+</body>
+</html>

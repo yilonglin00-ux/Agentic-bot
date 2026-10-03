@@ -1,0 +1,1838 @@
+/* ══ Noki design tokens — ONE source for Settings, Ask/Work, Code, Projekte,
+   Noki Terminal. Darstellung › Oberfläche overrides them on <html>
+   (noki-oberflaeche.js); every surface below reads them. Default: warm beige. */
+:root {
+  --noki-tint: 255, 244, 222;              /* warm white for overlays */
+  --noki-glas: 1;                          /* Material: 0.6 mehr / 1 / 1.6 weniger transparent */
+  --noki-bg: #1e1c18;                      /* window base */
+  --noki-bg-tief: #191714;                 /* chrome bars, sidebars */
+  --noki-raised: #26231e;                  /* menus, popovers */
+  --noki-surface: rgba(var(--noki-tint), calc(0.035 * var(--noki-glas)));
+  --noki-surface-raised: rgba(var(--noki-tint), calc(0.06 * var(--noki-glas)));
+  --noki-border: rgba(var(--noki-tint), calc(0.09 * var(--noki-glas)));
+  --noki-linie: rgba(var(--noki-tint), 0.07);
+  --noki-hover: rgba(var(--noki-tint), 0.06);
+  --noki-accent: #e2d6b5;
+  --noki-accent-rgb: 226, 214, 181;
+  --noki-selected: rgba(var(--noki-accent-rgb), 0.15);
+  --noki-text: #efebe2;                    /* ALL normal Noki text derives from these three */
+  --noki-text-secondary: rgba(var(--noki-text-rgb), 0.74);
+  --noki-text-muted: rgba(var(--noki-text-rgb), 0.52);
+  --noki-term-bg: #121110;                 /* terminal/code buffer: dark, high contrast */
+  --noki-ui-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;   /* default = System; set by noki-oberflaeche.js */
+  --noki-chrome-font: var(--noki-ui-font);
+  --noki-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, monospace;
+  --noki-text-rgb: 239, 235, 226;
+}
+/* Ask Noki – same design language as Noki Settings (surfaces, borders, radii, type, buttons). */
+#askNoki { --ni-font: var(--n-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif);
+  position: fixed; left: 0; top: 0; z-index: 31; display: none; box-sizing: border-box;
+  width: min(720px, calc(100vw - 24px)); height: min(660px, calc(100vh - 24px)); min-height: min(320px, calc(100vh - 24px));
+  /* Dieselbe Flaeche wie "Noki hoert zu" und Nokis Sprechblase - ein
+     gemeinsamer warmer Ton statt drei aehnlicher Graus. Nur die Farbe;
+     Aufbau und Verhalten von Ask Noki bleiben unveraendert. */
+  flex-direction: column; background: var(--noki-bg); -webkit-backdrop-filter: blur(30px) saturate(1.2); backdrop-filter: blur(30px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 16px; box-shadow: 0 32px 90px #0008, inset 0 1px #ffffff0c;
+  color: var(--noki-text); font: 450 13px/1.5 var(--ni-font); -webkit-font-smoothing: antialiased; color-scheme: dark; -webkit-user-select: text; user-select: text; overflow: hidden;
+  min-width: min(420px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); }
+#askNoki[style*="block"] { display: flex !important; }
+#askNoki, #askNoki * { pointer-events: auto !important; }
+#askNoki button, #askNoki textarea { font-family: var(--ni-font); }
+#askNoki header {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  flex: none;
+  padding: 0 12px 0 14px;
+  box-sizing: border-box;
+  background: var(--noki-bg-tief);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  cursor: default;
+  user-select: none;
+  overflow: hidden;
+  gap: 8px;
+}
+#askNoki .ni-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+#askNoki .ni-brand-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--noki-text);
+  white-space: nowrap;
+}
+#askNoki .ni-header-spacer {
+  flex: 1 1 8px;
+  min-width: 6px;
+}
+#askNoki .ni-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+#askNoki header button, #askNoki header .ni-assistant-modes { cursor: default; }
+#askNoki .ni-titel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  flex-shrink: 0;
+  gap: 1px;
+  line-height: 1.2;
+}
+#askNoki .ni-titel-zeile1,
+#askNoki .ni-titel-zeile2 {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+#askNoki .ni-model-indicator {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--noki-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#askNoki .ni-model-indicator[data-loading="true"] {
+  color: var(--noki-text-secondary);
+}
+#askNoki .ni-assistant-modes {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+#askNoki .ni-assistant-modes button {
+  padding: 2px 9px;
+  height: 22px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--noki-text-muted);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+#askNoki .ni-assistant-modes button.aktiv {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--noki-text);
+  font-weight: 600;
+}
+#askNoki .ni-runtime-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  font-family: var(--nc-mono, "SF Mono", Menlo, monospace);
+  font-size: 11px;
+  font-weight: 450;
+  color: var(--noki-text-muted);
+  white-space: nowrap;
+  max-width: 240px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  user-select: none;
+  flex: 0 1 auto;
+  transition: color 120ms ease;
+}
+#askNoki .ni-runtime-status:hover {
+  color: var(--noki-text);
+}
+#askNoki .ni-runtime-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#askNoki .ni-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--noki-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+#askNoki .ni-icon:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--noki-text);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+#askNoki .ni-menu {
+  position: absolute;
+  right: 12px;
+  top: 40px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--noki-raised);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+#askNoki .ni-menu[hidden] {
+  display: none !important;
+}
+#askNoki .ni-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--noki-text);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 450;
+  cursor: pointer;
+}
+#askNoki .ni-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--noki-text);
+}
+#askNoki[data-assistant-mode="code"] .ni-modepicker { display: none; }
+#askNoki[data-assistant-mode="code"] .ni-body,
+#askNoki[data-assistant-mode="code"] > form,
+#askNoki[data-assistant-mode="code"] footer,
+#askNoki[data-assistant-mode="code"] .ni-neu,
+#askNoki[data-assistant-mode="code"] .ni-verlauf-btn { display: none !important; }
+#askNoki .ni-status[data-k="aus"], #askNoki .ni-status[data-k="fehlt"] { color: rgba(235, 205, 170, 0.8); }
+#askNoki button { cursor: pointer; color: var(--noki-text); background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 8px; padding: 6px 12px; font-size: 12.5px; font-weight: 550; }
+#askNoki button:hover { background: rgba(255, 255, 255, 0.11); border-color: rgba(255, 255, 255, 0.18); }
+#askNoki button:active { background: rgba(255, 255, 255, 0.18); transform: scale(0.97); }
+#askNoki button:disabled { opacity: .4; cursor: default; transform: none; }
+#askNoki button:focus-visible { outline: 2px solid rgba(214, 206, 176, 0.6); outline-offset: 2px; }
+#askNoki .ni-close:not(.ni-dot) { font-size: 18px; line-height: 16px; padding: 4px 7px; background: none; border-color: transparent; color: var(--noki-text-secondary); }
+#askNoki .ni-body { flex: 1 1 auto; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 22px 28px 10px; overscroll-behavior: contain; scrollbar-gutter: stable; }
+#askNoki .ni-q:not(:empty) { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 12.5px; color: var(--noki-text-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+#askNoki .ni-q:not(:empty)::before { content: "Du · "; color: var(--noki-text-muted); }
+#askNoki .ni-answer { min-width: 0; max-height: none; overflow: visible; font-size: 14.5px; font-weight: 460; line-height: 1.65; letter-spacing: -0.003em; color: var(--noki-text); overflow-wrap: anywhere; }
+#askNoki .ni-answer > .ni-text { max-height: none; overflow: visible; }
+#askNoki .ni-markdown { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+#askNoki .ni-markdown p { margin: 0 0 11px; white-space: normal; }
+#askNoki .ni-markdown h1, #askNoki .ni-markdown h2, #askNoki .ni-markdown h3 { margin: 15px 0 7px; line-height: 1.25; color: var(--noki-text); letter-spacing: -0.012em; }
+#askNoki .ni-markdown h1 { font-size: 1.42em; font-weight: 700; }
+#askNoki .ni-markdown h2 { font-size: 1.26em; font-weight: 680; }
+#askNoki .ni-markdown h3 { font-size: 1.14em; font-weight: 650; }
+#askNoki .ni-markdown > :first-child { margin-top: 0; }
+#askNoki .ni-markdown > :last-child { margin-bottom: 0; }
+#askNoki .ni-markdown strong { font-weight: 700; color: var(--noki-text); }
+#askNoki .ni-markdown .ni-md-strong-em { font-style: italic; }
+#askNoki .ni-markdown ul, #askNoki .ni-markdown ol { margin: 0 0 10px; padding-left: 21px; }
+#askNoki .ni-markdown ul ul, #askNoki .ni-markdown ul ol, #askNoki .ni-markdown ol ul, #askNoki .ni-markdown ol ol { margin: 3px 0 2px; }
+#askNoki .ni-markdown li { margin: 2px 0; padding-left: 1px; }
+#askNoki .ni-markdown blockquote { margin: 0 0 11px; padding: 3px 0 3px 11px; border-left: 2px solid rgba(214, 206, 176, 0.55); color: var(--noki-text-secondary); }
+#askNoki .ni-markdown code { padding: 1px 4px; border-radius: 4px; background: rgba(0, 0, 0, 0.28); font: .88em/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; }
+#askNoki .ni-markdown pre { margin: 0 0 11px; padding: 10px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.07); max-width: 100%; overflow-x: auto; }
+#askNoki .ni-markdown pre code { display: block; padding: 0; background: none; font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre; overflow-wrap: normal; }
+#askNoki .ni-markdown hr { height: 1px; margin: 13px 0; border: 0; background: rgba(255, 255, 255, 0.13); }
+#askNoki .ni-markdown a { color: #ded4a7; text-decoration: underline; text-decoration-color: rgba(222, 212, 167, 0.48); text-underline-offset: 2px; cursor: pointer; }
+#askNoki .ni-markdown a:hover { color: #f0e7bd; }
+#askNoki .ni-hint { margin: 0; color: var(--noki-text-secondary); }
+#askNoki .ni-media { display: block; max-width: 100%; max-height: 260px; border-radius: 10px; margin: 6px 0 10px; }
+#askNoki .ni-file { display: inline-block; margin: 4px 0 10px; padding: 6px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.10); font-size: 12.5px; }
+#askNoki .ni-sources:not(:empty) { margin: 6px 0 14px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06); font-size: 12px; color: var(--noki-text-muted); }
+#askNoki .ni-sources summary { cursor: pointer; font-weight: 550; color: var(--noki-text-secondary); list-style: none; }
+#askNoki .ni-sources summary::-webkit-details-marker { display: none; }
+#askNoki .ni-sources summary::after { content: " ›"; }
+#askNoki .ni-sources details[open] summary::after { content: " ⌄"; }
+#askNoki .ni-sources ol { margin: 6px 0 0; padding-left: 20px; }
+#askNoki .ni-sources li { margin: 3px 0; }
+#askNoki .ni-sources li button { padding: 0; background: none; border: 0; font-weight: 500; color: var(--noki-text); text-align: left; text-decoration: underline; text-decoration-color: rgba(255, 255, 255, 0.25); transform: none; }
+#askNoki .ni-tools:not(:empty) { margin: 4px 0 12px; }
+#askNoki .ni-tools button { background: rgba(214, 206, 176, 0.18); color: var(--noki-text); border-color: rgba(214, 206, 176, 0.34); }
+#askNoki footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex: none; padding: 8px 18px 12px; font-size: 11.5px; font-weight: 450; color: var(--noki-text-muted); }
+#askNoki.ni-tip { height: auto; max-height: min(260px, calc(100vh - 24px)); }
+#askNoki.ni-tip form, #askNoki.ni-tip .ni-settings { display: none; }
+@media (prefers-reduced-motion: reduce) { #askNoki button:active { transform: none; } }
+#einstellungen .ni-mem { margin: 8px 0; padding-left: 0; list-style: none; }
+#einstellungen .ni-mem li { margin: 4px 0; overflow-wrap: anywhere; }
+#askNoki .ni-verlauf-btn.aktiv { background: rgba(255, 255, 255, 0.13); border-color: rgba(255, 255, 255, 0.18); }
+#askNoki .ni-steps { list-style: none; margin: 0; padding: 0; font-size: 13px; color: var(--noki-text-secondary); }
+#askNoki .ni-steps li { margin: 0 0 6px; }
+#askNoki .ni-steps li.fertig { color: var(--noki-text-muted); }
+#askNoki .ni-steps li.fertig::before { content: "✓  "; }
+#askNoki .ni-steps li:last-child::before { content: "·  "; }
+/* ── Chat-Bibliothek Drawer ────────────────────────────────────────── */
+#askNoki .ni-drawer {
+  position: absolute;
+  top: 44px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--noki-bg);
+  padding: 16px 20px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+#askNoki .ni-drawer[hidden] { display: none !important; }
+#askNoki .ni-drawer-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex: none;
+}
+#askNoki .ni-drawer-titel-wrap strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--noki-text);
+}
+#askNoki .ni-drawer-titel-wrap span {
+  font-size: 11px;
+  color: var(--noki-text-muted);
+}
+#askNoki .ni-drawer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#askNoki .ni-drawer-new-btn {
+  padding: 4px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: rgba(237, 232, 216, 0.12);
+  color: var(--noki-text);
+  border: 1px solid rgba(237, 232, 216, 0.22);
+  cursor: pointer;
+}
+#askNoki .ni-drawer-new-btn:hover {
+  background: rgba(237, 232, 216, 0.2);
+  color: var(--noki-text);
+}
+#askNoki .ni-drawer-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 16px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--noki-text-secondary);
+  cursor: pointer;
+}
+#askNoki .ni-drawer-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--noki-text);
+}
+/* × as two strokes: the glyph sat low/right of the box centre. */
+#askNoki .ni-drawer-close-btn { position: relative; font-size: 0; }
+#askNoki .ni-drawer-close-btn::before, #askNoki .ni-drawer-close-btn::after { content: ""; position: absolute; left: 50%; top: 50%; width: 11px; height: 1.5px; border-radius: 1px; background: currentColor; transform: translate(-50%, -50%) rotate(45deg); }
+#askNoki .ni-drawer-close-btn::after { transform: translate(-50%, -50%) rotate(-45deg); }
+#askNoki .ni-bib-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+#askNoki .ni-bib-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+#askNoki .ni-bib-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+#askNoki .ni-bib-item.aktiv {
+  background: rgba(237, 232, 216, 0.08);
+  border-color: rgba(237, 232, 216, 0.28);
+}
+#askNoki .ni-bib-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+#askNoki .ni-bib-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--noki-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#askNoki .ni-bib-time {
+  font-size: 10.5px;
+  color: var(--noki-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+#askNoki .ni-bib-preview {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--noki-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#askNoki .ni-bib-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+#askNoki .ni-bib-count {
+  font-size: 10.5px;
+  color: var(--noki-text-muted);
+}
+#askNoki .ni-bib-del {
+  padding: 1px 6px;
+  font-size: 10px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: rgba(235, 120, 100, 0.7);
+  cursor: pointer;
+}
+#askNoki .ni-bib-del:hover {
+  background: rgba(235, 100, 80, 0.15);
+  color: #ff8b7a;
+}
+#askNoki .ni-drawer-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 10px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex: none;
+}
+#askNoki .ni-verlauf-leeren {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--noki-text-muted);
+}
+#askNoki .ni-verlauf-leeren:hover {
+  color: #ff7b72;
+  border-color: rgba(255, 123, 114, 0.3);
+}
+#askNoki .ni-drawer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--noki-text-muted);
+}
+#askNoki .ni-drawer-empty p {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--noki-text-secondary);
+}
+#askNoki .ni-drawer-empty span {
+  font-size: 11.5px;
+}
+
+/* ── Modern Chat Composer ─────────────────────────────────────────── */
+#askNoki > form {
+  position: relative;
+  flex: none;
+  padding: 10px 18px 14px;
+  background: transparent;
+  box-sizing: border-box;
+}
+#askNoki .ni-composer-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 8px 6px 16px;
+  background: var(--noki-bg-tief);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 13px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+#askNoki .ni-composer-box:focus-within {
+  border-color: rgba(214, 206, 176, 0.45);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(214, 206, 176, 0.2);
+}
+/* Audio is a mode of the existing Work composer, not a second page.
+   Status, level, transcript and controls live in ONE quiet surface. */
+#askNoki .ni-voice-live {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 10px;
+  max-height: min(330px, calc(100vh - 116px));
+  gap: 10px;
+  box-sizing: border-box;
+}
+#askNoki .ni-voice-live[hidden] { display: none !important; }
+/* The one Audio area: a touch lighter than the panel, no card, no hard border. */
+#askNoki .ni-voice-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 9px;
+  padding: 11px 12px 10px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+}
+/* Row 1: listening status + level. Both are temporary and only shown while active. */
+#askNoki .ni-voice-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-height: 16px;
+  padding: 0 2px;
+}
+#askNoki .ni-voice-state {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  color: var(--noki-text-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+#askNoki .ni-voice-worte {
+  flex: none;
+  margin-left: auto;
+  color: var(--noki-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+/* Level: a small live hint that Noki is listening, never a visualizer. */
+#askNoki .ni-live-meter {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  width: 22px;
+  height: 12px;
+  color: var(--noki-text-muted);
+}
+#askNoki .ni-live-meter i { height: 11px; }
+/* Once Noki stops listening, status and level go away – the transcript is left in peace. */
+#askNoki .ni-voice-live:not([data-k="listening"]) .ni-live-meter { display: none; }
+#askNoki .ni-voice-live[data-k="paused"] .ni-voice-state,
+#askNoki .ni-voice-live[data-k="idle"] .ni-voice-state { display: none; }
+/* Row 2: the transcript – the content of this area, nothing on top of it. */
+#askNoki .ni-voice-scroll {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 74px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 2px;
+  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+  color: var(--noki-text);
+  font-size: 13.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+#askNoki .ni-voice-scroll p { display: inline; margin: 0; }
+#askNoki .ni-voice-basis { color: var(--noki-text-secondary); }
+#askNoki .ni-voice-interim { color: var(--noki-text-muted); font-style: normal; }
+#askNoki .ni-voice-leer {
+  display: block;
+  color: var(--noki-text-muted);
+  font-size: 13.5px;
+}
+#askNoki .ni-voice-leer[hidden] { display: none; }
+/* Row 3: compact, monochrome controls inside the area. */
+#askNoki .ni-voice-acts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding-top: 1px;
+}
+#askNoki .ni-voice-acts button {
+  min-height: 26px;
+  padding: 3px 11px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 550;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--noki-text-secondary);
+}
+#askNoki .ni-voice-acts button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--noki-text);
+}
+#askNoki .ni-voice-toggle { color: var(--noki-text); }
+#askNoki .ni-voice-cancel {
+  background: transparent;
+  border-color: transparent;
+  color: var(--noki-text-muted);
+}
+#askNoki .ni-voice-cancel:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.09);
+  color: var(--noki-text);
+}
+#askNoki .ni-voice-composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 8px 6px 16px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 13px;
+  background: var(--noki-bg-tief);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+#askNoki .ni-voice-composer > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--noki-text-muted);
+  font-size: 13.5px;
+}
+#askNoki .ni-voice-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--noki-text-secondary);
+  box-shadow: none;
+}
+#askNoki .ni-voice-send:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.18); color: var(--noki-text); }
+#askNoki .ni-voice-send:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--noki-text-muted);
+  box-shadow: none;
+}
+#askNoki .ni-composer-box textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 24px;
+  min-height: 24px;
+  max-height: 130px;
+  margin: 0;
+  padding: 3px 4px 3px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--noki-text);
+  font: 450 13.5px/1.45 var(--ni-font);
+  resize: none;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+#askNoki .ni-composer-box textarea::placeholder {
+  color: var(--noki-text-muted);
+}
+#askNoki .ni-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+#askNoki .ni-mic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--noki-text-muted);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+#askNoki .ni-mic:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--noki-text);
+}
+#askNoki .ni-mic[data-k="listening"],
+#askNoki .ni-mic[data-k="processing"] {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--noki-text);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+#askNoki .ni-mic-eq { display: none; width: 13px; height: 13px; align-items: center; justify-content: center; gap: 2px; }
+#askNoki .ni-mic-eq i, #askNoki .ni-live-meter i { display: block; width: 2px; border-radius: 2px; background: currentColor; transform: scaleY(.18); transform-origin: center; transition: transform 70ms linear; }
+#askNoki .ni-mic-eq i { height: 11px; }
+#askNoki .ni-mic[data-k="listening"] svg, #askNoki .ni-mic[data-k="processing"] svg { display: none; }
+#askNoki .ni-mic[data-k="listening"] .ni-mic-eq, #askNoki .ni-mic[data-k="processing"] .ni-mic-eq { display: flex; }
+#askNoki .ni-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  /* Same neutral surface as every other Work control - the cream fill read as
+     a white block against the dark composer. */
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--noki-text-secondary);
+  cursor: pointer;
+  box-shadow: none;
+  transition: all 120ms ease;
+}
+#askNoki .ni-send:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--noki-text);
+}
+#askNoki .ni-send:active:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
+#askNoki .ni-send:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--noki-text-muted);
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+#askNoki.ni-recording .ni-composer-box {
+  display: none !important;
+}
+@media (max-height: 440px) {
+  #askNoki .ni-voice-live { margin-top: 4px; max-height: calc(100vh - 92px); gap: 7px; }
+  #askNoki .ni-voice-area { gap: 7px; padding: 9px 10px 8px; }
+  #askNoki .ni-voice-scroll { min-height: 48px; }
+}
+@media (max-width: 460px) {
+  #askNoki > form { padding-left: 12px; padding-right: 12px; }
+  #askNoki .ni-voice-worte { display: none; }
+  #askNoki .ni-voice-acts button { padding-left: 9px; padding-right: 9px; }
+}
+/* Conversation: earlier turns stay readable above the current one. */
+#askNoki .ni-turn { margin: 0 0 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+#askNoki .ni-turn-q { margin-bottom: 6px; font-size: 12.5px; color: var(--noki-text-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+#askNoki .ni-turn-q::before { content: "Du · "; color: var(--noki-text-muted); }
+#askNoki .ni-turn-a { max-height: none; overflow: visible; font-size: 13.5px; line-height: 1.6; color: var(--noki-text-secondary); overflow-wrap: anywhere; }
+#askNoki .ni-turn-a > .ni-text { max-height: none; overflow: visible; }
+#askNoki .ni-turn-a .ni-markdown p { margin-bottom: 8px; }
+#askNoki .ni-turn-a .ni-markdown ul, #askNoki .ni-turn-a .ni-markdown ol { margin-bottom: 8px; }
+#askNoki .ni-turn-a .ni-markdown pre { margin-bottom: 8px; padding: 8px 10px; max-height: 160px; }
+#askNoki .ni-turn-s { font-size: 11.5px; color: var(--noki-text-muted); }
+#askNoki .ni-model-provenance { margin-top: 5px; font-size: 10.5px; color: var(--noki-text-muted); }
+#askNoki .ni-meta .ni-model-provenance { margin-top: 0; }
+#askNoki footer .ni-chat-zu { display: none !important; }
+/* Thinking prop: two quiet, perspective-shaped gears, always bound to Noki. */
+#nokiDenkt { position: fixed; left: 0; top: 0; z-index: 32; display: none; pointer-events: none; transform-origin: 50% 100%; font: 600 12px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+#nokiDenkt > * { display: none; }
+#nokiDenkt.m-denken .nd-zahn, #nokiDenkt.m-birne .nd-birne { display: block; }
+#nokiDenkt.m-label .nd-label { display: inline-flex; }
+#nokiDenkt .nd-zahn { width: 42px; height: 32px; transform: rotate(-5deg); transform-origin: 50% 70%; }
+#nokiDenkt .nd-zahn .z1, #nokiDenkt .nd-zahn .z2 { transform-box: fill-box; transform-origin: center; }
+#nokiDenkt .nd-zahn .z1 { animation: nd-dreh 8.2s linear infinite; } #nokiDenkt .nd-zahn .z2 { animation: nd-dreh 5.9s linear infinite reverse; }
+#nokiDenkt .nd-birne { animation: nd-birne 1.9s ease-out both; }
+#nokiDenkt .nd-label { pointer-events: auto; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 999px; cursor: pointer; color: var(--noki-text);
+  background: rgba(28, 29, 31, 0.86); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); animation: nd-auf .35s ease-out both; }
+#nokiDenkt .nd-label:hover { background: rgba(40, 41, 44, 0.92); }
+#nokiDenkt .nd-label i { width: 6px; height: 6px; border-radius: 50%; background: #d6ceb0; }
+@keyframes nd-dreh { to { transform: rotate(360deg); } }
+@keyframes nd-birne { 0% { opacity: 0; transform: translateY(4px) scale(.8); } 20% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes nd-auf { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #nokiDenkt * { animation: none !important; } }
+
+/* DEV: sichtbarer Build-Stempel, unaufdringlich in der Fusszeile. */
+#askNoki .ni-dev { margin-left: auto; font-size: 10px; color: var(--noki-text-muted); letter-spacing: .02em; }
+
+/* Intelligence Settings / Engine Switcher & Cards */
+#einstellungen .ni-engine-box {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  margin-top: 6px;
+}
+#einstellungen .ni-engine-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+#einstellungen .ni-engine-lbl {
+  color: var(--noki-text-secondary);
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 90px;
+}
+#einstellungen .ni-engine-val {
+  color: var(--noki-text);
+  font-weight: 450;
+  text-align: right;
+  word-break: break-word;
+}
+#einstellungen .ni-engine-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  gap: 3px;
+}
+#einstellungen .ni-engine-choice {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+}
+#einstellungen .ni-engine-choice span { font-weight: 600; }
+#einstellungen .ni-engine-choice.ni-engine-locked {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+#einstellungen .ni-engine-choice.ni-engine-locked:hover { background: transparent; color: var(--noki-text-secondary); }
+/* Engine: Routing-Ketten, Providerkarten, Status.
+   Nur Darstellung - Zustaende und Reihenfolge kommen unveraendert aus dem Router. */
+#einstellungen .ni-block-titel {
+  margin: 13px 0 1px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--noki-text);
+}
+#einstellungen .ni-kette-box {
+  gap: 9px;
+}
+#einstellungen .ni-kette {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#einstellungen .ni-kette-tier {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  color: var(--noki-text-muted);
+}
+#einstellungen .ni-kette-modelle {
+  font-size: 11.5px;
+  font-weight: 450;
+  color: var(--noki-text);
+  line-height: 1.45;
+  word-break: break-word;
+}
+#einstellungen .ni-provider {
+  padding: 9px 11px;
+  margin-top: 5px;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.025);
+}
+#einstellungen .ni-provider-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+#einstellungen .ni-provider-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--noki-text);
+}
+#einstellungen .ni-provider-rechts {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+#einstellungen .ni-provider-grund,
+#einstellungen .ni-modell-zusatz {
+  font-size: 10.5px;
+  color: var(--noki-text-muted);
+  margin-top: -2px;
+}
+#einstellungen .ni-modell-box {
+  gap: 5px;
+}
+#einstellungen .ni-modell {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+#einstellungen .ni-modell-name {
+  color: var(--noki-text);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+#einstellungen .ni-modell-rechts {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+#einstellungen .ni-modell-hinweis {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 450;
+  color: var(--noki-text-muted);
+}
+#einstellungen .ni-quota-row {
+  display: grid;
+  grid-template-columns: 34px 164px minmax(90px, max-content);
+  align-items: center;
+  column-gap: 9px;
+  margin: 6px 0 0;
+  min-width: 306px;
+}
+#einstellungen .ni-quota-percent {
+  font-size: 10px;
+  color: var(--noki-text-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+#einstellungen .ni-quota-reset {
+  font-size: 10px;
+  color: var(--noki-text-muted);
+  white-space: nowrap;
+}
+#einstellungen .ni-quota-bar {
+  width: 164px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(235, 240, 248, 0.13);
+}
+#einstellungen .ni-quota-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: rgba(203, 214, 230, 0.58);
+}
+#einstellungen .ni-modell-werte {
+  font-size: 10.5px;
+  color: var(--noki-text-muted);
+  text-align: right;
+  word-break: break-word;
+}
+@media (max-width: 520px) {
+  #einstellungen .ni-engine-modes { grid-template-columns: 1fr; }
+  #einstellungen .ni-engine-choice { align-items: center; }
+}
+#einstellungen .ni-cloud-box {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+#einstellungen .ni-status-unconf {
+  color: #ffb86c;
+}
+#einstellungen .ni-empty-notice {
+  font-size: 11px;
+  color: var(--noki-text-secondary);
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+#einstellungen .ni-mem {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+#einstellungen .ni-mem li {
+  font-size: 11px;
+  line-height: 1.35;
+  background: rgba(0, 0, 0, 0.16);
+  padding: 6px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+#einstellungen .ni-mem li span {
+  color: var(--noki-text);
+  flex: 1;
+  word-break: break-word;
+}
+#einstellungen .e-check span {
+  white-space: normal;
+  line-height: 1.35;
+}
+
+/* Responsive Layout */
+@media (max-width: 560px) {
+  #askNoki .ni-runtime-status { max-width: 140px; }
+}
+@media (max-width: 440px) {
+  #askNoki .ni-runtime-status { display: none; }
+}
+/* ── Eingebauter Dateibrowser + Anhang-Chips ────────────────────────
+   Teil des Work-Fensters, kein zweites Fenster: dieselbe Flaeche, dieselbe
+   Rundung und dieselben neutralen Zustaende wie die uebrigen Work-Controls. */
+#askNoki .ni-anhaenge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+#askNoki .ni-anhaenge[hidden] { display: none !important; }
+#askNoki .ni-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 4px 6px 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11.5px;
+  color: var(--noki-text-secondary);
+}
+#askNoki .ni-chip.ni-chip-bild {
+  padding: 3px 6px 3px 4px;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+#askNoki .ni-chip-bild .ni-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+#askNoki .ni-chip-typ {
+  flex: none;
+  color: var(--noki-text-muted);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+#askNoki .ni-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#askNoki .ni-chip-x {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--noki-text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+#askNoki .ni-chip-x:hover { background: rgba(255, 255, 255, 0.1); color: var(--noki-text); }
+#askNoki .ni-browser,
+#askNoki .ni-browser * {
+  box-sizing: border-box;
+}
+#askNoki .ni-browser {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  max-height: 360px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 13px;
+  background: rgba(22, 23, 26, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+#askNoki .ni-browser.ni-browser-galerie-offen {
+  height: min(72vh, 600px);
+  max-height: min(72vh, 600px);
+}
+#askNoki .ni-browser[hidden] { display: none !important; }
+#askNoki .ni-browser-kopf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+#askNoki .ni-browser-hoch {
+  flex: none;
+  width: auto;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--noki-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#askNoki .ni-browser-hoch:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+#askNoki .ni-browser-home {
+  flex: none;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--noki-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#askNoki .ni-browser-home:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+#askNoki .ni-browser-hoch:disabled,
+#askNoki .ni-browser-home:disabled { opacity: .35; cursor: default; }
+
+#askNoki .ni-browser-pfad {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--noki-text-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+#askNoki .ni-browser-perm-hint {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 6px 10px;
+  background: rgba(255, 180, 50, 0.08);
+  border: 1px solid rgba(255, 180, 50, 0.18);
+  border-radius: 7px;
+  color: rgba(245, 210, 140, 0.95);
+  font-size: 11px;
+  line-height: 1.35;
+  margin-bottom: 2px;
+}
+
+/* Responsives Grid für die Dateiliste */
+#askNoki .ni-browser-liste {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 270px;
+  width: 100%;
+  max-width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 6px;
+  align-content: start;
+}
+
+/* Startansicht: Kacheln für die 5 Hauptorte */
+#askNoki .ni-browser-liste.ni-browser-start {
+  grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+/* Galerie-Modus für Bilder / Fotos */
+#askNoki .ni-browser-liste.ni-browser-galerie {
+  min-width: 0;
+  max-height: none;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-auto-rows: max-content;
+  gap: 9px;
+  padding: 9px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Zeile / Standard-Karte */
+#askNoki .ni-browser-zeile {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--noki-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+#askNoki .ni-browser-zeile:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+#askNoki .ni-browser-zeile.gewaehlt {
+  background: rgba(85, 145, 235, 0.16);
+  border-color: rgba(85, 145, 235, 0.38);
+  color: var(--noki-text);
+}
+
+/* Startansicht-Karte */
+#askNoki .ni-browser-liste.ni-browser-start .ni-browser-zeile {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 8px;
+  text-align: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+#askNoki .ni-browser-liste.ni-browser-start .ni-browser-zeile:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+#askNoki .ni-browser-liste.ni-browser-start .ni-browser-zeile[aria-label="Musik öffnen"] {
+  display: none;
+}
+#askNoki .ni-browser-liste.ni-browser-start .ni-browser-name {
+  font-size: 12px;
+  font-weight: 550;
+  text-align: center;
+  width: 100%;
+  transform: translateY(2px);
+}
+
+/* Galerie-Karte */
+#askNoki .ni-browser-liste.ni-browser-galerie .ni-browser-zeile {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 5px;
+  gap: 5px;
+  position: relative;
+  background: rgba(255, 255, 255, 0.035);
+  border-radius: 9px;
+  min-height: 163px;
+}
+#askNoki .ni-galerie-thumb-wrap {
+  width: 100%;
+  height: 135px;
+  flex: 0 0 135px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+#askNoki .ni-galerie-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+#askNoki .ni-browser-liste.ni-browser-galerie .ni-browser-check {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+#askNoki .ni-browser-liste.ni-browser-galerie .ni-browser-name {
+  font-size: 10.5px;
+  text-align: center;
+  color: var(--noki-text-secondary);
+  padding: 0 2px;
+}
+#askNoki .ni-browser-typ {
+  flex: none;
+  width: 28px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--noki-text-muted);
+  font-size: 10px;
+  font-weight: 550;
+  letter-spacing: 0.02em;
+}
+#askNoki .ni-browser-typ.ordnersym {
+  color: var(--noki-text-secondary);
+  font-size: 13px;
+}
+#askNoki .ni-browser-typ.paketsym {
+  color: var(--noki-text-secondary);
+  font-size: 9.5px;
+  font-weight: 500;
+}
+#askNoki .ni-thumb {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+#askNoki .ni-browser-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#askNoki .ni-browser-groesse {
+  flex: none;
+  color: var(--noki-text-muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+#askNoki .ni-browser-fuss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: none;
+  width: 100%;
+  max-width: 100%;
+  padding: 7px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+#askNoki .ni-browser-zahl { color: var(--noki-text-muted); font-size: 11.5px; }
+#askNoki .ni-browser-akt { display: flex; gap: 6px; }
+#askNoki .ni-browser-akt button {
+  min-height: 26px;
+  padding: 3px 11px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 550;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--noki-text-secondary);
+  cursor: pointer;
+}
+#askNoki .ni-browser-akt button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--noki-text);
+}
+#askNoki .ni-browser-ab { background: transparent; border-color: transparent; }
+
+/* Ein leerer oder nicht lesbarer Ordner sagt das - er bleibt nie blank. */
+#askNoki .ni-browser-leer {
+  grid-column: 1 / -1;
+  padding: 16px 12px;
+  color: var(--noki-text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+#askNoki .ni-browser-check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+#askNoki .ni-browser-check:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+#askNoki .ni-browser-zeile.gewaehlt .ni-browser-check {
+  background: var(--noki-accent);
+  border-color: var(--noki-accent);
+  color: #1b1a17;
+}
+#askNoki .ni-browser-prev-btn {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--noki-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+#askNoki .ni-browser-prev-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--noki-text);
+}
+#askNoki .ni-browser-preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+#askNoki .ni-browser-preview[hidden] { display: none !important; }
+#askNoki .ni-preview-kopf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+#askNoki .ni-preview-zurueck {
+  flex: none;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--noki-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+#askNoki .ni-preview-zurueck:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+#askNoki .ni-preview-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--noki-text);
+}
+#askNoki .ni-preview-meta {
+  flex: none;
+  color: var(--noki-text-muted);
+  font-size: 11px;
+}
+#askNoki .ni-preview-body {
+  flex: 1 1 auto;
+  min-height: 140px;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#askNoki .ni-prev-img-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-height: 200px;
+}
+#askNoki .ni-preview-img {
+  max-width: 100%;
+  max-height: 190px;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+#askNoki .ni-preview-img.ni-preview-pdf {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+#askNoki .ni-preview-text {
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 8px 10px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--noki-text-secondary);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 7px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+#askNoki .ni-preview-table-wrap {
+  width: 100%;
+  max-height: 200px;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-sizing: border-box;
+}
+#askNoki .ni-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  text-align: left;
+}
+#askNoki .ni-preview-table th,
+#askNoki .ni-preview-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--noki-text-secondary);
+  white-space: nowrap;
+}
+#askNoki .ni-preview-table th {
+  font-weight: 600;
+  color: var(--noki-text);
+  background: rgba(255, 255, 255, 0.05);
+  position: sticky;
+  top: 0;
+}
+#askNoki .ni-preview-fuss {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: none;
+  padding: 7px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+#askNoki .ni-preview-fuss button {
+  min-height: 26px;
+  padding: 3px 12px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 550;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--noki-text-secondary);
+  cursor: pointer;
+}
+#askNoki .ni-preview-fuss button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--noki-text);
+}
+#askNoki .ni-preview-ab {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+#askNoki .ni-browser-zeile.paket {
+  opacity: 0.65;
+}
+
+/* Code task: live steps and result (same calm language as the step list). */
+#askNoki .ni-code-kopf { font-size: 12px; font-weight: 600; color: var(--noki-text-secondary); margin: 0 0 8px; }
+#askNoki .ni-code-steps li.fehler { color: rgba(236, 196, 150, 0.85); }
+#askNoki .ni-code-dateien { margin-top: 6px; font-size: 11.5px; color: var(--noki-text-muted); }
+#askNoki .ni-code-ergebnis { margin: 12px 0 4px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+#askNoki .ni-code-liste { list-style: none; margin: 0 0 10px; padding: 0; font: 11.5px/1.6 var(--nc-mono, ui-monospace, Menlo, monospace); color: var(--noki-text-secondary); }
+#askNoki .ni-code-aktionen { display: flex; gap: 8px; flex-wrap: wrap; }
+#askNoki .ni-code-fehler { color: #e8806f; font-size: 12px; margin-top: 4px; }
+#askNoki .ni-code-fehler:empty { display: none; }
+
+/* Rich Coding Protocol in Chat */
+#askNoki .ni-code-lauf {
+  margin: 10px 0 14px;
+  padding: 12px 14px;
+  background: rgba(22, 24, 29, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+#askNoki .ni-code-lauf.ni-code-lauf-fertig {
+  background: rgba(20, 22, 26, 0.55);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+#askNoki .ni-code-lauf-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 10px;
+}
+#askNoki .ni-code-lauf-titel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--noki-text);
+  letter-spacing: 0.2px;
+}
+#askNoki .ni-code-lauf-modell {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(80, 150, 255, 0.12);
+  color: #8bb8ff;
+  border: 1px solid rgba(80, 150, 255, 0.25);
+}
+#askNoki .ni-code-wechsel-box {
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255, 180, 50, 0.08);
+  border: 1px solid rgba(255, 180, 50, 0.2);
+  font-size: 11.5px;
+  color: #e5b367;
+  line-height: 1.4;
+}
+#askNoki .ni-code-lauf-schritte {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#askNoki .ni-code-step-item {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--noki-text);
+}
+#askNoki .ni-code-step-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--noki-text);
+}
+#askNoki .ni-code-glyph {
+  font-size: 11px;
+  color: #8bb8ff;
+}
+#askNoki .ni-code-step-item.ok .ni-code-glyph {
+  color: #4ade80;
+}
+#askNoki .ni-code-step-item.warn .ni-code-glyph {
+  color: #fbbf24;
+}
+#askNoki .ni-code-step-notiz-body {
+  margin: 4px 0 0 16px;
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 2px solid rgba(139, 184, 255, 0.4);
+  font-size: 11.5px;
+  color: var(--noki-text-secondary);
+  font-style: italic;
+  border-radius: 0 4px 4px 0;
+}
+#askNoki .ni-datei-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#askNoki .ni-diff-badge {
+  font-size: 11px;
+  font-family: ui-monospace, Menlo, Monaco, monospace;
+}
+#askNoki .ni-diff-plus {
+  color: #4ade80;
+  font-weight: 600;
+  margin-right: 4px;
+}
+#askNoki .ni-diff-minus {
+  color: #f87171;
+  font-weight: 600;
+}
+#askNoki .ni-code-diff-block {
+  margin: 6px 0 0 0;
+  padding: 8px 10px;
+  background: rgba(10, 12, 16, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #c9d1d9;
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre;
+}
+#askNoki .ni-diff-add {
+  display: block;
+  background: rgba(46, 160, 67, 0.15);
+  color: #7ee787;
+}
+#askNoki .ni-diff-del {
+  display: block;
+  background: rgba(248, 81, 73, 0.15);
+  color: #ffa198;
+}
+#askNoki .ni-diff-hunk {
+  display: block;
+  color: #79c0ff;
+  font-weight: 500;
+}
+#askNoki .ni-diff-ctx {
+  display: block;
+  color: rgba(201, 209, 217, 0.7);
+}
+#askNoki .ni-code-step-test-body,
+#askNoki .ni-code-step-audit-body {
+  margin: 4px 0 0 16px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+#askNoki .ni-test-line.err {
+  color: #f87171;
+}
+#askNoki .ni-code-lauf-busy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 11.5px;
+  color: var(--noki-text-secondary);
+}
+
+/* Clean Textual Summary at End (No action buttons) */
+#askNoki .ni-code-abschluss-box {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(46, 160, 67, 0.06);
+  border: 1px solid rgba(46, 160, 67, 0.2);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--noki-text-secondary);
+}
+#askNoki .ni-code-abschluss-hinweis {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+#askNoki .ni-code-abschluss-icon {
+  color: #4ade80;
+  font-weight: bold;
+}
+#askNoki .ni-code-abschluss-meta {
+  font-size: 11px;
+  color: var(--noki-text-muted);
+}
+
+/* ── Ask Noki · warm-neutral accents (Noki-Einstellungen family) ──────────
+   Only selected states, hairlines and small surfaces get the beige tint;
+   message text and contrast stay as they are. */
+#askNoki .ni-model-indicator:not(:empty) { margin-left: 8px; }
+#askNoki .ni-assistant-modes button.aktiv { background: rgba(237, 232, 216, 0.15); color: var(--noki-text); font-weight: 600; }
+#askNoki .ni-assistant-modes button:not(.aktiv):hover { background: rgba(237, 232, 216, 0.07); color: var(--noki-text); }
+#askNoki header { border-bottom-color: rgba(237, 232, 216, 0.08); }
+#askNoki .ni-verlauf-btn.aktiv { background: rgba(237, 232, 216, 0.13); border-color: rgba(237, 232, 216, 0.22); }
+#askNoki .ni-bib-item:hover { border-color: rgba(237, 232, 216, 0.16); }
+#askNoki .ni-bib-item.aktiv { background: rgba(237, 232, 216, 0.07); border-color: rgba(237, 232, 216, 0.24); }
+#askNoki .ni-menu button:hover { background: rgba(237, 232, 216, 0.08); }
+#askNoki .ni-drawer-kopf { border-bottom-color: rgba(237, 232, 216, 0.10); }
+
+
+
+/* ── Work · Verlauf as a left sidebar (same window, chat stays visible) ── */
+#askNoki .ni-drawer:not(.nc-verlauf) { right: auto; width: min(320px, 82%); padding: 14px 12px; background: var(--noki-bg-tief);
+  border-right: 1px solid var(--noki-border); box-shadow: 18px 0 40px rgba(0, 0, 0, 0.35); }
+#askNoki .ni-drawer:not(.nc-verlauf) .ni-drawer-kopf { margin-bottom: 8px; }
+#askNoki .ni-drawer:not(.nc-verlauf) .ni-drawer-new-btn { background: var(--noki-selected); border-color: rgba(var(--noki-accent-rgb), 0.28); color: var(--noki-text); }
+#askNoki .ni-bib-liste { gap: 1px; padding-right: 2px; }
+#askNoki .ni-bib-gruppe { padding: 10px 8px 4px; font-size: 11px; color: var(--noki-text-muted); }
+#askNoki .ni-bib-item.ni-bib-zeile { flex-direction: row; align-items: center; gap: 8px; padding: 7px 6px 7px 10px; border-radius: 7px; border: 1px solid transparent; background: transparent; }
+#askNoki .ni-bib-zeile:hover { background: var(--noki-hover); border-color: transparent; }
+#askNoki .ni-bib-zeile.aktiv { background: var(--noki-selected); border-color: rgba(var(--noki-accent-rgb), 0.22); }
+#askNoki .ni-bib-zeile .ni-bib-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--noki-text); }
+#askNoki .ni-bib-zeile .ni-bib-time { flex: none; font-size: 10.5px; color: var(--noki-text-muted); }
+#askNoki .ni-bib-x { position: relative; flex: none; width: 22px; height: 22px; padding: 0; font-size: 0; border-radius: 5px; border: 0; background: transparent; color: var(--noki-text-muted); opacity: 0; }
+#askNoki .ni-bib-zeile:hover .ni-bib-x, #askNoki .ni-bib-zeile.aktiv .ni-bib-x { opacity: 1; }
+#askNoki .ni-bib-x::before, #askNoki .ni-bib-x::after { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 1.4px; border-radius: 1px; background: currentColor; transform: translate(-50%, -50%) rotate(45deg); }
+#askNoki .ni-bib-x::after { transform: translate(-50%, -50%) rotate(-45deg); }
+#askNoki .ni-bib-x:hover { background: rgba(255, 255, 255, 0.08); color: #ff9b91; }
+#askNoki .ni-bib-confirm { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 8px 8px 10px; font-size: 12px; color: var(--noki-text); }
+#askNoki .ni-bib-confirm span { flex: 1 1 100%; }
+#askNoki .ni-bib-confirm button { padding: 3px 10px; font-size: 11.5px; border-radius: 6px; }
+#askNoki .ni-bib-confirm .ni-bib-ja { color: #f0b3a8; border-color: rgba(232, 128, 111, 0.4); }
+
+/* ══ UI FONT — global for every Noki surface (Ask, Work, Code, Noki Terminal,
+   Projekte, Verlauf, Settings, Arbeitsplatz-Fokus), including chat text.
+   Only the real terminals (PTY) and code/diffs/raw output stay monospace. */
+#askNoki, #askNoki *, #einstellungen, #einstellungen * { font-family: var(--noki-ui-font) !important; font-synthesis: none; }
+#askNoki pre, #askNoki pre *, #askNoki code, #askNoki code *,
+#askNoki .nc-shell-pane, #askNoki .nc-shell-pane *, #askNoki .nc-tab-shell, #askNoki .nc-tab-shell *, #askNoki .nc-ts-slot, #askNoki .nc-ts-slot *,
+#askNoki .nc-diff, #askNoki .nc-diff *, #askNoki .nc-d, #askNoki .nc-p-code, #askNoki .nc-vl-pre, #askNoki .nc-vl-datei, #askNoki .nc-vl-datei *,
+#askNoki .ni-diff-add, #askNoki .ni-diff-del, #askNoki .ni-diff-ctx, #askNoki .ni-diff-hunk, #askNoki .ni-diff-plus, #askNoki .ni-diff-minus,
+#askNoki .nc-p-file, #askNoki .nc-p-path, #einstellungen pre, #einstellungen code { font-family: var(--noki-mono) !important; }
+html[data-noki-schrift="impact"] #askNoki *, html[data-noki-schrift="impact"] #einstellungen * { letter-spacing: 0.012em; }
+/* Font picker: every option shows itself in its own face. */
+#einstellungen .e-font-chip, #einstellungen .e-font-chip * { font-family: var(--chip-font) !important; }
+

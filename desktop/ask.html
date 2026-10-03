@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ask Noki</title>
+  <link rel="stylesheet" href="intelligence.css">
+  <link rel="stylesheet" href="code-view.css">
+  <style>
+    :root { color-scheme: dark; background: var(--noki-bg); }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--noki-bg); }
+    #askNoki {
+      inset: 0 !important; width: 100% !important; height: 100% !important;
+      min-width: 0 !important; min-height: 0 !important; max-width: none !important;
+      max-height: none !important; border: 0 !important; border-radius: 0 !important;
+      box-shadow: none !important; transform: none !important;
+    }
+    #nokiDenkt { display: none !important; }
+  </style>
+</head>
+<body>
+  <script src="noki-oberflaeche.js"></script>
+  <script src="code-view.js"></script>
+  <script src="markdown.js"></script>
+  <script src="intelligence.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var T = window.__TAURI__ || {}, invoke = T.core && T.core.invoke, events = T.event;
+    var lastContext = {}, pendingOpen = null;
+    function emit(name, payload) {
+      return events && events.emit ? events.emit(name, payload == null ? {} : payload).catch(function () {}) : Promise.resolve();
+    }
+    function esc(value) {
+      return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c];
+      });
+    }
+    var ask = window.NokiIntelligence.create({
+      invoke: function (name, args) { return invoke(name, args || {}); },
+      escape: esc,
+      settingsChanged: function () {},
+      openSettings: function () { emit("noki://einstellungen"); },
+      toggleSettings: function () { emit("noki://einstellungen_toggle"); },
+      closePanels: function () {},
+      thinking: function (on) { emit("noki://ask-thinking", { aktiv: !!on }); },
+      phase: function (phase) { emit("noki://ask-phase", { phase: phase }); },
+      fertig: function () { emit("noki://ask-fertig"); },
+      explain: function (text) { emit("noki://ask-explain", { text: text }); },
+      otherPanel: function () { return false; },
+      // NICHT document.hidden. In diesem Fenster IST das Panel das Fenster:
+      // Sichtbarkeit gehoert damit dem Fenster, nicht der Oberflaeche.
+      // Mit document.hidden schloss sich das Panel unmittelbar nach dem
+      // Oeffnen wieder selbst (tick() -> close('versteckt') -> back() ->
+      // ask_fenster_verbergen) — gemessen: sichtbar, 600 ms spaeter weg.
+      // Verbergen macht jetzt nur noch der rote Knopf bzw. Esc.
+      hidden: function () { return false; },
+      changed: function () {},
+      hold: function () {},
+      front: function () {
+        try { T.window.getCurrentWindow().setFocus(); } catch (e) {}
+      },
+      back: function () { invoke("ask_fenster_verbergen").catch(function () {}); },
+      // Echter Fensterzustand statt eigenem Flag. Der Rueckruf bekommt,
+      // ob das Fenster VORHER im Vollbild war — nur dann war ESC schon
+      // verbraucht. Groesse und Position stellt NSWindow selbst wieder her.
+      fullscreen: function (an, fertig) {
+        invoke("noki_fullscreen_status").then(function (voll) {
+          if (!voll) { if (fertig) fertig(false); return; }
+          return invoke("noki_toggle_fullscreen", { aktiv: !!an }).then(function () {
+            if (fertig) fertig(true);
+          });
+        }).catch(function () { if (fertig) fertig(false); });
+      },
+      pause: function () { emit("noki://ask-pause"); },
+      workArea: function () { return { x: 0, y: 0, w: innerWidth, h: innerHeight }; },
+      anchor: function () { return { x: innerWidth / 2, y: innerHeight, height: 120 }; },
+      context: function () { return lastContext; },
+      // Resolves with the REAL outcome reported by the character window
+      // ({ok, grund}), or null when none arrives - never a guessed success.
+      tool: function (tool) {
+        var id = "t" + Date.now() + Math.random().toString(36).slice(2, 7);
+        return new Promise(function (fertig) {
+          var aus = null, zeit = setTimeout(function () { if (aus) aus(); fertig(null); }, 20000);
+          events.listen("noki://ask-tool-ergebnis", function (event) {
+            var p = (event && event.payload) || {};
+            if (p.id !== id) return;
+            clearTimeout(zeit); if (aus) aus(); fertig(p);
+          }).then(function (u) { aus = u; emit("noki://ask-tool", Object.assign({}, tool || {}, { _id: id })); })
+            .catch(function () { clearTimeout(zeit); emit("noki://ask-tool", tool || {}); fertig(null); });
+        });
+      }
+    });
+    window.NokiAsk = ask;
+
+    function openPayload(payload) {
+      payload = payload || {};
+      lastContext = payload.context || {};
+      pendingOpen = payload.tip || null;
+      (function waitReady(tries) {
+        if (ask.status) {
+          var tip = pendingOpen; pendingOpen = null;
+          // ask.html is a persistent hidden window and may have loaded while
+          // Ask Noki was disabled.  Refresh only its settings snapshot before
+          // opening; this is UI state and must never warm the model.
+          invoke("intelligence_settings").then(function (fresh) {
+            if (fresh && fresh.settings && ask.settings) Object.assign(ask.settings, fresh.settings);
+            if (fresh && ask.status) Object.assign(ask.status, fresh);
+          }).catch(function () {}).finally(function () {
+            if (ask.settings && !ask.settings.ask) return;
+            ask.open(tip);
+            var panel = document.getElementById("askNoki");
+            if (!panel || getComputedStyle(panel).display === "none") return;
+            invoke("ask_frontend_mounted").catch(function () {});
+          });
+          return;
+        }
+        if (tries <= 0) return;
+        setTimeout(function () { waitReady(tries - 1); }, 40);
+      })(75);
+    }
+    if (events && events.listen) {
+      Promise.all([
+        events.listen("noki://ask-open", function (event) { openPayload(event && event.payload); }),
+        events.listen("noki://ask-closed", function () {
+          if (ask && ask.close) ask.close('window-hide');
+        })
+      ]).then(function () { return invoke("ask_frontend_ready"); }).catch(function () {});
+    }
+  })();
+  </script>
+</body>
+</html>

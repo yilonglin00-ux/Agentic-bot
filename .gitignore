@@ -1,2 +1,8 @@
 .DS_Store
 *.bak
+
+.local/
+*.gguf
+desktop/src-tauri/target/
+desktop/Noki.app/
+*.gguf.partial

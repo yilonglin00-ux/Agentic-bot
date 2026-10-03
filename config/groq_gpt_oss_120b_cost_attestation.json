@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "provider": "groq",
+  "connection_id": "benchmark_groq_gpt_oss_120b",
+  "account_identity_sha256": "cb393f24b8914dc4d342104770fcd2828d13bd38cac54a4dc2de178fcbe7975c",
+  "tier": "free",
+  "automatic_paid_overage": false,
+  "requires_explicit_upgrade": true,
+  "model": "openai/gpt-oss-120b",
+  "limits": {
+    "rpm": 30,
+    "rpd": 1000,
+    "tpm": 8000,
+    "tpd": 200000
+  },
+  "source": "user_verified_dashboard",
+  "verified_at": 1790807175,
+  "freshness_seconds": 604800,
+  "expires_at": 1791411975
+}

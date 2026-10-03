@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Noki Fenster</title>
+<script src="noki-oberflaeche.js"></script>
+<style>
+  :root { color-scheme: dark; font-family: var(--noki-ui-font);
+    --card-w: 353px; --card-h: 190px; }
+  * { box-sizing: border-box; }
+  /* The window IS the panel: no padding, no halo, no outer layer. */
+  html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:transparent; color:var(--noki-text); }
+  body { user-select:none; -webkit-font-smoothing:antialiased; }
+  /* Sizes are exact (Rust: PAD 10, KOPF 30, LUECKE 8): borders are inset
+     shadows so they never take layout space and never clip a card. */
+  /* Opaque on purpose: a translucent panel let the Desktop slide visibly
+     THROUGH it during a Space swipe - it looked as if the panel moved. */
+  .panel { height:100%; padding:6px; border-radius:12px; display:flex; flex-direction:column;
+    background:var(--noki-bg);
+    box-shadow:inset 0 0 0 1px var(--noki-border), inset 0 1px rgba(255,255,255,.05); }
+  header { height:24px; flex:none; display:flex; align-items:flex-start; justify-content:space-between; padding:1px 4px 0; }
+  h1 { margin:0; font-size:13px; line-height:18px; font-weight:610; letter-spacing:.01em; color:var(--noki-text); }
+  .hint { margin-left:auto; text-align:right; font-size:10px; color:var(--noki-text-secondary); line-height:18px; }
+  .rail { flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; overflow-x:hidden; overflow-y:auto;
+    overscroll-behavior:contain; scroll-behavior:auto; }
+  .rail::-webkit-scrollbar { width:4px; } .rail::-webkit-scrollbar-track { background:transparent; }
+  .rail::-webkit-scrollbar-thumb { background:rgba(200,206,188,.45); border-radius:4px; }
+  .card { flex:none; width:var(--card-w); height:var(--card-h); display:flex; flex-direction:column; padding:0; color:inherit;
+    text-align:left; border-radius:9px; overflow:hidden; background:rgb(32,34,32); cursor:pointer;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.10); transition:box-shadow .16s ease,opacity .2s ease; }
+  /* Long lists: off-screen cards are laid out but not rendered. */
+  .card { content-visibility:auto; contain-intrinsic-size:var(--card-w) var(--card-h); }
+  .card:hover { box-shadow:inset 0 0 0 1px rgba(190,200,166,.42); }
+  .card.busy { pointer-events:none; opacity:.72; }
+  .card:focus-visible { outline:2px solid #aeb996; outline-offset:-2px; }
+  /* Traffic lights: 12 px circles; the glyph SVG covers exactly the same
+     12x12 box and draws around (6,6) - no font baseline, no glyph metrics,
+     no second offset that could round differently. Nothing moves on hover. */
+  /* Compact lights ON the preview (top-left), on a small pill for contrast:
+     no extra header row, no preview area taken. */
+  .lights { position:absolute; left:6px; top:6px; z-index:1; display:flex; gap:6px; align-items:center;
+    padding:3px 5px; border-radius:9px; background:rgba(20,21,20,.55); }
+  .light { position:relative; flex:none; width:12px; height:12px; margin:0; padding:0; border:0; background:none;
+    border-radius:50%; cursor:pointer; }
+  .light svg { position:absolute; inset:0; width:12px; height:12px; display:block; pointer-events:none; }
+  /* HIDDEN by default (no colour, no ring, no symbol). The hovered card
+     (.hot, pointer fed natively - the panel never activates Noki) shows
+     the real macOS lights and centred symbols. Same geometry in every
+     state; only opacity changes, so nothing moves. */
+  .lights { transition:background .12s ease; }
+  .card:not(.hot) .lights { background:transparent; }
+  .light svg { opacity:0; transition:opacity .12s ease; }
+  .card.hot .light svg { opacity:1; }
+  .red circle { fill:#ff5f56; } .yellow circle { fill:#ffbd2e; } .green circle { fill:#27c93f; }
+  .light circle { stroke:rgba(0,0,0,.28); stroke-width:.5; }
+  .light .glyph { opacity:.9; }
+  .light.hot svg { filter:brightness(1.08); } .light:active svg { filter:brightness(.86); }
+  /* Real window picture, whole and undistorted (letterboxed). */
+  .preview { position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; background:#161817; overflow:hidden; }
+  .preview img { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; pointer-events:none; }
+  .empty-preview { font-size:11px; color:#80867d; letter-spacing:.01em; padding:0 12px; text-align:center; }
+  /* One name row: icon + app, then the window title only if it adds
+     something (never the same name twice). */
+  .meta { height:26px; flex:none; display:flex; align-items:center; gap:7px; padding:0 8px; background:rgba(41,43,41,.95);
+    border-top:1px solid rgba(255,255,255,.045); font-size:11px; white-space:nowrap; }
+  .icon { width:16px; height:16px; object-fit:contain; flex:none; }
+  .fallback { display:grid; place-items:center; border-radius:4px; background:#5b6454; color:white; font-size:10px; font-weight:650; }
+  .name { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .name b { font-weight:610; color:#ededE6; } .name span { color:#92978f; margin-left:6px; }
+  .state { margin-left:auto; flex:none; font-size:9px; color:#acb39f; }
+  .empty { height:var(--card-h); display:grid; place-items:center; color:#a5aaa1; font-size:12px; }
+  .toast { position:absolute; left:50%; bottom:16px; transform:translateX(-50%) translateY(8px); opacity:0; pointer-events:none;
+    max-width:86%; padding:7px 11px; border-radius:8px; background:rgba(12,13,12,.94); border:1px solid #5b6056; font-size:10px; transition:.18s; }
+  .toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
+  body.laedt .rail { visibility:hidden; }
+  /* Chrome tabs: discrete pages inside ONE card. The strip only ever rests
+     on a whole page (index * 100%); dragging follows lightly, a committed
+     gesture moves exactly one page and snaps. */
+  .pages { position:absolute; inset:0; display:flex; will-change:transform;
+    transition:transform .26s cubic-bezier(.2,.8,.2,1); }
+  .pages.zieht { transition:none; }
+  .page { flex:0 0 100%; height:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .page img { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; pointer-events:none; }
+  .page .empty-preview { max-width:80%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tabzahl { position:absolute; right:6px; bottom:6px; z-index:1; padding:1px 6px 1.5px; border-radius:7px;
+    background:rgba(0,0,0,.30); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+    color:rgba(255,255,255,.92); font-size:10px; font-weight:500; letter-spacing:.01em;
+    font-variant-numeric:tabular-nums; pointer-events:none;
+    opacity:0; transition:opacity .28s ease; }
+  /* Only while the user pages (swipe or transition), then it fades out. */
+  .tabzahl.zeigt { opacity:1; transition:opacity .12s ease; }
+</style>
+</head>
+<body><main class="panel"><header><h1>Offene Fenster</h1><span class="hint" id="hint">Lädt …</span></header><section class="rail" id="rail"></section></main><div class="toast" id="toast"></div>
+<script>
+(() => {
+  const invoke = window.__TAURI__.core.invoke;
+  const listen = window.__TAURI__.event.listen;
+  const rail = document.getElementById('rail'), hint = document.getElementById('hint'), toast = document.getElementById('toast');
+  let loading=false, toastTimer=0, first=true, pollTimer=null;
+  // Real user interaction (open, pointer, wheel, scroll, click, key) - the
+  // ONLY thing that speeds up live pictures and inventory. A new frame never
+  // extends it. The panel may stay open all day without burning CPU.
+  let letzteInteraktion=0;
+  function aktiv(){ letzteInteraktion=Date.now(); }
+  function interaktiv(ms){ return Date.now()-letzteInteraktion<ms; }
+  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // Glyphs in the circle's own 12x12 box, centred on (6,6); one stroke for
+  // all three so they carry the same visual weight.
+  // Circle AND glyph in ONE svg: they share a single rasterisation, so the
+  // glyph cannot drift from the circle centre (a CSS circle and a separate
+  // SVG snapped to different device rows - measured 1 px on Retina).
+  const svg=(fill,d,c)=>`<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5"/><path class="glyph" d="${d}" stroke="${c}" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`;
+  const GLYPH={ close:svg('#ff5f56','M4.3 4.3L7.7 7.7M7.7 4.3L4.3 7.7','#4d0000'),
+                min:svg('#ffbd2e','M3.6 6H8.4','#7a4a00'),
+                zoom:svg('#27c93f','M6 3.6V8.4M3.6 6H8.4','#005a00') };
+  // The window title, only when it adds information beyond the app name
+  // (no "Claude / Claude", no "Code ... — NOKI" repeated app words).
+  function kurzTitel(w){
+    const app=(w.app||'').trim(), t=(w.title||'').trim();
+    if(!t || t.toLowerCase()===app.toLowerCase()) return '';
+    const teile=t.split(/\s[—–-]\s/).map(x=>x.trim()).filter(x=>x && x.toLowerCase()!==app.toLowerCase() && !/^google chrome$/i.test(x));
+    return teile.join(' — ');
+  }
+  function message(s){ toast.textContent=s; toast.classList.add('on'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>toast.classList.remove('on'),2400); }
+  
+  async function act(ev,w,action){
+    ev.stopPropagation();
+    const card=ev.currentTarget.closest('.card');
+    if(card && card.classList.contains('busy'))return;
+    if(card)card.classList.add('busy');
+    try {
+      if(action==='close'){
+        card.style.transition='transform .2s ease, opacity .2s ease';
+        card.style.transform='scale(0.85)';
+        card.style.opacity='0';
+      }
+      await invoke('window_overview_action',{id:w.id,pid:w.pid,action});
+      if(action!=='activate'){
+        setTimeout(refresh,180);
+      } else if(card){
+        // The same card must stay clickable (busy blocked every later click
+        // on it until a full rebuild - e.g. Ask Noki a second time).
+        card.classList.remove('busy');
+      }
+    } catch(e){
+      message(String(e));
+      if(card){
+        card.classList.remove('busy');
+        card.style.transform='';
+        card.style.opacity='';
+      }
+    }
+  }
+
+  function render(windows){
+    const old=first?0:rail.scrollTop; first=false; rail.replaceChildren();
+    hint.textContent=`${windows.length} Fenster`;
+    if(!windows.length){const e=document.createElement('div');e.className='empty';e.textContent='Keine verwaltbaren Fenster vorhanden';rail.append(e);fitTo(1);return;}
+    windows.forEach(w=>{
+      const card=document.createElement('div'); card.className='card'; card.tabIndex=0; card.setAttribute('role','button'); card.setAttribute('aria-label',`${w.app}: ${w.title||'Fenster'} aktivieren`);
+      card.dataset.wid=String(w.id); card.dataset.pid=String(w.pid);
+      const zusatz=kurzTitel(w);
+      card.innerHTML=`<div class="preview"><span class="lights"><button class="light red" title="Schließen" aria-label="Schließen">${GLYPH.close}</button><button class="light yellow" title="Minimieren" aria-label="Minimieren">${GLYPH.min}</button><button class="light green" title="Vergrößern / Vollbild" aria-label="Vergrößern / Vollbild">${GLYPH.zoom}</button></span>${w.preview?`<img alt="" loading="lazy" src="${w.preview}">`:`<span class="empty-preview">${w.minimized?'Minimiert – macOS zeigt davon kein Bild':'Vorschau nicht verfügbar'}</span>`}</div><div class="meta">${w.icon?`<img class="icon" alt="" src="${w.icon}">`:`<span class="icon fallback">${esc(w.app.slice(0,1))}</span>`}<span class="name"><b>${esc(w.app)}</b>${zusatz?`<span>${esc(zusatz)}</span>`:''}</span>${w.minimized?'<span class="state">minimiert</span>':''}</div>`;
+      const lights=card.querySelectorAll('.light');
+      lights[0].onclick=e=>act(e,w,'close');
+      lights[1].onclick=e=>act(e,w,'minimize');
+      lights[2].onclick=e=>act(e,w,'enlarge');
+      card.onclick=e=>{
+        const t=tabStand.get(w.id);
+        if(t && t.tabs.length>1 && t.idx!==t.aktiv){ tabOeffnen(e,w,t.tabs[t.idx]); return; }
+        act(e,w,'activate');
+      };
+      if(w.chrome){ if(tabStand.has(w.id)) queueMicrotask(()=>seitenBauen(card,w)); tabsLaden(card,w); }
+      card.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act(e,w,'activate');}};
+      rail.append(card);
+    });
+    rail.scrollTop=Math.min(old,Math.max(0,rail.scrollHeight-rail.clientHeight));
+    fitTo(windows.length);
+    if(typeof hover==='function') hover(zeigerX,zeigerY);
+  }
+
+  function updateInPlace(windows){
+    // The poll carries structure only (pictures just for windows that had
+    // none): a changed window set is rebuilt from the complete inventory.
+    const cards=rail.querySelectorAll('.card');
+    if(cards.length!==windows.length){
+      refresh();
+      return;
+    }
+    for(let i=0;i<windows.length;i++){
+      const w=windows[i], card=cards[i];
+      if(!card || card.dataset.wid!==String(w.id)){
+        refresh();
+        return;
+      }
+      const nameEl=tabStand.has(w.id)?null:card.querySelector('.name');  // paged: shows the shown tab
+      const zusatz=kurzTitel(w), soll=`<b>${esc(w.app)}</b>${zusatz?`<span>${esc(zusatz)}</span>`:''}`;
+      if(nameEl && nameEl.innerHTML!==soll) nameEl.innerHTML=soll;
+      const prevEl=card.querySelector('.preview');
+      // Real tab set follows open/close: re-read when the window's shown
+      // title changed (tab switch/close/navigation), else at most every 5 s
+      // (Safari = one AppleScript process per read).
+      if(w.chrome){ const z=tabZuletzt.get(w.id);
+        if(!z || z.titel!==w.title || Date.now()-z.t>5000){ tabZuletzt.set(w.id,{titel:w.title,t:Date.now()}); tabsLaden(card,w); } }
+      if(tabStand.has(w.id)){ if(w.preview) aktiveSeiteSetzen(card,w.id,w.preview); continue; }
+      if(prevEl && w.preview){
+        const img=prevEl.querySelector('img');
+        if(img){
+          if(img.src!==w.preview) bildTauschen(img,w.preview);
+        } else {
+          const leer=prevEl.querySelector('.empty-preview'); if(leer) leer.remove();
+          const neu=document.createElement('img'); neu.alt=''; neu.src=w.preview; prevEl.append(neu);
+        }
+      }
+    }
+  }
+
+  async function refresh(){
+    if(loading)return;
+    loading=true;
+    try{render(await invoke('window_overview_list'));}
+    catch(e){message(String(e));}  // never closes on its own; next poll retries
+    finally{loading=false;}
+  }
+
+  // Inventory: every 2.5 s while the user works with the panel, 5 s at rest.
+  function startPolling(){
+    stopPolling();
+    const runde=async ()=>{
+      if(!loading){
+        try{
+          const windows=await invoke('window_overview_list',{voll:false});
+          if(!loading) updateInPlace(windows);
+        }catch(_){}
+      }
+      if(pollTimer) pollTimer=setTimeout(runde, interaktiv(15000)?2500:5000);
+    };
+    pollTimer=setTimeout(runde,2500);
+  }
+
+  function stopPolling(){
+    if(pollTimer){clearTimeout(pollTimer);pollTimer=null;}
+    liveAn=false; clearTimeout(liveTimer);
+    liveAn=false; if(liveTimer){clearTimeout(liveTimer);liveTimer=0;}
+  }
+
+  // Swap only once the new frame is decoded: never a blank card between
+  // two frames.
+  function bildTauschen(img,src){
+    const n=new Image(); n.src=src;
+    n.decode().then(()=>{ img.src=src; }).catch(()=>{ img.src=src; });
+  }
+  // LIVE: the cards the user can see right now get fresh, sharp frames
+  // (5/s cadence); only changed windows
+  // come back. Off-screen cards refresh with the 2.5 s inventory.
+  let liveAn=false, liveTimer=0;
+  function sichtbareIds(){
+    const r=rail.getBoundingClientRect(), ids=[];
+    for(const c of rail.querySelectorAll('.card')){
+      const b=c.getBoundingClientRect();
+      if(b.bottom>r.top+4 && b.top<r.bottom-4) ids.push(Number(c.dataset.wid));
+    }
+    return ids;
+  }
+  async function liveTakt(){
+    if(!liveAn) return;
+    const t0=performance.now();
+    const ids=sichtbareIds();
+    if(ids.length){
+      try{
+        const frames=await invoke('window_overview_frames',{ids});
+        for(const f of frames){
+          const card=rail.querySelector(`.card[data-wid="${f.id}"]`);
+          const prev=card&&card.querySelector('.preview'); if(!prev) continue;
+          if(tabStand.has(f.id)){ aktiveSeiteSetzen(card,f.id,f.preview); continue; }
+          const img=prev.querySelector('img');
+          if(img){ if(img.src!==f.preview) bildTauschen(img,f.preview); }
+          else { const leer=prev.querySelector('.empty-preview'); if(leer) leer.remove();
+                 const neu=document.createElement('img'); neu.alt=''; neu.src=f.preview; prev.append(neu); }
+        }
+      }catch(_){}
+    }
+    if(!liveAn) return;
+    // 5 rounds/s: live (>= 5/s) without the ~8/s capture+PNG load that
+    // kept Noki at 11-15 % CPU while the panel was open. Unchanged cards
+    // cost no encode/transfer (hash in capture_scharf).
+    // 5 rounds/s only right after real interaction; at rest 1 round/s.
+    const takt=interaktiv(4000)?200:1000;
+    liveTimer=setTimeout(liveTakt, Math.max(10, takt-(performance.now()-t0)));
+  }
+  function startLive(){ if(liveAn) return; liveAn=true; liveTakt(); }
+
+  // ---- Chrome tabs inside one card -------------------------------------
+  // tabStand: wid -> {tabs, idx (shown page), aktiv (Chrome's real active)}
+  const tabStand=new Map(); const tabLaedt=new Set(); const tabZuletzt=new Map();
+  async function tabsLaden(card,w){
+    if(tabLaedt.has(w.id)) return; tabLaedt.add(w.id);
+    try{
+      const tabs=await invoke('window_overview_tabs',{id:w.id,pid:w.pid});
+      if(!card.isConnected) return;
+      // null = not readable right now: keep what this window is known to
+      // have (the count must not come and go with hover/refresh timing).
+      if(tabs==null){ if(tabStand.has(w.id)) seitenBauen(card,w); return; }
+      // Fewer than 2 REAL tabs now: drop the paged tab view at once (its
+      // pages would keep showing closed tabs) - the card is rebuilt plain.
+      if(tabs.length<2){ const war=tabStand.delete(w.id); if(war||card.querySelector('.pages')) refresh(); return; }
+      const alt=tabStand.get(w.id);
+      const aktiv=Math.max(0,tabs.findIndex(t=>t.active));
+      // Same real tab set and active tab: no rebuild (no flicker, a running
+      // swipe is never disturbed) - only newer pictures are swapped in.
+      const sig=tabs.map(t=>t.key).join('|')+'#'+aktiv;
+      if(alt && alt.sig===sig && card.querySelector('.pages')){
+        if(ng && ng.wid===w.id) return;
+        const seiten=card.querySelectorAll('.page');
+        tabs.forEach((tab,i)=>{ if(i===aktiv||!tab.preview) return; alt.tabs[i].preview=tab.preview;
+          const img=seiten[i]&&seiten[i].querySelector('img');
+          if(img){ if(img.src!==tab.preview) bildTauschen(img,tab.preview); }
+          else if(seiten[i]){ seiten[i].replaceChildren(); const im=document.createElement('img'); im.alt=''; im.src=tab.preview; seiten[i].append(im); } });
+        return;
+      }
+      // Keep the page the user is looking at (same tab key), else Chrome's active.
+      let idx=aktiv;
+      if(alt){ const k=alt.tabs[alt.idx]&&alt.tabs[alt.idx].key; const j=tabs.findIndex(t=>t.key===k); if(j>=0) idx=j; }
+      tabStand.set(w.id,{tabs,idx,aktiv,sig});
+      seitenBauen(card,w);
+    }catch(_){ }
+    finally{ setTimeout(()=>tabLaedt.delete(w.id),1500); }
+  }
+  function seitenBauen(card,w){
+    const t=tabStand.get(w.id), prev=card.querySelector('.preview'); if(!t||!prev) return;
+    const liveBild=prev.querySelector(':scope > img');
+    let pages=prev.querySelector('.pages');
+    if(!pages){ pages=document.createElement('div'); pages.className='pages'; prev.append(pages); gesteBinden(prev,card,w); }
+    pages.replaceChildren(...t.tabs.map((tab,i)=>{
+      const p=document.createElement('div'); p.className='page';
+      // Chrome's active tab shows the live window picture; others their page.
+      const src=(i===t.aktiv && (liveBild&&liveBild.src)) || tab.preview;
+      if(src){ const im=document.createElement('img'); im.alt=''; im.src=src; p.append(im); }
+      else { const e=document.createElement('span'); e.className='empty-preview'; e.textContent=tab.title||'Tab'; p.append(e); }
+      return p;
+    }));
+    if(liveBild) liveBild.remove();
+    const leer=prev.querySelector(':scope > .empty-preview'); if(leer) leer.remove();
+    let zahl=prev.querySelector('.tabzahl'); if(!zahl){ zahl=document.createElement('span'); zahl.className='tabzahl'; prev.append(zahl); }
+    seiteZeigen(card,w,t.idx,false);
+  }
+  function aktiveSeiteSetzen(card,id,src){
+    const t=tabStand.get(id); const img=t&&card.querySelectorAll('.page')[t.aktiv]?.querySelector('img');
+    if(img){ if(img.src!==src) bildTauschen(img,src); }
+    else if(t){ const p=card.querySelectorAll('.page')[t.aktiv]; if(p){ p.replaceChildren(); const im=document.createElement('img'); im.alt=''; im.src=src; p.append(im); } }
+  }
+  function seiteZeigen(card,w,idx,anim){
+    const t=tabStand.get(w.id); const pages=card.querySelector('.pages'); if(!t||!pages) return;
+    t.idx=Math.max(0,Math.min(t.tabs.length-1,idx));
+    pages.classList.toggle('zieht',!anim);
+    pages.style.transform=`translateX(${-t.idx*100}%)`;
+    if(!anim) requestAnimationFrame(()=>pages.classList.remove('zieht'));
+    const zahl=card.querySelector('.tabzahl'); if(zahl) zahl.textContent=`${t.idx+1} von ${t.tabs.length}`;
+    if(anim) zahlZeigen(card);
+    const name=card.querySelector('.name span'), tab=t.tabs[t.idx];
+    if(name && tab) name.textContent=tab.title||''; else if(!name && tab){ const n=card.querySelector('.name'); if(n){ const s=document.createElement('span'); s.textContent=tab.title||''; n.append(s);} }
+  }
+  // Gesture from the NATIVE trackpad stream (phases are not in DOM wheel
+  // events): a new "began" always starts a fresh gesture, momentum belongs
+  // to the gesture that produced it, one gesture commits at most one tab.
+  // Axis locks after 8 pt: horizontal = this card's tabs, vertical = the
+  // list scrolls natively (DOM) and is never taken over.
+  let ng=null, radSperre=0;
+  function gesteBinden(prev,card,w){
+    prev.addEventListener('wheel',e=>{
+      const lockH = ng && ng.achse==='h' && ng.card===card;
+      const undecidedH = (!ng || !ng.achse) && Math.abs(e.deltaX)>Math.abs(e.deltaY);
+      if(lockH || undecidedH) e.preventDefault();
+    },{passive:false});
+  }
+  function ngCard(x,y){
+    const el=document.elementFromPoint(x,y), card=el&&el.closest('.card');
+    const wid=card?Number(card.dataset.wid):0;
+    return {card, wid, w:card?{id:wid,pid:Number(card.dataset.pid)}:null};
+  }
+  // "X von Y": visible during a swipe/transition, fades ~0.7 s after the
+  // page settled (transition .26 s).
+  function zahlZeigen(card){
+    const z=card&&card.querySelector('.tabzahl'); if(!z) return;
+    z.classList.add('zeigt'); clearTimeout(z.__weg);
+    z.__weg=setTimeout(()=>z.classList.remove('zeigt'),260+700);
+  }
+  function ngFolgen(){
+    const t=tabStand.get(ng.wid), pages=ng.card&&ng.card.querySelector('.pages'); if(!t||!pages) return;
+    const W=ng.card.querySelector('.preview').clientWidth||1;
+    const rand=(ng.dx<0 && t.idx===t.tabs.length-1)||(ng.dx>0 && t.idx===0);
+    const zug=Math.max(-0.28,Math.min(0.28,ng.dx/W*0.7))*(rand?0.3:1);
+    zahlZeigen(ng.card);
+    pages.classList.add('zieht'); pages.style.transform=`translateX(calc(${-t.idx*100}% + ${zug*W}px))`;
+  }
+  function ngZurueck(){
+    const t=ng&&tabStand.get(ng.wid), pages=ng&&ng.card&&ng.card.querySelector('.pages');
+    if(t&&pages){ pages.classList.remove('zieht'); pages.style.transform=`translateX(${-t.idx*100}%)`; }
+  }
+  function ngPruefen(){
+    const t=tabStand.get(ng.wid); if(!t||ng.fertig) return;
+    if(Math.abs(ng.dx)<28){ ngFolgen(); return; }
+    ng.fertig=true;
+    const dir=ng.dx>0?-1:1;                    // content dragged right = previous tab
+    const ziel=t.idx+dir;
+    if(ziel<0||ziel>=t.tabs.length){ ngZurueck(); return; }   // edge: spring back
+    seiteZeigen(ng.card,ng.w,ziel,true); tabBildFrisch(ng.card,ng.w);
+  }
+  listen('noki://overview-wheel',ev=>{
+    aktiv();
+    const p=(ev&&ev.payload)||{};
+    const begann=p.phase===1||p.phase===128;
+    if(p.phase===0&&p.momentum===0){           // plain mouse wheel: one page per notch burst
+      const c=ngCard(p.x,p.y), t=tabStand.get(c.wid);
+      if(t&&Math.abs(p.dx)>Math.abs(p.dy)&&Date.now()>radSperre){
+        radSperre=Date.now()+300; ng={...c,dx:p.dx*30,dy:0,achse:'h',fertig:false}; ngPruefen(); ng=null; }
+      else if(Math.abs(p.dy)>=Math.abs(p.dx)) rail.scrollTop-=p.dy*(Math.abs(p.dy)<=3?32:1);
+      return;
+    }
+    if(begann || (!ng && p.phase===2)){
+      ng={...ngCard(p.x,p.y),dx:0,dy:0,achse:null,fertig:false};
+      // No tab pages under the finger: nothing to decide - vertical at once
+      // (the 8-point axis dead zone made every scroll start feel heavy).
+      if(!tabStand.has(ng.wid)) ng.achse='v';
+      if(p.phase===128) return;
+    }
+    // macOS's own momentum after finger-up: applied as delivered, so the
+    // list glides out with the system's natural deceleration (it used to be
+    // dropped - the list stopped dead on release).
+    if(p.momentum){
+      if(!ng || ng.achse==='v'){ rail.scrollTop-=p.dy; }
+      else if(ng.achse==='h' && !ng.fertig){ ng.dx+=p.dx; ngPruefen(); }
+      if(p.momentum===3){ if(ng && ng.achse==='h'&&!ng.fertig) ngZurueck(); ng=null; }
+      return;
+    }
+    if(!ng) return;
+    ng.dx+=p.dx; ng.dy+=p.dy;
+    if(!ng.achse && Math.abs(ng.dx)+Math.abs(ng.dy)>=8){
+      ng.achse=Math.abs(ng.dx)>Math.abs(ng.dy)*1.15?'h':'v';
+      if(ng.achse==='v'){ rail.scrollTop-=ng.dy; return; }   // catch up the decision distance
+    }
+    if(ng.achse==='v') rail.scrollTop-=p.dy;
+    if(ng.achse==='h' && tabStand.has(ng.wid)) ngPruefen();
+    if(p.phase===4||p.phase===8){ if(ng.achse==='h'&&!ng.fertig) ngZurueck(); }
+  });
+  // Fresh picture of the page just shown (background tabs of Noki's own
+  // browser render; regular Chrome keeps its last seen picture).
+  let frischTimer=0;
+  function tabBildFrisch(card,w){
+    clearTimeout(frischTimer);
+    frischTimer=setTimeout(async()=>{
+      try{
+        const tabs=await invoke('window_overview_tabs',{id:w.id,pid:w.pid});
+        const t=tabStand.get(w.id); if(!t||!tabs||!tabs.length) return;
+        const seiten=card.querySelectorAll('.page');
+        tabs.forEach((tab,i)=>{
+          const j=t.tabs.findIndex(x=>x.key===tab.key); if(j<0||j===t.aktiv||!tab.preview) return;
+          t.tabs[j].preview=tab.preview;
+          const p=seiten[j]; if(!p) return; const img=p.querySelector('img');
+          if(img){ if(img.src!==tab.preview) bildTauschen(img,tab.preview); }
+          else { p.replaceChildren(); const im=document.createElement('img'); im.alt=''; im.src=tab.preview; p.append(im); }
+        });
+      }catch(_){}
+    },300);
+  }
+  async function tabOeffnen(ev,w,tab){
+    ev.stopPropagation();
+    try{ await invoke('window_overview_tab_activate',{id:w.id,pid:w.pid,key:tab.key});
+         const t=tabStand.get(w.id); if(t){ t.aktiv=t.idx; } }
+    catch(e){ message(String(e)); }
+  }
+
+  // Instant scrolling: a smooth scrollBy animation survived hiding the panel
+  // and resumed after the next open, overriding the reset to the first card
+  // (cards then sat under other positions than the ones just opened).
+  // Vertical list: native (continuous, pixel-precise) trackpad and wheel
+  // scrolling of the card column only; the panel itself never moves.
+  let fitN=-1;
+  function fitTo(n){ n=Math.max(1,n|0); if(n===fitN)return; fitN=n; invoke('window_overview_fit',{n}).catch(()=>{}); }
+  function spalte(p){
+    const c=p&&p.spalte; if(!c)return;
+    document.documentElement.style.setProperty('--card-w',c.card_w+'px');
+    document.documentElement.style.setProperty('--card-h',c.card_h+'px');
+    fitN=-1;
+  }
+  // Shortcut 9 endet NUR hier (oder per Kuerzel/Esc) - nie nach einem Schliessen.
+  if(window.__TAURI__&&window.__TAURI__.event) window.__TAURI__.event.listen('noki://overview-hinweis',e=>message((e.payload&&e.payload.text)||''));
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      stopPolling();
+      invoke('window_overview_close');
+    }
+  });
+
+  async function start(){
+    first=true; aktiv();
+    try{ const c=await invoke('window_overview_geometry'); if(c) spalte({spalte:c}); }catch(_){}
+    rail.style.scrollBehavior='auto';
+    rail.scrollTop=0;
+    await refresh();
+    document.body.classList.remove('laedt');
+    rail.scrollTop=0;
+    requestAnimationFrame(()=>{
+      rail.scrollTop=0;
+      setTimeout(()=>{rail.scrollTop=0;rail.style.scrollBehavior='';},60);
+    });
+    startPolling();
+    startLive();
+  }
+
+  listen('noki://overview-open',ev=>{spalte(ev&&ev.payload);start();});
+  // Native pointer -> hover state (card colours, light emphasis).
+  let hotCard=null, hotLight=null, zeigerX=-1, zeigerY=-1;
+  function hover(x,y){
+    zeigerX=x; zeigerY=y;
+    if(hotCard && !hotCard.isConnected) hotCard=null;
+    if(hotLight && !hotLight.isConnected) hotLight=null;
+    const el=x<0?null:document.elementFromPoint(x,y);
+    const c=el&&el.closest('.card'), l=el&&el.closest('.light');
+    if(c!==hotCard){ if(hotCard) hotCard.classList.remove('hot'); hotCard=c; if(c) c.classList.add('hot'); }
+    if(l!==hotLight){ if(hotLight) hotLight.classList.remove('hot'); hotLight=l; if(l) l.classList.add('hot'); }
+  }
+  listen('noki://overview-pointer',ev=>{const p=(ev&&ev.payload)||{}; if(p.x>=0) aktiv(); hover(p.x,p.y);});
+  rail.addEventListener('scroll',aktiv,{passive:true});
+  document.addEventListener('pointerdown',aktiv,true);
+  document.addEventListener('keydown',aktiv,true);
+  // Also when Noki happens to be the active app (WebKit hover works then).
+  document.addEventListener('mousemove',e=>hover(e.clientX,e.clientY));
+  document.addEventListener('mouseleave',()=>hover(-1,-1));
+  // Space change: same panel, new Space - geometry and inventory refresh
+  // without clearing (no empty flash).
+  listen('noki://overview-refresh',ev=>{spalte(ev&&ev.payload);refresh();});
+  listen('noki://overview-close',()=>{
+    stopPolling();
+    // Next open must never flash this open's (stale) cards: the fresh
+    // inventory replaces the rail atomically, invisible until rendered.
+    document.body.classList.add('laedt');
+    rail.style.scrollBehavior='auto';
+    rail.scrollTop=0;
+    rail.replaceChildren();
+  });
+  invoke('window_overview_state').then(open=>{if(open)start();});
+})();
+</script></body></html>

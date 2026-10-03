@@ -1,0 +1,54 @@
+Erstelle ein hochwertiges interaktives 3D-Autoprojekt.
+
+Das Auto soll sich optisch deutlich an einem modernen Porsche 911 GT3 RS orientieren:
+breite, flache Sportwagen-Proportionen, markante Front, stark ausgeformte Kotflügel,
+großer feststehender Heckflügel, aggressive Aerodynamik, sichtbare Lufteinlässe,
+sportliche Felgen, Reifen und ein hochwertiges Heck.
+
+Verwende keine heruntergeladenen oder proprietären 3D-Modelle.
+Die Form soll vollständig aus eigenem Code und selbst erzeugter Geometrie entstehen.
+
+Das Fahrzeug steht in einem vollständig geschlossenen, hochwertig gestalteten Raum.
+Der Raum soll Wände, Boden, Decke, Fenster, glaubwürdige Beleuchtung,
+Schatten und ausreichend visuelle Tiefe besitzen.
+Es soll nicht wie eine einfache Demo mit ein paar Boxen aussehen.
+
+Das Auto muss tatsächlich steuerbar sein:
+W oder Pfeil hoch = beschleunigen,
+S oder Pfeil runter = bremsen bzw. rückwärts,
+A/D oder Pfeile links/rechts = lenken.
+
+Die Vorderräder müssen sichtbar mitlenken.
+Alle Räder müssen sich passend zur gefahrenen Strecke drehen.
+Das Fahrzeug soll seine Position und Richtung wirklich anhand von Geschwindigkeit
+und Lenkwinkel verändern und nicht nur eine feste Animation abspielen.
+
+Die Fahrbewegung soll sich kontrollierbar und sportlich anfühlen,
+aber stabil und vorhersehbar bleiben.
+
+Die Kamera soll das Auto aus mehreren sinnvollen Blickwinkeln zeigen können.
+Der Benutzer soll die Kamera drehen können.
+Zusätzlich soll eine brauchbare Follow-Kamera vorhanden sein,
+mit der man während der Fahrt das Auto gut verfolgen kann.
+
+Die Benutzeroberfläche soll minimal bleiben.
+Keine zwei überlappenden Overlays.
+Nur wirklich notwendige Informationen wie Steuerung oder Geschwindigkeit.
+
+Achte besonders darauf, dass das Auto nicht aus einzelnen schwarzen Kästen besteht.
+Baue eine erkennbare, zusammenhängende Sportwagenkarosserie mit weichen Profilen,
+Kurven, klarer Silhouette, Front, Dachlinie, Seitenflächen und Heck.
+
+Das Ergebnis muss tatsächlich laufen.
+Öffne die Vorschau, teste WebGL und JavaScript,
+teste die Steuerung,
+teste Bewegung, Lenkwinkel und Radrotation
+und behebe Fehler selbstständig, bevor du die Aufgabe als abgeschlossen meldest.
+
+Am Ende möchte ich sehen:
+- das echte laufende Ergebnis
+- welche Dateien erstellt wurden
+- welches Modell gearbeitet hat
+- was getestet wurde
+- welche Anforderungen erfüllt sind
+- nur tatsächlich offene Punkte, falls noch etwas fehlt.

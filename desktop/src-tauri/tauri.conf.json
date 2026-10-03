@@ -1,21 +1,33 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "JARVIS",
+  "productName": "Noki",
   "version": "0.1.0",
-  "identifier": "com.jarvis.desktop",
+  "identifier": "com.noki.desktop",
   "build": {
     "frontendDist": [
-      "../index.html"
+      "../index.html",
+      "../ask.html",
+      "../settings.html",
+      "../noki-oberflaeche.js",
+      "../kompakt.html",
+      "../markdown.js",
+      "../intelligence.js",
+      "../intelligence.css",
+      "../code-view.js",
+      "../code-view.css",
+      "../noki-avatar.png"
+      ,"../window-overview.html"
     ]
   },
   "app": {
     "windows": [
       {
         "label": "main",
-        "title": "JARVIS",
+        "title": "Noki Character",
+        "url": "index.html",
         "width": 1470,
         "height": 956,
-        "resizable": true,
+        "resizable": false,
         "fullscreen": false,
         "decorations": false,
         "transparent": true,
@@ -25,6 +37,25 @@
         "visible": false,
         "skipTaskbar": true,
         "acceptFirstMouse": true
+      },
+      {
+        "label": "ask",
+        "title": "Ask Noki",
+        "url": "ask.html",
+        "width": 980,
+        "height": 720,
+        "minWidth": 760,
+        "minHeight": 540,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "shadow": true,
+        "alwaysOnTop": false,
+        "center": true,
+        "visible": false,
+        "skipTaskbar": false,
+        "acceptFirstMouse": false
       }
     ],
     "macOSPrivateApi": true,

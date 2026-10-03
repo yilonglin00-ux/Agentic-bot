@@ -1,0 +1,14 @@
+{
+  "name": "noki-companion",
+  "displayName": "Noki Companion",
+  "description": "Lets the local Noki app type into this VS Code window (editor + integrated terminal) while it is on another Desktop. Local Unix socket only, per-session token, no network.",
+  "version": "0.1.3",
+  "publisher": "noki",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "capabilities": { "untrustedWorkspaces": { "supported": true }, "virtualWorkspaces": true }
+}

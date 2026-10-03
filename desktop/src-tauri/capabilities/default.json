@@ -3,9 +3,14 @@
   "identifier": "default",
   "description": "enables the default permissions",
   "windows": [
-    "main"
+    "main",
+    "ask",
+    "kompakt",
+    "window-overview",
+    "einstellungen"
   ],
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:window:allow-set-focus"
   ]
 }

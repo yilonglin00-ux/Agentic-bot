@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "provider": "cloudflare_workers_ai",
+  "connection_id": "benchmark_cloudflare_glm_4_7_flash",
+  "account_id_sha256": "7d6425bf639445af2e2e95230539ee5c54c379fef0bcd3bb825f06bb218aa349",
+  "workers_plan": "workers_free",
+  "automatic_paid_overage": false,
+  "source": "user_verified_dashboard",
+  "verified_at": 1790807175,
+  "freshness_seconds": 604800,
+  "expires_at": 1791411975
+}

@@ -1,0 +1,46 @@
+<!doctype html>
+<!-- Nur zum Testen: festes Ziel fuer die Fernbedienung der Miniatur.
+     Oeffnen auf Nokis Schreibtisch, dann von einem anderen Schreibtisch aus
+     durch die Miniatur klicken und rollen. Kein Produkt-UI. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Fern-Ziel</title>
+<style>
+  body { margin: 0; font: 32px -apple-system, sans-serif; background: #fff; color: #111; }
+  #kopf { position: sticky; top: 0; background: #ffe9a8; padding: 16px; display: flex; gap: 24px; align-items: center; }
+  button { font: inherit; padding: 24px 48px; }
+  #stand { font-weight: 700; }
+  .marke { height: 900px; display: flex; align-items: center; justify-content: center; font-size: 120px; font-weight: 800; }
+  #video { background: #222; color: #fff; padding: 20px 32px; cursor: pointer; }
+  .top { background: #cfe8ff; } .mid { background: #d9f7d0; } .bot { background: #ffd6d6; }
+</style>
+</head>
+<body>
+  <div id="kopf">
+    <button id="zaehler">Count: 0</button>
+    <span id="stand">oben</span>
+    <div id="video">PAUSED</div>
+  </div>
+  <div class="marke top">TOP</div>
+  <div class="marke">…</div>
+  <div class="marke mid">MIDDLE</div>
+  <div class="marke">…</div>
+  <div class="marke bot">BOTTOM</div>
+<script>
+  var n = 0, b = document.getElementById("zaehler"), s = document.getElementById("stand");
+  b.addEventListener("click", function () { n += 1; b.textContent = "Count: " + n; document.title = "Fern-Ziel " + n; });
+  // Kein Knopf: wie ein Videobild, das nur einen Klick-Hoerer hat.
+  var v = document.getElementById("video");
+  v.addEventListener("click", function () {
+    v.textContent = v.textContent === "PAUSED" ? "PLAYING" : "PAUSED";
+    document.title = "Fern-Ziel " + n + " " + v.textContent;
+  });
+  window.addEventListener("scroll", function () {
+    var y = Math.round(window.scrollY);
+    s.textContent = "scrollY=" + y;
+    document.title = "Fern-Ziel " + n + " scrollY=" + y;
+  });
+</script>
+</body>
+</html>
