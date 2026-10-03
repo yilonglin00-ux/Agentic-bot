@@ -889,6 +889,12 @@
   #werk.w-clip { width: 340px; }
   #werk.w-timer { width: 260px; }
   #werk.w-shortcuts { width: 220px; }
+  #werk.w-platz { width: 216px; padding: 10px 10px 9px; }
+  #werk .w-platz-wahl { display: flex; flex-direction: column; gap: 5px; }
+  #werk button.w-platz-btn { display: block; padding: 9px 12px; border-radius: 9px; font-size: 13px; font-weight: 550; opacity: 1;
+    background: var(--noki-raised, rgba(255,255,255,.06)); border: 1px solid var(--noki-border, rgba(255,255,255,.10)); color: var(--noki-text); }
+  #werk button.w-platz-btn:hover { background: rgba(var(--noki-accent-rgb, 201,193,164), .14); border-color: var(--noki-accent, #c9c1a4); }
+  #werk button.w-platz-btn.an { background: rgba(var(--noki-accent-rgb, 201,193,164), .18); border-color: var(--noki-accent, #c9c1a4); box-shadow: inset 3px 0 var(--noki-accent, #c9c1a4); }
   #werk .w-kopf { display: flex; justify-content: space-between; align-items: center; padding: 0 0 2px 4px; font-weight: 600; font-size: 12.5px; }
   #werk button { all: unset; cursor: pointer; padding: 3px 8px; border-radius: 7px; font-size: 11.5px; opacity: .8; }
   #werk button:hover { background: rgba(255,255,255,.10); opacity: 1; }
@@ -15870,6 +15876,7 @@
   function hhmmss(ms) { var s = Math.max(0, Math.ceil(ms / 1000)); return ("0" + Math.min(99, Math.floor(s / 3600))).slice(-2) + ":" + ("0" + Math.floor(s / 60) % 60).slice(-2) + ":" + ("0" + s % 60).slice(-2); }
   function mmss(ms) { var s = Math.max(0, Math.ceil(ms / 1000)); return (s >= 3600 ? ("0" + Math.floor(s / 3600)).slice(-2) + ":" : "") + ("0" + Math.floor(s / 60) % 60).slice(-2) + ":" + ("0" + s % 60).slice(-2); }
   function werkUmschalten(was) {
+    if (was === "platz_schnell") { platzSchnell(); return; }
     if (was === "fokus") was = "platz";   // Fokus ist Teil von Arbeitsplatz-Fokus
     // Arbeitsplatz-Fokus hat genau EIN Panel: die Seite in Noki Einstellungen.
     if (was === "platz") {
@@ -15924,7 +15931,7 @@
   function werkBauen() {
     if (!werk.el && !werkInit()) return;
     if (!werk.offen) return;
-    var w = werk.was, h = '<div class="w-kopf"><span>' + WERK_TITEL[w] + '</span><button data-w="zu" title="Schließen"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg></button></div>';
+    var w = werk.was, h = '<div class="w-kopf"><span>' + (w === "platz" ? "Arbeitsplatz" : WERK_TITEL[w]) + '</span><button data-w="zu" title="Schließen"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg></button></div>';
     if (w === "shortcuts") {
       h += shortcutFelder("w") + '<div class="w-sc-fuss"><span>^/° → Ziffer · oder direkt klicken</span><button data-w="einst">Einstellungen ↗</button></div>';
     } else if (w === "clip") {
@@ -15963,17 +15970,14 @@
 
       }
     } else if (w === "platz") {
-      // Arbeitsplatz-Fokus: ein Profil = Apps + Fensterlayout + optional Fokus/Noki-Energie.
-      h += '<div class="w-liste">' + platzProfile().map(function (p) {
-        var c = profilCfg(p.name), n = p.apps || [], an = werk.fokusAktiv && werk.fokus.layout === p.name;
-        var info = (n.length ? n.slice(0, 4).join(", ") + (n.length > 4 ? " …" : "") : "Noch nicht gespeichert") + (c.fokus ? " · Fokus, Noki " + ENERGIE_NAME[c.energie] : "");
-        return '<div class="w-e' + (an ? ' an' : '') + '"><div class="w-t">' + abEsc(p.name) + (an ? ' · aktiv' : '') + '</div><div class="w-u">' + abEsc(info) + '</div><div class="w-z"><span></span>'
-          + (an ? '<button data-w="pende">Beenden</button>' : (n.length || c.apps.length || c.fokus ? '<button data-w="pstart" data-v="' + abEsc(p.name) + '">Starten</button>' : ''))
-          + '<button data-w="pspeichern" data-v="' + abEsc(p.name) + '">' + (n.length ? 'Aktualisieren' : 'Aktuellen Zustand speichern') + '</button></div></div>';
+      // Shortcut 8: schneller Arbeitsplatz-Wechsel. Nur die Profile; ein Klick
+      // startet ueber denselben Weg wie Einstellungen › Arbeitsplatz-Fokus.
+      h += '<div class="w-platz-wahl">' + platzProfile().map(function (p) {
+        var an = werk.fokusAktiv && werk.fokus.layout === p.name;
+        return '<button class="w-platz-btn' + (an ? ' an' : '') + '" data-w="' + (an ? 'pende' : 'pschnell') + '" data-v="' + abEsc(p.name) + '">' + abEsc(p.name) + '</button>';
       }).join("") + '</div>';
-      if (werk.platzMeldung) h += '<div class="w-hinweis">' + abEsc(werk.platzMeldung) + '</div>';
-      if (werk.platz && werk.platz.ax === false) h += '<div class="w-hinweis">Für Fensterpositionen braucht Noki die Freigabe „Bedienungshilfen“.</div>';
-      h += '<div class="w-fuss"><button data-w="peinst">Profile einrichten ↗</button></div>';
+      var st = werk.fokusAktiv ? "Aktiv · " + (werk.fokus.layout || "Profil") + " · ^/° + 8 beendet" : (werk.platzMeldung || werk.fokusErgebnis || "");
+      if (st) h += '<div class="w-hinweis">' + abEsc(st) + '</div>';
     }
     werk.el.className = "w-" + w;
     werk.el.innerHTML = h;
@@ -16010,8 +16014,9 @@
     else if (a === "tplus") timerPlus(5);
     else if (a === "tende") timerEnde(false);
     else if (a === "pstart") profilStart(v);
+    else if (a === "pschnell") { werkZu(); profilStart(v); return; }
     else if (a === "pspeichern") platzSpeichern(v);
-    else if (a === "pende") fokusEnde();
+    else if (a === "pende") { if (werk.was === "platz") werkZu(); fokusEnde(); }
     else if (a === "peinst") { einstellungenAuf("platz"); return; }
     werkBauen();
   }
@@ -16891,6 +16896,22 @@
       if (einstellungen.offen && einstellungen.tab === "platz") einstBauen();
     }).catch(function (e) { werk.platzMeldung = "Fokus konnte nicht beendet werden: " + (e && e.message ? e.message : String(e)); });
     fokusSpeichern();
+  }
+  // Shortcut 8 = Umschalter. Fokus aktiv: sofort beenden (fokusEnde, derselbe
+  // Weg wie "Beenden"). Sonst: kompakte Wahl Uni/Coding/Normal neben Noki;
+  // offen -> zu. Einstellungen › Arbeitsplatz-Fokus bleibt die Konfiguration.
+  function platzSchnell() {
+    if (werk.fokusAktiv) {
+      if (werk.offen && werk.was === "platz") werkZu();
+      fokusEnde();
+      return;
+    }
+    if (werk.offen && werk.was === "platz") { werkZu(); return; }
+    nokiPanelsZu("werk");
+    werk.was = "platz"; werk.offen = true; werk.voll = null; werk.leerT = 0;
+    abRuf("platz_liste").then(function (p) { if (p) { werk.platz = p; if (werk.offen && werk.was === "platz") werkBauen(); } }).catch(function () {});
+    kameraAktionZu();
+    werkBauen();
   }
   // --- Arbeitsplatz-Fokus: Profile buendeln Apps, Fensterlayout und Fokus (bestehende Fokus-/Platz-Logik) ---
   var ENERGIE_NAME = { sparend: "Stromsparend", normal: "Normal", energisch: "Sehr energisch" };

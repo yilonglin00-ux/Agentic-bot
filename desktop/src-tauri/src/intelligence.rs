@@ -13349,7 +13349,7 @@ fn action_normalize(s: &str) -> String {
 }
 
 fn action_resource_names(context: &DesktopContext) -> Vec<(String, String, &'static str)> {
-    let mut out = super::fokus_apps()
+    let mut out = super::fokus_apps_laden()
         .into_iter()
         .filter_map(|a| {
             Some((
@@ -13400,7 +13400,7 @@ fn working_context_from(
     desktop: &DesktopContext,
     mcp: &[super::mcp::McpConnector],
 ) -> WorkingContext {
-    let installed_apps: Vec<Resource> = super::fokus_apps()
+    let installed_apps: Vec<Resource> = super::fokus_apps_laden()
         .into_iter()
         .filter_map(|a| {
             let name = a["name"].as_str()?.trim_end_matches(".app").to_owned();
@@ -13706,7 +13706,7 @@ fn site_search_tool(normalized: &str) -> Option<Tool> {
 /// Die live installierten Apps als (Name, Pfad) - eine Quelle fuer alle
 /// Aktionspfade, damit nichts als vorhanden angenommen wird.
 fn installed_apps() -> Vec<(String, String)> {
-    super::fokus_apps()
+    super::fokus_apps_laden()
         .iter()
         .filter_map(|a| {
             Some((
@@ -14340,7 +14340,7 @@ fn propose_tool(question: &str, context: &DesktopContext) -> Option<Tool> {
         if rest.chars().count() >= 3 {
             let norm = |s: &str| action_normalize(s).replace([' ', '-', '_'], "");
             let needle = norm(&rest);
-            let apps = super::fokus_apps();
+            let apps = super::fokus_apps_laden();
             // Every name the app is known by: bundle name plus the localized
             // Finder name ("Rechner" = Calculator). An exact name wins over
             // partial matches, so "Rechner" never becomes a question.

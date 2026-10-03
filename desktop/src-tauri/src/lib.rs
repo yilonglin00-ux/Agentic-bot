@@ -1281,7 +1281,10 @@ fn werkzeug_fuer(n: u32) -> Option<&'static str> {
     match n {
         6 => Some("clip"),
         7 => Some("timer"),
-        8 => Some("platz"),
+        // Shortcut 8: schneller Arbeitsplatz-Wechsel (Wahl Uni/Coding/Normal,
+        // bei laufendem Fokus sofort Beenden). Die Konfiguration bleibt in
+        // Einstellungen › Arbeitsplatz-Fokus (Menue "werk_platz").
+        8 => Some("platz_schnell"),
         _ => None,
     }
 }
@@ -1622,7 +1625,7 @@ fn noki_utility_vorn(app: tauri::AppHandle, halten: Option<bool>) {
         if let Some(win) = h.get_webview_window(FENSTER) {
             #[cfg(target_os = "macos")]
             let space_before = cgs::aktiver_space().map(|x| x.0).unwrap_or(0);
-            let _ = win.set_ignore_cursor_events(false);
+            overlay_durchlaessig(&win, false);
             // Auch bei Ebene "normal"/"hinten": das Bedienfenster (Einstellungen,
             // Shortcuts) muss VOR der gerade aktiven App liegen. Zurueck zur
             // gewaehlten Ebene: noki_utility_zurueck beim Schliessen.
@@ -3814,7 +3817,7 @@ fn noki_modus_menue(app: tauri::AppHandle, freeze: bool) {
         return;
     };
     if freeze {
-        let _ = win.set_ignore_cursor_events(false);
+        overlay_durchlaessig(&win, false);
         #[cfg(target_os = "macos")]
         freeze_fenster(&win, true);
     } else {
@@ -5281,8 +5284,14 @@ fn app_anzeigename(pfad: &str) -> Vec<String> {
 #[cfg(not(target_os = "macos"))]
 fn app_anzeigename(_pfad: &str) -> Vec<String> { Vec::new() }
 
+/// Async: a sync command runs on the MAIN thread, and the first scan reads
+/// every app bundle's plist - seconds in which no Noki window (Settings ›
+/// Arbeitsplatz-Fokus included) could take a click.
 #[tauri::command]
-fn fokus_apps() -> Vec<serde_json::Value> {
+async fn fokus_apps() -> Vec<serde_json::Value> {
+    tauri::async_runtime::spawn_blocking(fokus_apps_laden).await.unwrap_or_default()
+}
+fn fokus_apps_laden() -> Vec<serde_json::Value> {
     static CACHE: OnceLock<Mutex<Option<(std::time::Instant, Vec<serde_json::Value>)>>> =
         OnceLock::new();
     let cache = CACHE.get_or_init(|| Mutex::new(None));
@@ -7522,6 +7531,20 @@ fn maus_gedrueckt() -> bool {
 
 /// Last time the page confirmed `drag` (panel tick every 250 ms, pickup).
 static DRAG_BESTAETIGT_MS: AtomicU64 = AtomicU64::new(0);
+/// The character overlay's REAL click-through state (true = ignores the
+/// mouse). Dead-button root cause (Arbeitsplatz-Fokus, 2026-10-03): the mouse
+/// watcher kept its own copy, while drag/utility/freeze/startup wrote the
+/// window directly. A drag true->false inside one 30 ms tick (trackpad tap
+/// on Noki, panel closing right after its 250 ms re-assert, two IPC calls
+/// flushed together after a main-thread stall) left the overlay opaque while
+/// the watcher still believed it was click-through: the invisible
+/// full-screen overlay then took every click above the Settings window. One
+/// writer, one state - no second copy.
+static OVERLAY_DURCHLAESSIG: AtomicBool = AtomicBool::new(true);
+fn overlay_durchlaessig(win: &WebviewWindow, ignorieren: bool) {
+    let _ = win.set_ignore_cursor_events(ignorieren);
+    OVERLAY_DURCHLAESSIG.store(ignorieren, Ordering::SeqCst);
+}
 /// UI hang root cause (2026-10-03): `drag` makes the full-screen character
 /// overlay take EVERY click on the whole screen (popover "click beside
 /// closes"). Open Werk/Schnell panels re-assert it every 250 ms. When the
@@ -7540,7 +7563,6 @@ fn spawn_mouse_watcher(
     thread::spawn(move || {
         let mut last_x = -9999.0;
         let mut last_y = -9999.0;
-        let mut ignoring = true;
         let mut taste_vorher = false;
         let mut sperre_vorher = (false, false, 0usize);
         while !stop.load(Ordering::Relaxed) {
@@ -7632,15 +7654,11 @@ fn spawn_mouse_watcher(
                             && x <= (hit.ex + hit.ew) as f64
                             && y >= hit.ey as f64
                             && y <= (hit.ey + hit.eh) as f64);
-                    if inside && ignoring {
+                    // Compared against the window's REAL state (any writer),
+                    // never a private copy of it.
+                    if inside == OVERLAY_DURCHLAESSIG.load(Ordering::SeqCst) {
                         if let Some(win) = app.get_webview_window(FENSTER) {
-                            let _ = win.set_ignore_cursor_events(false);
-                            ignoring = false;
-                        }
-                    } else if !inside && !ignoring {
-                        if let Some(win) = app.get_webview_window(FENSTER) {
-                            let _ = win.set_ignore_cursor_events(true);
-                            ignoring = true;
+                            overlay_durchlaessig(&win, !inside);
                         }
                     }
                 }
@@ -12557,7 +12575,7 @@ pub(crate) fn leiste_befehl(app: &tauri::AppHandle, was: &str, arg: &str) {
                 let offen: Vec<String> = arbeitsplatz_fenster_liste().into_iter()
                     .filter(|e| e.fenster != 0 && live.contains(&e.fenster))
                     .map(|e| e.application_path).collect();
-                let mut liste: Vec<serde_json::Value> = fokus_apps().into_iter()
+                let mut liste: Vec<serde_json::Value> = fokus_apps_laden().into_iter()
                     .map(|a| {
                         let pfad = a["pfad"].as_str().unwrap_or("");
                         let name = a["name"].as_str().unwrap_or("");
@@ -13384,7 +13402,7 @@ fn katalog_zustand(pfad: &str, name: &str, offen: &[String]) -> String {
 ///     sonst fail closed. Fremde Fenster werden nie verschoben.
 #[cfg(target_os = "macos")]
 fn virtuelles_app_oeffnen(app: &tauri::AppHandle, pfad: &str) -> Result<String, String> {
-    let bekannt = fokus_apps().iter().any(|a| a["pfad"].as_str() == Some(pfad));
+    let bekannt = fokus_apps_laden().iter().any(|a| a["pfad"].as_str() == Some(pfad));
     if !bekannt || !pfad.ends_with(".app") {
         return Err("Unbekanntes Programm.".into());
     }
@@ -13697,7 +13715,7 @@ fn arbeitsplatz_oeffnen_blockierend(
                 });
             }
             let programm = programm.or_else(|| {
-                fokus_apps().into_iter().find_map(|a| {
+                fokus_apps_laden().into_iter().find_map(|a| {
                     (a.get("name")?.as_str()? == "Google Chrome")
                         .then(|| a.get("pfad")?.as_str().map(str::to_owned)).flatten()
                 })
@@ -14086,7 +14104,7 @@ fn arbeitsplatz_suchen_blockierend(app: tauri::AppHandle, query: String) -> serd
         Ok(url) => url,
         Err(grund) => return serde_json::json!({ "ok": false, "grund": grund }),
     };
-    let chrome = fokus_apps().into_iter().find_map(|a| {
+    let chrome = fokus_apps_laden().into_iter().find_map(|a| {
         let name = a.get("name")?.as_str()?;
         if name.eq_ignore_ascii_case("Google Chrome") {
             a.get("pfad")?.as_str().map(str::to_owned)
@@ -15395,7 +15413,7 @@ fn noki_bereit(app: tauri::AppHandle) -> Option<(i32, i32)> {
         let _ = win.show();
         NOKI_GEZEIGT.store(true, Ordering::Relaxed);
     }
-    let _ = win.set_ignore_cursor_events(true);
+    overlay_durchlaessig(&win, true);
     // Die gewaehlte Ebene gilt ab dem ersten Bild. Ohne das stand sie bis
     // zum ersten Tiefenwechsel nur in tauri.conf.json — und der erste
     // noki_ebene_durchgang(false) setzte sie dann auf den damaligen
@@ -15662,7 +15680,7 @@ fn noki_drag_status(app: tauri::AppHandle, state: tauri::State<NokiHitStore>, ak
     if aktiv { DRAG_BESTAETIGT_MS.store(jetzt_epoch_ms(), Ordering::Relaxed); }
     if let Some(win) = app.get_webview_window(FENSTER) {
         if aktiv {
-            let _ = win.set_ignore_cursor_events(false);
+            overlay_durchlaessig(&win, false);
         }
     }
 }
@@ -16746,7 +16764,7 @@ pub fn run() {
                 let _ = win.set_decorations(false);
                 let _ = win.set_shadow(false);
                 let _ = win.set_resizable(false);
-                let _ = win.set_ignore_cursor_events(true);
+                overlay_durchlaessig(&win, true);
             }
             if let Some(win) = app.get_webview_window(ASK_FENSTER) {
                 let _ = win.set_decorations(true);
@@ -17692,7 +17710,7 @@ mod ablage_tests {
 
     #[test]
     fn arbeitsplatz_fokus_auf_8_und_9_frei() {
-        assert_eq!(super::werkzeug_fuer(8), Some("platz"));
+        assert_eq!(super::werkzeug_fuer(8), Some("platz_schnell"));
         assert_eq!(super::werkzeug_fuer(9), None);
         assert_eq!(super::werkzeug_fuer(7), Some("timer"));
     }
@@ -18149,7 +18167,7 @@ mod ablage_tests {
     }
     #[test]
     fn fokus_apps_gefunden() {
-        let a = fokus_apps();
+        let a = fokus_apps_laden();
         assert!(a.len() > 5, "nur {} Apps", a.len());
         assert!(a
             .iter()
