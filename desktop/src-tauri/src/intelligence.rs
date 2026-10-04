@@ -3678,6 +3678,10 @@ pub struct Settings {
     pub noki_folder: bool,
     pub selected_text: bool,
     pub mode: Mode,
+    /// Noki Chat „Denken“ (AN/AUS, im Eingabebereich). Der Nutzerzustand
+    /// entscheidet ueber den Denk-Kanal; die Automatik schaltet ihn nie heimlich ein.
+    #[serde(default)]
+    pub denken: bool,
     /// Native notification when an answer finishes while Ask Noki is hidden; preview off by default.
     pub notify: bool,
     pub notify_preview: bool,
@@ -3711,6 +3715,7 @@ impl Default for Settings {
             noki_folder: false,
             selected_text: false,
             mode: Mode::Normal,
+            denken: false,
             notify: true,
             notify_preview: false,
             engine_mode: crate::cloud_engine::EngineMode::LocalAndCloud,
@@ -7181,11 +7186,11 @@ impl Intelligence {
     /// has produced the figures, there is nothing left for a reasoning pass to
     /// work out, only an interpretation to write.
     fn retier(&self, question: &str, s: reasoning::Signals) -> reasoning::ReasoningTier {
-        let tier = reasoning::after_computation(reasoning::classify(question, s), s);
+        let tier = denken_stufe(reasoning::after_computation(reasoning::classify(question, s), s));
         if let Ok(mut m) = self.model.lock() {
             m.manager.set_reasoning(tier);
             if tier == reasoning::ReasoningTier::Deep && m.manager.chat_rolle() == crate::modell_rollen::ChatRolle::General {
-                m.manager.set_chat_rolle(crate::modell_rollen::ChatRolle::Reasoning);
+                m.manager.set_chat_rolle(denken_rolle(crate::modell_rollen::ChatRolle::Reasoning));
             }
             m.manager.set_chat_profile(match tier {
                 reasoning::ReasoningTier::Fast => ChatProfile::Fast,
@@ -7315,9 +7320,11 @@ impl Intelligence {
         let t0 = Instant::now();
         *ANTWORT_START.lock().unwrap_or_else(|e| e.into_inner()) = Some(t0);
         *ANTWORT_MODELL.lock().unwrap_or_else(|e| e.into_inner()) = None;
-        // Hidden local thinking only in the explicitly chosen Intensive mode.
-        let intensiv = self.settings.lock().map(|st| st.mode == Mode::Intensive).unwrap_or(false);
-        crate::model_manager::LOKAL_DENKEN_ERLAUBT.store(intensiv, Ordering::Relaxed);
+        // Denk-Kanal nur mit „Denken AN“ im Chat. AUS bleibt AUS - auch wenn
+        // die Einstufung eine Aufgabe als DEEP erkennt (keine heimliche Umschaltung).
+        let denken = self.settings.lock().map(|st| st.denken).unwrap_or(false);
+        DENKEN_AN.store(denken, Ordering::Relaxed);
+        crate::model_manager::LOKAL_DENKEN_ERLAUBT.store(denken, Ordering::Relaxed);
         eprintln!("[ASK] +0ms submit chars={}", question.chars().count());
         *self.timings.lock().unwrap() = Timings::default();
         let intent_start = Instant::now();
@@ -7437,10 +7444,11 @@ fn is_document_intent(q: &str) -> bool {
             // only the runtime fallback in NokiLocalModel::generate. The
             // complexity profile still drives reasoning and cloud tiers.
             m.set_work_tier(WorkTier::Tier9B);
+            let provisional = denken_stufe(provisional);
             m.manager.set_reasoning(provisional);
             // Noki Chat: passendes lokales Modell nach Aufgabe (General /
             // Reasoning / Tools) - aus derselben Einstufung, kein sichtbarer Modus.
-            m.manager.set_chat_rolle(crate::modell_rollen::chat_rolle(provisional, initial_plan.steps.len(), explicit_action));
+            m.manager.set_chat_rolle(denken_rolle(crate::modell_rollen::chat_rolle(provisional, initial_plan.steps.len(), explicit_action)));
             // The profile is kept in step because the UI reads it, but it no
             // longer decides whether the thinking channel opens.
             m.manager.set_chat_profile(match provisional {
@@ -12757,6 +12765,19 @@ pub async fn intelligence_mode(
 }
 /// Chat/Code switch changes intent only. The router must select LOCAL before
 /// any target weights are loaded.
+/// Noki Chat „Denken“ AN/AUS - in settings.json gespeichert, gilt ab der naechsten Frage.
+#[tauri::command]
+pub async fn intelligence_denken(state: tauri::State<'_, Arc<Intelligence>>, an: bool) -> Result<bool, String> {
+    let worker = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut s = worker.settings.lock().map_err(err)?;
+        s.denken = an;
+        save("settings.json", &*s)?;
+        Ok(an)
+    })
+    .await
+    .map_err(err)?
+}
 #[tauri::command]
 pub async fn intelligence_assistant_mode(
     state: tauri::State<'_, Arc<Intelligence>>,
@@ -19571,9 +19592,19 @@ fn code_modell_melden(app: &tauri::AppHandle, prov: &RuntimeModelProvenance) {
 static HOOK_APP: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
 /// Lokales Modell denkt (reasoning_content / <think>): echter Zustand fuer
 /// den Chat ("Noki denkt …"), mit grober Token-Zahl.
-fn denk_hook(zeichen: usize) {
+/// „Denken“ der laufenden Chat-Antwort (aus den Einstellungen, je Anfrage gesetzt).
+static DENKEN_AN: AtomicBool = AtomicBool::new(false);
+fn denken_stufe(tier: reasoning::ReasoningTier) -> reasoning::ReasoningTier {
+    crate::modell_rollen::denken_stufe(DENKEN_AN.load(Ordering::Relaxed), tier)
+}
+fn denken_rolle(r: crate::modell_rollen::ChatRolle) -> crate::modell_rollen::ChatRolle {
+    crate::modell_rollen::denken_rolle(DENKEN_AN.load(Ordering::Relaxed), r)
+}
+/// Waehrend des Denkens: gemessene Denk-Tokens (gestreamte
+/// reasoning_content-Stuecke; 0 = nicht gemessen, z. B. nur `<think>`-Tags).
+fn denk_hook(_zeichen: usize, tokens: usize) {
     if let Some(a) = HOOK_APP.get() {
-        let _ = a.emit("intelligence-research", serde_json::json!({ "phase": "think", "n": zeichen / 4 }));
+        let _ = a.emit("intelligence-research", serde_json::json!({ "phase": "think", "n": tokens }));
     }
 }
 /// ModelManager laedt wirklich ein anderes Modell (Rollenwechsel).

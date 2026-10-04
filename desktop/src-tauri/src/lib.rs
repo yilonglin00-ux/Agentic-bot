@@ -16728,6 +16728,7 @@ pub fn run() {
             intelligence::intelligence_tool_execute,
             browser_suche,
             intelligence::intelligence_mode,
+            intelligence::intelligence_denken,
             intelligence::intelligence_assistant_mode,
             intelligence::intelligence_code_terminal_open,
             intelligence::intelligence_code_terminal_status,

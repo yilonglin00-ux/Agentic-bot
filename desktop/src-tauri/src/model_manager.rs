@@ -1056,8 +1056,9 @@ pub fn letzte_denk_zeichen() -> usize {
 }
 /// Meldet waehrend des Streamens, dass (und wie viel) das Modell denkt -
 /// Noki Chat zeigt daraus "Noki denkt …". Gesetzt von intelligence.rs.
-static DENK_HOOK: OnceLock<fn(usize)> = OnceLock::new();
-pub fn denk_hook_setzen(f: fn(usize)) {
+static DENK_HOOK: OnceLock<fn(usize, usize)> = OnceLock::new();
+/// Rueckruf (Denk-Zeichen, gemessene Denk-Tokens = gestreamte reasoning_content-Stuecke).
+pub fn denk_hook_setzen(f: fn(usize, usize)) {
     let _ = DENK_HOOK.set(f);
 }
 /// Modellwechsel (Ziel, beginnt?) - Noki Chat zeigt "Noki wechselt das
@@ -1076,9 +1077,9 @@ fn aktiv_setzen(m: &str) {
         *g = Some(m.to_owned());
     }
 }
-fn denk_melden(zeichen: usize) {
+fn denk_melden(zeichen: usize, tokens: usize) {
     if let Some(f) = DENK_HOOK.get() {
-        f(zeichen);
+        f(zeichen, tokens);
     }
 }
 /// Antwort-JSON: `<think>`-Text aus dem sichtbaren Inhalt entfernen und das
@@ -1167,6 +1168,8 @@ fn request_llama_cancellable(
     let streaming = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
     let mut denk_filter = crate::modell_rollen::DenkFilter::default();
     let mut denk_kanal = 0usize;
+    // llama.cpp streamt je erzeugtem Token ein Stueck: das ist die Messung.
+    let mut denk_tokens = 0usize;
     let mut denk_gemeldet = 0usize;
     LETZTE_DENK_ZEICHEN.store(0, Ordering::Relaxed);
     // The tier's budget, not a fixed three minutes: a FAST request that stalls
@@ -1209,6 +1212,9 @@ fn request_llama_cancellable(
                         let Ok(v) = serde_json::from_str::<Value>(data) else { continue };
                         if let Some(r) = v.pointer("/choices/0/delta/reasoning_content").and_then(Value::as_str) {
                             denk_kanal += r.chars().count();
+                            if !r.is_empty() {
+                                denk_tokens += 1;
+                            }
                         }
                         if let Some(s) = v.pointer("/choices/0/delta/content").and_then(Value::as_str) {
                             let sichtbar = denk_filter.push(s);
@@ -1221,7 +1227,7 @@ fn request_llama_cancellable(
                         let denk = denk_kanal + denk_filter.denk_zeichen;
                         if denk > denk_gemeldet && (denk_gemeldet == 0 || denk - denk_gemeldet >= 400) {
                             denk_gemeldet = denk;
-                            denk_melden(denk);
+                            denk_melden(denk, denk_tokens);
                         }
                     }
                 }
@@ -1247,6 +1253,10 @@ fn request_llama_cancellable(
             }
         }
         let n = denk_kanal + denk_filter.denk_zeichen;
+        if n > denk_gemeldet {
+            // Endstand, damit die Zusammenfassung den vollen Wert zeigt.
+            denk_melden(n, denk_tokens);
+        }
         parse_openai_stream(raw).map(|v| {
             let v = denk_trennen(v);
             // Denk-Kanal des Streams (reasoning_content) mitzaehlen; die

@@ -289,6 +289,25 @@
 @keyframes niVorgangPuls { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { #askNoki .ni-vorgang li.aktiv::before { animation: none; } }
 /* "Vorgehen · N Schritte" ueber der Antwort: eingeklappt, klein, getrennt. */
+/* Denken (Noki Chat, Denken AN): eigener, dezenter Bereich ueber der Antwort.
+   Offen solange gedacht wird, danach eine Zeile; die Antwort bleibt das Wichtigste. */
+#askNoki .ni-denken-box { margin: 0 0 10px; font-size: 12px; color: var(--noki-text-muted); }
+#askNoki .ni-denken-box summary { cursor: pointer; list-style: none; user-select: none; width: fit-content; padding: 2px 0; display: flex; align-items: center; }
+#askNoki .ni-denken-box summary::-webkit-details-marker { display: none; }
+#askNoki .ni-denken-box summary::before { content: "▸"; display: inline-block; width: 12px; transition: transform .15s ease; }
+#askNoki .ni-denken-box[open] summary::before { transform: rotate(90deg); }
+#askNoki .ni-denken-box summary:hover { color: var(--noki-text-secondary); }
+#askNoki .ni-denken-box.laeuft .ni-denken-titel { color: var(--noki-text-secondary); animation: niDenkenAtmen 1.6s ease-in-out infinite; }
+@keyframes niDenkenAtmen { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+#askNoki .ni-denken-liste { list-style: none; margin: 4px 0 0; padding: 0 0 0 12px; border-left: 1px solid rgba(255, 255, 255, 0.08); }
+#askNoki .ni-denken-liste li { margin: 0 0 3px 8px; color: var(--noki-text-secondary); }
+#askNoki .ni-denken-liste li.aktiv { color: var(--noki-text); }
+#askNoki .ni-denken-liste li.aktiv::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 8px 1px 0; border-radius: 50%;
+  background: var(--noki-text-secondary); animation: niVorgangPuls 1.3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  #askNoki .ni-denken-box.laeuft .ni-denken-titel, #askNoki .ni-denken-liste li.aktiv::before { animation: none; }
+  #askNoki .ni-denken-box summary::before { transition: none; }
+}
 #askNoki .ni-vorgehen { margin: 0 0 10px; font-size: 12px; color: var(--noki-text-muted); }
 #askNoki .ni-vorgehen summary { cursor: pointer; list-style: none; user-select: none; width: fit-content; padding: 2px 0; }
 #askNoki .ni-vorgehen summary::-webkit-details-marker { display: none; }
@@ -706,6 +725,16 @@
   gap: 6px;
   flex: none;
 }
+/* „Denken“ im Eingabebereich: kompakt, ruhig; AN = gefuellt und hell. */
+#askNoki .ni-denken {
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px 0 7px;
+  border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.10); background: transparent;
+  color: var(--noki-text-muted); font: 500 12px/1 var(--ni-font); cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+#askNoki .ni-denken:hover { background: rgba(255, 255, 255, 0.06); color: var(--noki-text); }
+#askNoki .ni-denken.aktiv { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.24); color: var(--noki-text); }
+#askNoki .ni-denken:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.35); outline-offset: 1px; }
 #askNoki .ni-mic {
   display: inline-flex;
   align-items: center;

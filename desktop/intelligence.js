@@ -9,7 +9,7 @@
     var KIND = { user_preferences: 'Präferenz', project_context: 'Projekt', workflows: 'Ablauf', interaction_feedback: 'Feedback', facts: 'Fakt' };
     var state = { opened: false, rect: null, busy: false, settings: settings, status: null, activeEngine: 'local' };
     // Conversation: the active chat (session context) and the grouped history. Never long-term memory.
-    var chat = null, chats = [], chatSeq = 0, assistantMode = 'work', codeStyle = 'functional', codeTerminalStatus = null, codeView = null, modeRequest = 0, modeSwitch = Promise.resolve(), verlaufOffen = false, verlaufLeerT = 0, schritte = [], vorgang = [], drawer, mic, modusEl, modusCurrent, micZustand = 'idle';
+    var chat = null, chats = [], chatSeq = 0, assistantMode = 'work', codeStyle = 'functional', codeTerminalStatus = null, codeView = null, modeRequest = 0, modeSwitch = Promise.resolve(), verlaufOffen = false, verlaufLeerT = 0, schritte = [], vorgang = [], denkenFrage = false, denkenBtn = null, drawer, mic, modusEl, modusCurrent, micZustand = 'idle';
     // ONE central recording state. UI, native events and the recognizer never keep a competing copy;
     // everything shown is join(committedSegments) + currentInterimSegment.
     // UserRecordingSession: the ONLY lifetime of a recording. A RecognizerCycle (final, timeout,
@@ -218,8 +218,68 @@
     function vorgangZusammenfassung() {
       return vorgang.map(function (s) { return VORGANG[s.phase][1](s.p || {}); }).slice(-8);
     }
+    // „Denken“ (Noki Chat, Denken AN): interne Analyse - Anfrage verstehen,
+    // planen, nachdenken, pruefen, formulieren. Alles andere ist „Vorgehen“:
+    // echte Aktionen (Gedaechtnis, Kontext, Web, Quellen, Modellwechsel,
+    // Werkzeug). Beides kommt nur aus Ereignissen der nativen Seite.
+    var DENK_PHASEN = { analyze: 1, route: 1, think: 1, verify: 1, compose: 1 };
+    function denkTokens(liste) {
+      var t = 0; (liste || vorgang).forEach(function (s) { if (s.phase === 'think' && s.p && s.p.n > t) t = s.p.n; }); return t;
+    }
+    function denkTeile() {
+      var d = [], v = [];
+      vorgang.forEach(function (s) { (DENK_PHASEN[s.phase] ? d : v).push(VORGANG[s.phase][1](s.p || {})); });
+      return { denken: d.slice(-8), vorgehen: v.slice(-8), tokens: denkTokens() };
+    }
+    function denkTitel(n, tokens) {
+      return 'Denken · ' + (n === 1 ? '1 Schritt' : n + ' Schritte') + (tokens ? ' · ≈ ' + tokens + ' Tokens' : '');
+    }
+    // Live-Bereich ueber der Antwort: offen, solange gedacht wird; sobald die
+    // Antwort streamt, klappt er auf eine Zeile zusammen (kein Neuaufbau).
+    function denkBoxLive(offen) {
+      var box = answer.querySelector('details.ni-denken-box');
+      if (!box) {
+        box = document.createElement('details'); box.className = 'ni-denken-box';
+        box.innerHTML = '<summary><span class="ni-denken-titel"></span></summary><ul class="ni-denken-liste"></ul>';
+        // Nur ein Klick des Nutzers zaehlt; eigenes Auf-/Zuklappen nicht.
+        box.addEventListener('toggle', function () { if (box.open !== box._soll) box.dataset.nutzer = '1'; });
+      }
+      var denkSchritte = vorgang.filter(function (s) { return DENK_PHASEN[s.phase]; });
+      var laeuft = !streamEl;
+      var titel = box.querySelector('.ni-denken-titel');
+      titel.textContent = laeuft ? 'Denken …' : denkTitel(denkSchritte.length, denkTokens());
+      box.classList.toggle('laeuft', laeuft);
+      if (typeof offen === 'boolean' && !box.dataset.nutzer) { box._soll = offen; box.open = offen; }
+      var ul = box.querySelector('.ni-denken-liste'); ul.replaceChildren();
+      if (!denkSchritte.length) {
+        var li0 = document.createElement('li'); li0.className = laeuft ? 'aktiv' : 'fertig'; li0.textContent = 'Noki denkt …'; ul.appendChild(li0);
+      }
+      denkSchritte.forEach(function (st) {
+        var li = document.createElement('li'), jetzt = laeuft && st === vorgang[vorgang.length - 1];
+        li.className = jetzt ? 'aktiv' : 'fertig';
+        li.textContent = VORGANG[st.phase][jetzt ? 0 : 1](st.p || {});
+        ul.appendChild(li);
+      });
+      return box;
+    }
     function showSteps() {
       if (codeLauf && state.busy) { codeKarteZeigen(); return; }
+      if (denkenFrage) {
+        // Denken-Bereich oben, echte Aktionen (Vorgehen) darunter als Liste.
+        var box = denkBoxLive(true);
+        answer.replaceChildren(box);
+        var aktionen = vorgang.filter(function (s) { return !DENK_PHASEN[s.phase]; });
+        if (aktionen.length) {
+          var ua = document.createElement('ul'); ua.className = 'ni-steps ni-vorgang';
+          aktionen.forEach(function (st) {
+            var li = document.createElement('li'), jetzt = st === vorgang[vorgang.length - 1];
+            li.className = jetzt ? 'aktiv' : 'fertig'; li.textContent = VORGANG[st.phase][jetzt ? 0 : 1](st.p || {}); ua.appendChild(li);
+          });
+          answer.appendChild(ua);
+        }
+        liveModellZeigen();
+        return;
+      }
       answer.replaceChildren(); var ul = document.createElement('ul'); ul.className = 'ni-steps ni-vorgang';
       if (!vorgang.length) {
         var li0 = document.createElement('li'); li0.className = 'aktiv';
@@ -236,6 +296,18 @@
       liveModellZeigen();
     }
     // "Vorgehen · N Schritte" - eingeklappt ueber der Antwort, getrennt von ihr.
+    // Nach Abschluss: „Denken“ eingeklappt ueber der Antwort (nur Denken AN).
+    function denkenZeigen(box, t) {
+      if (!t.denken || !t.denken_schritte) return;
+      var d = document.createElement('details'); d.className = 'ni-denken-box';
+      var s = document.createElement('summary'), sp = document.createElement('span');
+      sp.className = 'ni-denken-titel'; sp.textContent = denkTitel(t.denken_schritte.length, t.denken_tokens || 0);
+      s.appendChild(sp); d.appendChild(s);
+      var ul = document.createElement('ul'); ul.className = 'ni-denken-liste';
+      t.denken_schritte.forEach(function (x) { var li = document.createElement('li'); li.className = 'fertig'; li.textContent = x; ul.appendChild(li); });
+      d.appendChild(ul);
+      box.insertBefore(d, box.firstChild);
+    }
     function vorgehenZeigen(box, schritteListe) {
       if (!schritteListe || schritteListe.length < 2) return;
       var d = document.createElement('details'); d.className = 'ni-vorgehen';
@@ -639,7 +711,11 @@
       var last = chat.turns[chat.turns.length - 1];
       zeigeFrueher(chat.turns.length - 1);
       question.textContent = last.q; showBlocks([{ type: last.fehler ? 'status' : 'text', text: last.text }]);
-      if (!last.fehler && !(last.code_actions && last.code_actions.length)) vorgehenZeigen(answer, last.vorgehen);
+      if (!last.fehler && !(last.code_actions && last.code_actions.length)) {
+        // Vorgehen (Aktionen) zuerst einsetzen, dann Denken davor: Denken steht oben.
+        vorgehenZeigen(answer, last.vorgehen);
+        denkenZeigen(answer, last);
+      }
       if (last.code_actions && last.code_actions.length) {
         var prot = document.createElement('div');
         prot.className = 'ni-code-lauf ni-code-lauf-fertig';
@@ -656,10 +732,19 @@
     var streamingText = '';
     var streamEl = null;
     var streamRenderTimer = null;
+    // Zweite Sicherung hinter dem nativen Filter: Denk-Tags erscheinen nie im
+    // Antworttext - auch nicht halb gestreamt (offenes <think> blendet den Rest aus).
+    function ohneDenkTags(text, laufend) {
+      var s = String(text || ''), zu = s.indexOf('</think>'), auf = s.indexOf('<think>');
+      if (zu >= 0 && (auf < 0 || zu < auf)) s = s.slice(zu + 8);
+      s = s.replace(/<think>[\s\S]*?(?:<\/think>|$)/g, '');
+      if (laufend) s = s.replace(/<\/?t(?:h(?:i(?:n(?:k)?)?)?)?$/, '');
+      return s.replace(/^\s+/, '');
+    }
     function renderStreaming(final) {
       if (streamRenderTimer) { clearTimeout(streamRenderTimer); streamRenderTimer = null; }
       if (!streamEl) return;
-      streamEl.replaceChildren(renderText(streamingText));
+      streamEl.replaceChildren(renderText(ohneDenkTags(streamingText, !final)));
       if (autoFollow && body) body.scrollTop = body.scrollHeight;
     }
     function scheduleStreamingRender() {
@@ -884,6 +969,22 @@
     function modusUmschalten() {
       if (!modusEl || !modusCurrent) return;
       var auf = modusEl.hidden; modusEl.hidden = !auf; modusCurrent.setAttribute('aria-expanded', String(auf));
+    }
+    // „Denken“ AN/AUS: gespeichert in den Intelligence-Einstellungen (settings.json),
+    // gilt ab der naechsten Frage; eine laufende Antwort bleibt unberuehrt.
+    function denkenAnzeige() {
+      if (!denkenBtn) return;
+      var an = !!(settings && settings.denken);
+      denkenBtn.setAttribute('aria-pressed', String(an));
+      denkenBtn.classList.toggle('aktiv', an);
+      denkenBtn.title = an ? 'Denken an: Noki denkt gründlich nach (langsamer)' : 'Denken aus: schnelle, direkte Antwort';
+    }
+    function denkenUmschalten() {
+      if (!settings) return;
+      var vorher = !!settings.denken;
+      settings.denken = !vorher; denkenAnzeige();
+      call('intelligence_denken', { an: settings.denken }).then(function (r) { settings.denken = !!r; denkenAnzeige(); })
+        .catch(function () { settings.denken = vorher; denkenAnzeige(); });
     }
     // One state for the Ask header and Settings → Intelligence (persisted natively, never cancels an answer).
     function setModus(m) {
@@ -1358,6 +1459,7 @@
         if (host.phase && ph) host.phase(phase);
         schritte = [VORGANG[phase][0](p)];
         if (!streamEl) showSteps();
+        else if (denkenFrage && answer.querySelector('details.ni-denken-box')) denkBoxLive();
         if (statusEl) { statusEl.textContent = ph ? ph[1] : (phase === 'think' ? 'Denkt nach' : 'Wechselt Modell'); statusEl.dataset.k = 'arbeitet'; }
         if (!ph) return;
         if (p.phase !== 'search' && p.phase !== 'read') return;
@@ -1369,10 +1471,15 @@
         if (!tok) return;
         streamingText += tok;
         if (!streamEl) {
+          // Denken AN: der Denken-Bereich bleibt stehen und wird kompakt,
+          // die Antwort streamt direkt darunter (kein Neuaufbau, kein Flackern).
+          var dbox = denkenFrage ? answer.querySelector('details.ni-denken-box') : null;
           answer.replaceChildren();
           streamEl = document.createElement('div');
           streamEl.className = 'ni-streaming';
+          if (dbox) { answer.appendChild(dbox); }
           answer.appendChild(streamEl);
+          if (dbox) denkBoxLive(false);
           liveModellZeigen();
         }
         scheduleStreamingRender();
@@ -1427,7 +1534,7 @@
       state.status = r; settings = r.settings; state.settings = settings; assistantMode = (r.assistant_mode === 'code') ? 'code' : 'work';
       if (r.code_style) codeStyle = r.code_style;
       if (r.engine) state.activeEngine = r.engine;
-      ready = true; refresh(); modellAnzeige();
+      ready = true; refresh(); modellAnzeige(); denkenAnzeige();
     }).catch(function () { state.status = { installed: false }; refresh(); });
     function ensure() {
       if (panel) return;
@@ -1478,6 +1585,7 @@
         '<div class="ni-composer-box">' +
         '<textarea rows="1" aria-label="Noki fragen" placeholder="Noki fragen …" maxlength="4000" autocomplete="off" spellcheck="true"></textarea>' +
         '<div class="ni-composer-actions">' +
+        '<button type="button" class="ni-denken" aria-pressed="false" title="Denken: gründlicher nachdenken (langsamer)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8a4.4 4.4 0 0 0-2.6 7.9c.5.4.8.9.8 1.5v.6h3.6v-.6c0-.6.3-1.1.8-1.5A4.4 4.4 0 0 0 8 1.8z"/><path d="M6.4 14h3.2"/></svg><span>Denken</span></button>' +
         '<button type="button" class="ni-mic ni-clip" aria-label="Datei anhängen" title="Datei anhängen"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg></button>' +
         '<button type="button" class="ni-mic" data-k="idle" aria-label="Spracheingabe" title="Spracheingabe (lokal)"><svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="4.5" y="1" width="5" height="8" rx="2.5"/><path d="M2.5 6.5a4.5 4.5 0 0 0 9 0M7 11v2"/></svg><span class="ni-mic-eq" aria-hidden="true"><i></i><i></i><i></i></span></button>' +
         '<button class="ni-send" aria-label="Senden" type="submit"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13.5V2.5M3 7.5l5-5 5 5"/></svg></button>' +
@@ -2086,6 +2194,7 @@
           .then(function () { browserZu(); anhaengeZeigen(); })
           .catch(function (e) { if (meta) meta.textContent = String(e); browserZu(); });
       };
+      denkenBtn = panel.querySelector('.ni-denken'); if (denkenBtn) { denkenBtn.onclick = denkenUmschalten; denkenAnzeige(); }
       mic = panel.querySelector('.ni-mic:not(.ni-clip)'); mic.onclick = micKlick; modusEl = panel.querySelector('.ni-modus'); modusCurrent = panel.querySelector('.ni-mode-current'); if (modusEl) renderModus();
       voiceLive = panel.querySelector('.ni-voice-live'); voiceText = panel.querySelector('.ni-voice-scroll p'); voiceInterim = panel.querySelector('.ni-voice-interim');
       voiceStatus = panel.querySelector('.ni-voice-status'); voiceWorte = panel.querySelector('.ni-voice-worte'); voiceLeer = panel.querySelector('.ni-voice-leer'); voiceBasis = panel.querySelector('.ni-voice-basis');
@@ -2200,6 +2309,7 @@
       // DOM entsteht niemals eine zweite sichtbare Character-/Ask-Instanz.
       if (host.openNative) { host.openNative(tip || null); return; }
       if (!ready) { host.openSettings(); return; }
+      denkenAnzeige();
       host.closePanels(); ensure();
       if (!state.userPos) {
         var f = flaeche();
@@ -2315,7 +2425,7 @@
       indArt = 'zahnrad';
       // The sent question moves up into the conversation; the field is free again at once.
       send.disabled = true; input.value = ''; feldHoehe(); micAbbrechen(); zeigeFrueher(aktiv.turns.length); question.textContent = q; meta.textContent = ''; neuHinweis(false);
-      toggleVerlauf(false); setStatus('denkt'); schritte = ['Noki denkt …']; vorgang = []; showSteps(); zurNeuesten(true); host.thinking(true);
+      toggleVerlauf(false); setStatus('denkt'); schritte = ['Noki denkt …']; vorgang = []; denkenFrage = !!settings.denken; showSteps(); zurNeuesten(true); host.thinking(true);
       state.sprechend = false; gesichtSetzen();
 
       // Immutable snapshot of attachments captured before dispatch
@@ -2344,9 +2454,11 @@
       call('intelligence_chat', chatPayload).then(function (r) {
         if (request !== generation) return;
         renderStreaming(true);
-        var vorgehen = vorgangZusammenfassung();
+        var teile = denkenFrage ? denkTeile() : null;
+        var vorgehen = teile ? teile.vorgehen : vorgangZusammenfassung();
         if (r.tool && r.tool.label) vorgehen.push('Werkzeug · ' + r.tool.label);
-        var turn = { q: q, text: r.text, vorgehen: vorgehen, sources: r.sources || [], research: r.research || null, route: r.route, plan: r.plan || null, conf: r.confidence && r.confidence.level, tool: r.tool || null, code_actions: r.code_actions || [], code_projekt: r.code_projekt || null, runtime_model: r.runtime_model || null, finish_reason: r.finish_reason || null, output_word_count: r.output_word_count == null ? null : r.output_word_count, modus: modusFrage,
+        // Gespeichert wird nur die kompakte Zusammenfassung - nie Denktext.
+        var turn = { q: q, text: ohneDenkTags(r.text), vorgehen: vorgehen, denken: !!teile, denken_schritte: teile ? teile.denken : null, denken_tokens: teile ? teile.tokens : 0, sources: r.sources || [], research: r.research || null, route: r.route, plan: r.plan || null, conf: r.confidence && r.confidence.level, tool: r.tool || null, code_actions: r.code_actions || [], code_projekt: r.code_projekt || null, runtime_model: r.runtime_model || null, finish_reason: r.finish_reason || null, output_word_count: r.output_word_count == null ? null : r.output_word_count, modus: modusFrage,
           web: r.route === 'WEB' || (r.sources || []).length > 0, zeit: Date.now(), timings: r.timings || null, abstention: r.abstention_reason || null, attachments: attachmentsSnapshot };
         if (r.timings) { state.lastTimings = r.timings; try { console.debug('noki-latency', r.route, JSON.stringify(r.timings)); } catch (x) {} }
         aktiv.turns.push(turn); if (aktiv.turns.length > 40) aktiv.turns.shift();

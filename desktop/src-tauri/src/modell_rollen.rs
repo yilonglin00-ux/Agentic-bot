@@ -54,6 +54,26 @@ pub fn chat_rolle(tier: ReasoningTier, werkzeug_schritte: usize, ausdrueckliche_
     }
 }
 
+/// Noki Chat „Denken“ (Nutzerzustand) gewinnt ueber die Automatik:
+/// AN -> Reasoning-Stufe (Denk-Kanal offen); AUS -> Einstufung bleibt, der
+/// Denk-Kanal bleibt trotzdem zu (LOKAL_DENKEN_ERLAUBT).
+pub fn denken_stufe(an: bool, tier: ReasoningTier) -> ReasoningTier {
+    if an {
+        ReasoningTier::Deep
+    } else {
+        tier
+    }
+}
+/// AN -> Reasoning-Rolle (Werkzeug-Aufgaben bleiben Werkzeuge);
+/// AUS -> nie die Reasoning-Rolle, sondern das allgemeine Chat-Modell.
+pub fn denken_rolle(an: bool, r: ChatRolle) -> ChatRolle {
+    match (an, r) {
+        (_, ChatRolle::Tools) => ChatRolle::Tools,
+        (true, _) => ChatRolle::Reasoning,
+        (false, _) => ChatRolle::General,
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ChatRollen {
     #[serde(default)]
@@ -282,6 +302,18 @@ pub fn antwort_bereinigen(text: &str) -> (String, usize) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn denken_schalter_entscheidet() {
+        use super::*;
+        assert_eq!(denken_stufe(true, ReasoningTier::Fast), ReasoningTier::Deep);
+        assert_eq!(denken_stufe(false, ReasoningTier::Deep), ReasoningTier::Deep, "AUS aendert die Einstufung nicht");
+        assert_eq!(denken_stufe(false, ReasoningTier::Fast), ReasoningTier::Fast);
+        assert_eq!(denken_rolle(true, ChatRolle::General), ChatRolle::Reasoning);
+        assert_eq!(denken_rolle(false, ChatRolle::Reasoning), ChatRolle::General, "AUS: kein heimliches Reasoning-Modell");
+        assert_eq!(denken_rolle(true, ChatRolle::Tools), ChatRolle::Tools);
+        assert_eq!(denken_rolle(false, ChatRolle::Tools), ChatRolle::Tools);
+    }
+
     use super::*;
 
     #[test]
