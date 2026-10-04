@@ -55,6 +55,7 @@ mod talk_kern;
 mod kamera_kern;
 mod kamera_galerie;
 pub mod model_manager;
+pub mod modell_rollen;
 pub mod model_registry;
 pub mod pdf;
 mod permissions;
@@ -16696,6 +16697,8 @@ pub fn run() {
             intelligence::code_befehl_pruefen,
             intelligence::code_projekt_loeschen,
             intelligence::intelligence_settings,
+            intelligence::noki_modell_rollen,
+            intelligence::noki_modell_rolle_setzen,
             intelligence::intelligence_providers,
             intelligence::intelligence_mcp_connectors,
             intelligence::intelligence_mcp_execute,

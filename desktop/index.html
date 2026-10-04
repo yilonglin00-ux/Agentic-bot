@@ -17768,6 +17768,7 @@
     el.addEventListener("change", function (e) {
       var t = e.target; if (!t || !t.getAttribute) return;
       if (t.getAttribute("data-ni")) { intelligence.saveSetting(t.getAttribute("data-ni"), !!t.checked); return; }
+      if (t.getAttribute("data-ni-rolle")) { intelligence.action("ni-rolle", t.getAttribute("data-ni-rolle") + "=" + t.value); return; }
       var app = t.getAttribute("data-app"), key = t.getAttribute("data-ek");
       if (app) {
         var pa = profilCfg(profilGewaehlt()).apps, i = pa.indexOf(app);

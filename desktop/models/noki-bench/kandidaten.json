@@ -1,0 +1,29 @@
+{
+  "hinweis": "Phase 1 wird immer gemessen; Phase 2 nur, wenn eine Gruppe (chat/code) keinen klaren Gewinner hat (< 3 Punkte Abstand). 'repo' leer = Upstream wird ueber 'name_exakt' gesucht und nur bei GENAU einem exakten Treffer verwendet. Basis-Modelle sind bereits installiert und werden nie geloescht.",
+  "kandidaten": [
+    { "key": "qwen3.5-9b", "basis": true, "preset": "qwen3.5-9b", "gruppen": ["chat"], "anzeige": "Qwen3.5 9B" },
+    { "key": "jackod-9b", "basis": true, "preset": "jackod-9b", "gruppen": ["code"], "anzeige": "JackOD 9B Coder" },
+
+    { "key": "r7", "phase": 1, "gruppen": ["chat"], "repo": "", "name_exakt": "Qwen3.5-9B-R7-Research", "anzeige": "Qwen3.5 9B R7 Research",
+      "rolle": "Functional/Reasoning, Tool Calling, Instruction Following" },
+    { "key": "neo", "phase": 1, "gruppen": ["chat"], "repo": "Jackrong/Qwen3.5-9B-Neo", "anzeige": "Qwen3.5 9B Neo",
+      "rolle": "strukturiertes Reasoning, Mathematik (laut Model Card schwaecher bei GPQA/Instruction Following)" },
+    { "key": "harmonic", "phase": 1, "gruppen": ["chat"], "repo": "", "name_exakt": "Qwen3.5-9B-Harmonic", "anzeige": "Qwen3.5 9B Harmonic",
+      "rolle": "Challenger; auf Agentic Harness angewiesen - Test mit NOKIs System-Prompt" },
+    { "key": "claude-code", "phase": 1, "gruppen": ["code"], "repo": "empero-ai/Qwen3.5-9B-Claude-Code", "anzeige": "Qwen3.5 9B Claude-Code",
+      "rolle": "Agentic Coding, Repo-Arbeit, Tool-Loops" },
+    { "key": "mtp-swe", "phase": 1, "gruppen": ["code"], "repo": "", "name_exakt": "Qwen3.5-9B-MTP-SWE-Agent", "anzeige": "Qwen3.5 9B MTP-SWE-Agent",
+      "rolle": "Software-Engineering, Patch-Planung" },
+
+    { "key": "opus-distill", "phase": 2, "gruppen": ["chat"], "repo": "empero-ai/Qwen3.5-9B-Claude-Opus-4.6-Distill", "anzeige": "Qwen3.5 9B Opus-Distill",
+      "rolle": "nur bei knappem Chat-Ergebnis (Ueberschneidung mit Neo/Harmonic/R7)" },
+    { "key": "qwopus", "phase": 2, "gruppen": ["code"], "repo": "", "name_exakt": "Qwopus3.5-9B-Coder", "anzeige": "Qwopus3.5 9B Coder",
+      "rolle": "nur bei knappem Coding-Ergebnis" },
+    { "key": "sushi", "phase": 2, "gruppen": ["code"], "repo": "", "name_exakt": "Qwen3.5-9B-Sushi-Coder-RL", "anzeige": "Qwen3.5 9B Sushi-Coder-RL",
+      "rolle": "nur bei knappem Coding-Ergebnis" },
+
+    { "key": "delta-coder", "status": "ausgeschlossen", "gruppen": ["code"], "grund": "kein eindeutiges, vertrauenswuerdiges Upstream-Repo bekannt" },
+    { "key": "levom-coder", "status": "ausgeschlossen", "gruppen": ["code"], "grund": "kein eindeutiges, vertrauenswuerdiges Upstream-Repo bekannt" },
+    { "key": "dflash", "status": "ausgeschlossen", "gruppen": [], "grund": "Draft-Modell fuer speculative decoding, kein eigenstaendiges Chat-/Code-Modell" }
+  ]
+}

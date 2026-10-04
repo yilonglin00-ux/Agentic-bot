@@ -9,7 +9,7 @@
     var KIND = { user_preferences: 'Präferenz', project_context: 'Projekt', workflows: 'Ablauf', interaction_feedback: 'Feedback', facts: 'Fakt' };
     var state = { opened: false, rect: null, busy: false, settings: settings, status: null, activeEngine: 'local' };
     // Conversation: the active chat (session context) and the grouped history. Never long-term memory.
-    var chat = null, chats = [], chatSeq = 0, assistantMode = 'work', codeStyle = 'functional', codeTerminalStatus = null, codeView = null, modeRequest = 0, modeSwitch = Promise.resolve(), verlaufOffen = false, verlaufLeerT = 0, schritte = [], drawer, mic, modusEl, modusCurrent, micZustand = 'idle';
+    var chat = null, chats = [], chatSeq = 0, assistantMode = 'work', codeStyle = 'functional', codeTerminalStatus = null, codeView = null, modeRequest = 0, modeSwitch = Promise.resolve(), verlaufOffen = false, verlaufLeerT = 0, schritte = [], vorgang = [], drawer, mic, modusEl, modusCurrent, micZustand = 'idle';
     // ONE central recording state. UI, native events and the recognizer never keep a competing copy;
     // everything shown is join(committedSegments) + currentInterimSegment.
     // UserRecordingSession: the ONLY lifetime of a recording. A RecognizerCycle (final, timeout,
@@ -191,15 +191,59 @@
       route: ['Prüfe, ob aktuelle Infos nötig sind …', 'Analysiert'], desktop: ['Prüfe Desktop-Kontext …', 'Prüft Kontext'],
       search: ['Recherchiere im Web …', 'Recherchiert'], read: [function (n) { return 'Prüfe ' + (n || 1) + (n === 1 ? ' Quelle …' : ' Quellen …'); }, 'Prüft Quellen'],
       compose: ['Formuliere Antwort …', 'Formuliert'], verify: ['Überprüfe Aussagen …', 'Prüft Aussagen'] };
+    // Echte Arbeitsschritte (aus den Phasen der nativen Seite, nie aus
+    // Modelltext): je Phase ein "jetzt"-Text (laufend) und ein "fertig"-Text
+    // (fuer "Vorgehen" unter der Antwort). Keine Zeitschaltung, kein Raten.
+    var VORGANG = {
+      analyze: [function () { return 'Noki analysiert die Anfrage …'; }, function () { return 'Anfrage analysiert'; }],
+      memory: [function () { return 'Noki prüft das Gedächtnis …'; }, function (p) { return p.n ? 'Gedächtnis · ' + p.n + ' Treffer' : 'Gedächtnis geprüft'; }],
+      route: [function () { return 'Noki plant …'; }, function () { return 'Vorgehen geplant'; }],
+      desktop: [function () { return 'Noki prüft den Kontext …'; }, function () { return 'Kontext geprüft'; }],
+      search: [function () { return 'Noki recherchiert …'; }, function () { return 'Im Web gesucht'; }],
+      read: [function (p) { return 'Noki prüft ' + (p.n || 1) + (p.n === 1 ? ' Quelle …' : ' Quellen …'); }, function (p) { return (p.n || 1) + (p.n === 1 ? ' Quelle geprüft' : ' Quellen geprüft'); }],
+      wechsel: [function (p) { return 'Noki lädt ' + (p.modell || 'das passende Modell') + ' …'; }, function (p) { return 'Modell · ' + (p.modell || 'gewechselt'); }],
+      think: [function (p) { return 'Noki denkt …' + (p.n ? ' (≈ ' + p.n + ' Tokens)' : ''); }, function (p) { return 'Nachgedacht' + (p.n ? ' · ≈ ' + p.n + ' Tokens' : ''); }],
+      verify: [function () { return 'Noki prüft die Aussagen …'; }, function () { return 'Aussagen geprüft'; }],
+      compose: [function () { return 'Noki formuliert …'; }, function () { return 'Antwort formuliert'; }]
+    };
+    function vorgangSchritt(phase, p) {
+      var v = VORGANG[phase]; if (!v) return false;
+      var letzter = vorgang[vorgang.length - 1];
+      // Dieselbe Phase aktualisiert ihren Schritt (z. B. Denk-Tokens, Modell geladen).
+      if (letzter && letzter.phase === phase) { letzter.p = p; }
+      else vorgang.push({ phase: phase, p: p });
+      if (vorgang.length > 12) vorgang.shift();
+      return true;
+    }
+    function vorgangZusammenfassung() {
+      return vorgang.map(function (s) { return VORGANG[s.phase][1](s.p || {}); }).slice(-8);
+    }
     function showSteps() {
       if (codeLauf && state.busy) { codeKarteZeigen(); return; }
-      answer.replaceChildren(); var ul = document.createElement('ul'); ul.className = 'ni-steps';
-      var current = schritte.length ? schritte[schritte.length - 1] : 'Denke …';
-      var li = document.createElement('li');
-      li.textContent = current;
-      ul.appendChild(li);
+      answer.replaceChildren(); var ul = document.createElement('ul'); ul.className = 'ni-steps ni-vorgang';
+      if (!vorgang.length) {
+        var li0 = document.createElement('li'); li0.className = 'aktiv';
+        li0.textContent = schritte.length ? schritte[schritte.length - 1] : 'Noki denkt …';
+        ul.appendChild(li0);
+      }
+      vorgang.forEach(function (st, i) {
+        var li = document.createElement('li'), jetzt = i === vorgang.length - 1;
+        li.className = jetzt ? 'aktiv' : 'fertig';
+        li.textContent = VORGANG[st.phase][jetzt ? 0 : 1](st.p || {});
+        ul.appendChild(li);
+      });
       answer.appendChild(ul);
       liveModellZeigen();
+    }
+    // "Vorgehen · N Schritte" - eingeklappt ueber der Antwort, getrennt von ihr.
+    function vorgehenZeigen(box, schritteListe) {
+      if (!schritteListe || schritteListe.length < 2) return;
+      var d = document.createElement('details'); d.className = 'ni-vorgehen';
+      var s = document.createElement('summary'); s.textContent = 'Vorgehen · ' + schritteListe.length + ' Schritte'; d.appendChild(s);
+      var ul = document.createElement('ul');
+      schritteListe.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+      d.appendChild(ul);
+      box.insertBefore(d, box.firstChild);
     }
     function metaText(t) {
       if (t.tool) return !t.tool.available ? 'Blockiert · nichts geändert' : t.tool.confirm ? 'Nur mit deiner Bestätigung' : 'Ausführen erst mit deinem Klick';
@@ -595,6 +639,7 @@
       var last = chat.turns[chat.turns.length - 1];
       zeigeFrueher(chat.turns.length - 1);
       question.textContent = last.q; showBlocks([{ type: last.fehler ? 'status' : 'text', text: last.text }]);
+      if (!last.fehler && !(last.code_actions && last.code_actions.length)) vorgehenZeigen(answer, last.vorgehen);
       if (last.code_actions && last.code_actions.length) {
         var prot = document.createElement('div');
         prot.className = 'ni-code-lauf ni-code-lauf-fertig';
@@ -1308,12 +1353,13 @@
     }
     try {
       window.__TAURI__.event.listen('intelligence-research', function (e) {
-        if (!state.busy || !answer) return; var p = (e && e.payload) || {}, ph = PHASEN[p.phase === 'summarize' ? 'compose' : p.phase];
+        if (!state.busy || !answer) return; var p = (e && e.payload) || {}, phase = p.phase === 'summarize' ? 'compose' : p.phase, ph = PHASEN[phase];
+        if (!vorgangSchritt(phase, p)) return;
+        if (host.phase && ph) host.phase(phase);
+        schritte = [VORGANG[phase][0](p)];
+        if (!streamEl) showSteps();
+        if (statusEl) { statusEl.textContent = ph ? ph[1] : (phase === 'think' ? 'Denkt nach' : 'Wechselt Modell'); statusEl.dataset.k = 'arbeitet'; }
         if (!ph) return;
-        if (host.phase) host.phase(p.phase === 'summarize' ? 'compose' : p.phase);
-        var t = typeof ph[0] === 'function' ? ph[0](p.n) : ph[0];
-        schritte = [t];
-        showSteps(); if (statusEl) { statusEl.textContent = ph[1]; statusEl.dataset.k = 'arbeitet'; }
         if (p.phase !== 'search' && p.phase !== 'read') return;
         meta.textContent = 'Web-Recherche · nur lesen';
       });
@@ -2269,7 +2315,7 @@
       indArt = 'zahnrad';
       // The sent question moves up into the conversation; the field is free again at once.
       send.disabled = true; input.value = ''; feldHoehe(); micAbbrechen(); zeigeFrueher(aktiv.turns.length); question.textContent = q; meta.textContent = ''; neuHinweis(false);
-      toggleVerlauf(false); setStatus('denkt'); schritte = ['Denke …']; showSteps(); zurNeuesten(true); host.thinking(true);
+      toggleVerlauf(false); setStatus('denkt'); schritte = ['Noki denkt …']; vorgang = []; showSteps(); zurNeuesten(true); host.thinking(true);
       state.sprechend = false; gesichtSetzen();
 
       // Immutable snapshot of attachments captured before dispatch
@@ -2298,7 +2344,9 @@
       call('intelligence_chat', chatPayload).then(function (r) {
         if (request !== generation) return;
         renderStreaming(true);
-        var turn = { q: q, text: r.text, sources: r.sources || [], research: r.research || null, route: r.route, plan: r.plan || null, conf: r.confidence && r.confidence.level, tool: r.tool || null, code_actions: r.code_actions || [], code_projekt: r.code_projekt || null, runtime_model: r.runtime_model || null, finish_reason: r.finish_reason || null, output_word_count: r.output_word_count == null ? null : r.output_word_count, modus: modusFrage,
+        var vorgehen = vorgangZusammenfassung();
+        if (r.tool && r.tool.label) vorgehen.push('Werkzeug · ' + r.tool.label);
+        var turn = { q: q, text: r.text, vorgehen: vorgehen, sources: r.sources || [], research: r.research || null, route: r.route, plan: r.plan || null, conf: r.confidence && r.confidence.level, tool: r.tool || null, code_actions: r.code_actions || [], code_projekt: r.code_projekt || null, runtime_model: r.runtime_model || null, finish_reason: r.finish_reason || null, output_word_count: r.output_word_count == null ? null : r.output_word_count, modus: modusFrage,
           web: r.route === 'WEB' || (r.sources || []).length > 0, zeit: Date.now(), timings: r.timings || null, abstention: r.abstention_reason || null, attachments: attachmentsSnapshot };
         if (r.timings) { state.lastTimings = r.timings; try { console.debug('noki-latency', r.route, JSON.stringify(r.timings)); } catch (x) {} }
         aktiv.turns.push(turn); if (aktiv.turns.length > 40) aktiv.turns.shift();
@@ -2529,6 +2577,11 @@
           refresh();
         });
       }
+      else if (a === 'ni-rolle') {
+        var t = String(v), i = t.indexOf('=');
+        call('noki_modell_rolle_setzen', { rolle: t.slice(0, i), id: t.slice(i + 1) || null }).then(function (r) { state.rollen = r || state.rollen; })
+          .catch(function (e) { state.error = String(e); }).finally(refresh);
+      }
       else if (a === 'ni-level') saveSetting('level', v);
       else if (a === 'ni-mode') setModus(v);
       else if (a === 'ni-unload-min') saveSetting('unload_min', Number(v));
@@ -2716,7 +2769,28 @@
         });
 
         engineSection += '<div class="ni-block-titel">Lokale Modelle</div>';
-        engineSection += '<div class="ni-engine-box ni-modell-box">' + lokale.map(function (p) {
+        // Rollen der lokalen Modelle (noki-rollen.json, sonst Standard).
+        // Nur die fuenf Rollen und die installierten Presets - keine Kandidaten.
+        if (!state.rollen && !state.rollenLaedt) {
+          state.rollenLaedt = true;
+          call('noki_modell_rollen').then(function (r) { state.rollen = r || null; }).catch(function () {}).finally(function () { state.rollenLaedt = false; refresh(); });
+        }
+        if (state.rollen && state.rollen.rollen) {
+          var gb = function (b) { return b ? (b / 1e9).toFixed(1).replace('.', ',') + ' GB' : ''; };
+          var presets = state.rollen.presets || [];
+          engineSection += '<div class="ni-engine-box ni-modell-box ni-rollen">' + state.rollen.rollen.map(function (r) {
+            var zusatz = [r.quant, gb(r.bytes), r.installiert ? '' : 'nicht installiert'].filter(Boolean).join(' · ');
+            var wahl = '<select class="ni-rolle-wahl" data-ni-rolle="' + esc(r.rolle) + '" aria-label="Modell für ' + esc(r.titel) + '">'
+              + '<option value=""' + (r.standard ? ' selected' : '') + '>Standard</option>'
+              + presets.filter(function (p) { return p.installiert; }).map(function (p) {
+                  return '<option value="' + esc(p.id) + '"' + (!r.standard && p.id === r.id ? ' selected' : '') + '>' + esc(p.anzeige) + '</option>';
+                }).join('') + '</select>';
+            return '<div class="ni-modell ni-rolle"><span class="ni-rolle-titel">' + esc(r.titel) + '</span>'
+              + '<span class="ni-modell-name">' + esc(r.anzeige) + '</span>' + wahl + '</div>'
+              + (zusatz || r.eingetragen_fehlt ? '<div class="ni-modell-zusatz">' + esc(zusatz) + (r.eingetragen_fehlt ? ' · gewähltes Modell fehlt, Standard aktiv' : '') + '</div>' : '');
+          }).join('') + '</div>'
+            + (state.rollen.quelle === 'benchmark' && state.rollen.stand ? '<div class="e-s-unter">Ausgewählt per lokalem Benchmark vom ' + esc(state.rollen.stand) + '.</div>' : '');
+        } else engineSection += '<div class="ni-engine-box ni-modell-box">' + lokale.map(function (p) {
           var grund = grundText(p.state);
           return '<div class="ni-modell">' +
               '<span class="ni-modell-name">' + esc(modellName(p.display_name)) +

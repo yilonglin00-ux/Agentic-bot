@@ -59,9 +59,16 @@ static ANTWORT_MODELL: Mutex<Option<RuntimeModelProvenance>> = Mutex::new(None);
 
 /// Tell the chat which model is producing the running answer (id, lane).
 fn modell_event(app: &tauri::AppHandle, id: &str, lane: &str) {
-    let display = crate::model_registry::model(id)
+    let mut display = crate::model_registry::model(id)
         .map(|d| d.display_name.to_string())
         .unwrap_or_else(|| id.to_string());
+    // Lokal: das wirklich bereitgestellte Rollen-Modell nennen, nicht die
+    // statische Registry-Bezeichnung.
+    if lane == "LOCAL" {
+        if let Some(m) = crate::model_manager::aktives_modell().filter(|m| m.starts_with("noki-")) {
+            display = model_label(&m);
+        }
+    }
     if let Some((_, false)) = code_sitzung_jetzt() {
         // A Code Space terminal build: its own terminal, never the chat's
         // answer attribution.
@@ -402,6 +409,13 @@ pub fn evaluate_task_complexity(
     }
 }
 fn model_label(model: &str) -> String {
+    // Rollen-Modelle (Benchmark/Einstellungen) tragen ihren eigenen Namen.
+    if let Some(info) = crate::modell_rollen::laden().modelle.get(model).filter(|i| !i.anzeige.is_empty()) {
+        return info.anzeige.clone();
+    }
+    if model.starts_with("noki-") {
+        return model.trim_start_matches("noki-").to_string();
+    }
     if model.contains("qwen3.5:4b") || model.contains("qwen3.5-4b") || model.contains("Qwen3.5-4B")
     {
         "Qwen3.5 4B".into()
@@ -424,6 +438,11 @@ fn model_label(model: &str) -> String {
 /// Packaging metadata comes from the canonical registry and is display-only.
 /// Accept the local runtime's exact model version as well as canonical ids.
 fn local_quantization(model: &str) -> Option<String> {
+    if model.starts_with("noki-") {
+        let q = crate::modell_rollen::laden().modelle.get(model).map(|i| i.quant.clone()).filter(|q| !q.is_empty())
+            .or_else(|| crate::modell_rollen::presets().into_iter().find(|p| p.id == model).map(|p| p.quant).filter(|q| !q.is_empty()));
+        return q;
+    }
     crate::model_registry::MODELS
         .iter()
         .find(|definition| {
@@ -7165,6 +7184,9 @@ impl Intelligence {
         let tier = reasoning::after_computation(reasoning::classify(question, s), s);
         if let Ok(mut m) = self.model.lock() {
             m.manager.set_reasoning(tier);
+            if tier == reasoning::ReasoningTier::Deep && m.manager.chat_rolle() == crate::modell_rollen::ChatRolle::General {
+                m.manager.set_chat_rolle(crate::modell_rollen::ChatRolle::Reasoning);
+            }
             m.manager.set_chat_profile(match tier {
                 reasoning::ReasoningTier::Fast => ChatProfile::Fast,
                 reasoning::ReasoningTier::Normal => ChatProfile::Normal,
@@ -7416,6 +7438,9 @@ fn is_document_intent(q: &str) -> bool {
             // complexity profile still drives reasoning and cloud tiers.
             m.set_work_tier(WorkTier::Tier9B);
             m.manager.set_reasoning(provisional);
+            // Noki Chat: passendes lokales Modell nach Aufgabe (General /
+            // Reasoning / Tools) - aus derselben Einstufung, kein sichtbarer Modus.
+            m.manager.set_chat_rolle(crate::modell_rollen::chat_rolle(provisional, initial_plan.steps.len(), explicit_action));
             // The profile is kept in step because the UI reads it, but it no
             // longer decides whether the thinking channel opens.
             m.manager.set_chat_profile(match provisional {
@@ -9107,6 +9132,7 @@ fn is_document_intent(q: &str) -> bool {
             (answer, routed.selected_model, routed.finish_reason)
         } else if routed.local_model == Some(crate::router::LocalModel::JackOd9BNative) || kind == Task::Code {
             let mut model = self.model.lock().map_err(err)?;
+            model.manager.set_code_kreativ(false);
             let text = model.manager.generate(AssistantMode::Code, &prompt, tokens, &self.cancel)?;
             let draft_model = model.manager.model_for(AssistantMode::Code).to_owned();
             let finish_reason = model
@@ -12071,6 +12097,64 @@ pub fn runtime_state_fuer(gewuenscht: &str, model: &str, model_label: &str) -> R
     default_provider_registry().runtime_state(kind, model, model_label)
 }
 
+/// Einstellungen › Intelligence: welche lokalen Modelle welche Rolle haben.
+/// Nur die Rollen (Chat: Allgemein/Reasoning/Werkzeuge, Code: Funktional/
+/// Kreativ) und die tatsaechlich installierten Presets - keine Kandidatenliste.
+#[tauri::command]
+pub fn noki_modell_rollen() -> serde_json::Value {
+    let rollen = crate::modell_rollen::laden();
+    let presets = crate::modell_rollen::presets();
+    let cfg = crate::model_manager::ModelConfig::default();
+    let chat_std = crate::model_manager::llama_preset_id(&cfg.chat_model);
+    let code_std = crate::model_manager::llama_preset_id(&cfg.code_model);
+    let info = |id: &str| {
+        let p = presets.iter().find(|p| p.id == id);
+        serde_json::json!({
+            "id": id, "anzeige": model_label(id), "installiert": p.is_some(),
+            "bytes": p.map(|p| p.bytes).unwrap_or(0),
+            "quant": p.map(|p| p.quant.clone()).filter(|q| !q.is_empty()).or_else(|| local_quantization(id)).unwrap_or_default(),
+            "repo": rollen.modelle.get(id).map(|i| i.repo.clone()).unwrap_or_default(),
+        })
+    };
+    let zeile = |key: &str, titel: &str, eintrag: Option<&str>, standard: &str| {
+        let gewaehlt = eintrag.filter(|id| presets.iter().any(|p| p.id == *id));
+        let mut v = info(gewaehlt.unwrap_or(standard));
+        v["rolle"] = serde_json::json!(key);
+        v["titel"] = serde_json::json!(titel);
+        v["standard"] = serde_json::json!(gewaehlt.is_none());
+        v["eingetragen_fehlt"] = serde_json::json!(eintrag.is_some() && gewaehlt.is_none());
+        v
+    };
+    use crate::modell_rollen::ChatRolle;
+    serde_json::json!({
+        "rollen": [
+            zeile("chat.general", "Chat · Allgemein", rollen.chat(ChatRolle::General), &chat_std),
+            zeile("chat.reasoning", "Chat · Reasoning", rollen.chat(ChatRolle::Reasoning), &chat_std),
+            zeile("chat.tools", "Chat · Werkzeuge", rollen.chat(ChatRolle::Tools), &chat_std),
+            zeile("code.funktional", "Code · Funktional", rollen.code(false), &code_std),
+            zeile("code.kreativ", "Code · Kreativ", rollen.code(true), &code_std),
+        ],
+        "presets": presets.iter().filter(|p| p.id != "qwen2.5-3b").map(|p| info(&p.id)).collect::<Vec<_>>(),
+        "quelle": rollen.quelle, "stand": rollen.stand,
+    })
+}
+/// Rolle von Hand setzen (`id` leer = Standard). Nur installierte Presets.
+#[tauri::command]
+pub fn noki_modell_rolle_setzen(rolle: String, id: Option<String>) -> Result<serde_json::Value, String> {
+    let id = id.filter(|s| !s.trim().is_empty());
+    if let Some(i) = &id {
+        if !crate::modell_rollen::presets().iter().any(|p| &p.id == i) {
+            return Err(format!("Modell {i} ist nicht installiert."));
+        }
+    }
+    let mut r = crate::modell_rollen::laden();
+    r.setzen(&rolle, id)?;
+    r.version = r.version.max(1);
+    r.quelle = "manuell".into();
+    crate::modell_rollen::speichern(&r)?;
+    Ok(noki_modell_rollen())
+}
+
 #[tauri::command]
 pub fn intelligence_settings(state: tauri::State<'_, Arc<Intelligence>>) -> serde_json::Value {
     let ram = ram_bytes();
@@ -14609,6 +14693,7 @@ pub async fn intelligence_code(
         let mut model = worker.model.lock().map_err(err)?;
         let cancel = &worker.cancel;
         let style = *worker.code_style.lock().map_err(err)?;
+        model.manager.set_code_kreativ(style == super::code_agent::CodeStyle::Creative);
         let web_gw = worker.web_gateway.clone();
         let web_enabled = worker.settings.lock().map_err(err)?.web;
         let run = super::code_agent::run(
@@ -19482,9 +19567,34 @@ fn code_modell_melden(app: &tauri::AppHandle, prov: &RuntimeModelProvenance) {
 }
 
 /// Router hook: installed once, used by chat and Code Space alike.
+/// App fuer die Modell-Hooks (Denken / Modellwechsel) - einmal gesetzt.
+static HOOK_APP: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
+/// Lokales Modell denkt (reasoning_content / <think>): echter Zustand fuer
+/// den Chat ("Noki denkt …"), mit grober Token-Zahl.
+fn denk_hook(zeichen: usize) {
+    if let Some(a) = HOOK_APP.get() {
+        let _ = a.emit("intelligence-research", serde_json::json!({ "phase": "think", "n": zeichen / 4 }));
+    }
+}
+/// ModelManager laedt wirklich ein anderes Modell (Rollenwechsel).
+fn wechsel_hook(ziel: &str, beginnt: bool) {
+    let Some(a) = HOOK_APP.get() else { return };
+    let label = model_label(ziel);
+    eprintln!("[ASK] model_switch target={ziel} begins={beginnt}");
+    let _ = a.emit("intelligence-research", serde_json::json!({ "phase": "wechsel", "n": if beginnt { 0 } else { 1 }, "modell": label }));
+    if !beginnt {
+        let prov = local_provenance(ziel);
+        let _ = a.emit("intelligence-model", serde_json::json!({
+            "canonical_model_id": prov.canonical_model_id, "display_name": prov.display_name, "execution_lane": "LOCAL",
+        }));
+    }
+}
 fn modell_hook_installieren(app: &tauri::AppHandle) {
     static MODELL_HOOK: std::sync::OnceLock<()> = std::sync::OnceLock::new();
     MODELL_HOOK.get_or_init(|| {
+        let _ = HOOK_APP.set(app.clone());
+        crate::model_manager::denk_hook_setzen(denk_hook);
+        crate::model_manager::wechsel_hook_setzen(wechsel_hook);
         let a = app.clone();
         if let Ok(mut g) = crate::router::MODELL_START.lock() {
             *g = Some(Box::new(move |id: &str, lane: &str| {
@@ -20867,6 +20977,7 @@ impl Intelligence {
                     return Ok(answer);
                 }
                 let mut m = self.model.lock().map_err(err)?;
+                m.manager.set_code_kreativ(stil == super::code_agent::CodeStyle::Creative);
                 let prov = local_provenance(m.manager.model_for(AssistantMode::Code));
                 code_modell_melden(app, &prov);
                 sitzung_event(app, sitzung, "modell", serde_json::json!({

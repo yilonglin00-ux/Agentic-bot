@@ -59,3 +59,7 @@ Der UI-Test blockiert externe Netzverbindungen und simuliert die native Bridge. 
 ## Phase-1-Verifikation (2026-09-15)
 
 31 Rust-Tests bestanden; gesonderter echter Modelltest (Wissensfrage und Desktop-Kontext) bestanden. UI-Test mit realer lokaler Inferenz: normaler Noki-Klick, Enter, Esc/Außenklick, Abbruch, bestätigte Tools, persistierte Einstellungen und alle 9 Shortcuts bestanden. Browser-Renderzeiten mit und ohne Inferenz: Median und P95 jeweils 16,7 ms (ca. 60 FPS); kein nativer WKWebView-FPS-Benchmark. Kleine Modelle bleiben fehleranfällig, besonders auf Deutsch.
+
+## Modellrollen (Noki Chat / Noki Code)
+
+Noki Chat wählt automatisch zwischen Allgemein, Reasoning und Werkzeuge; Noki Code wählt nach Funktional/Kreativ. Welches installierte Preset eine Rolle bedient, steht in `~/NOKI/.local/llama-models/noki-rollen.json` (fehlt die Datei: `qwen3.5-9b` für Chat, `jackod-9b` für Code). Der Router hält weiterhin höchstens ein Modell im Speicher (`--models-max 1`). Auswahl per Messung: `models/noki-bench/README.md`.

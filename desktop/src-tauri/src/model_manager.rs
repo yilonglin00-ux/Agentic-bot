@@ -87,8 +87,17 @@ fn llama_runtime() -> bool {
         .map(|v| v != "ollama")
         .unwrap_or(true)
 }
+/// Router-Preset-ID eines Modellnamens (oeffentlich fuer die Einstellungen).
+pub fn llama_preset_id(name: &str) -> String {
+    llama_model_id(name).to_owned()
+}
 fn llama_model_id(name: &str) -> &str {
-    if name.contains("JackOD") {
+    // Presets, die der lokale Benchmark eingerichtet hat, tragen ihren
+    // Router-Namen bereits ("noki-…") - nie auf qwen3.5-9b abbilden, auch
+    // wenn "qwen3.5" im Namen steht.
+    if name.starts_with("noki-") {
+        name
+    } else if name.contains("JackOD") {
         "jackod-9b"
     } else if name.contains("qwen3.5:4b")
         || name.contains("qwen3.5-4b")
@@ -183,6 +192,13 @@ pub struct ModelManager {
     /// How hard THIS request may think. Set per request by the router; the
     /// profile no longer decides. See `reasoning.rs` for why.
     reasoning: crate::reasoning::ReasoningTier,
+    /// Noki Chat: interne Aufgabenart dieser Anfrage (General/Reasoning/Tools).
+    chat_rolle: crate::modell_rollen::ChatRolle,
+    /// Noki Code: Funktional (false) oder Kreativ (true).
+    code_kreativ: bool,
+    /// Aus noki-rollen.json fuer die aktuelle Rolle (nur installierte Presets).
+    chat_rollen_modell: Option<String>,
+    code_rollen_modell: Option<String>,
 }
 
 /// Wall-clock ceiling for the request currently in flight, in milliseconds.
@@ -257,6 +273,51 @@ impl ModelManager {
         &self.config
     }
     /// The router's per-request decision. Nothing else may set this.
+    /// Noki Chat: Rolle dieser Anfrage setzen; das passende Modell (falls in
+    /// noki-rollen.json eines eingetragen und installiert ist) gilt ab jetzt
+    /// fuer model_for/switch/generate.
+    pub fn set_chat_rolle(&mut self, rolle: crate::modell_rollen::ChatRolle) {
+        self.chat_rolle = rolle;
+        self.rollen_auffrischen();
+    }
+    pub fn chat_rolle(&self) -> crate::modell_rollen::ChatRolle {
+        self.chat_rolle
+    }
+    /// Noki Code: Funktional/Kreativ waehlt das Coding-Modell der Rolle.
+    pub fn set_code_kreativ(&mut self, kreativ: bool) {
+        self.code_kreativ = kreativ;
+        self.rollen_auffrischen();
+    }
+    pub fn code_kreativ(&self) -> bool {
+        self.code_kreativ
+    }
+    /// Inferenz-Profil: Noki Code Kreativ darf variieren (Entwuerfe,
+    /// Alternativen); Funktional und Chat bleiben deterministisch.
+    fn code_temperatur(&self, mode: AssistantMode) -> f64 {
+        if mode == AssistantMode::Code && self.code_kreativ { 0.6 } else { 0.0 }
+    }
+    /// Rollen-Modelle neu bestimmen. Ausdrueckliche Umgebungs-Overrides
+    /// (NOKI_CHAT_MODEL / NOKI_CODE_MODEL) und die Ollama-Rueckfallebene
+    /// bleiben unberuehrt; eingetragen wird nur, was models.ini wirklich kennt.
+    pub fn rollen_auffrischen(&mut self) {
+        if !llama_runtime() {
+            self.chat_rollen_modell = None;
+            self.code_rollen_modell = None;
+            return;
+        }
+        let rollen = crate::modell_rollen::laden();
+        let installiert = |id: &str| crate::modell_rollen::presets().iter().any(|p| p.id == id);
+        self.chat_rollen_modell = if std::env::var("NOKI_CHAT_MODEL").is_ok() {
+            None
+        } else {
+            rollen.chat(self.chat_rolle).filter(|id| installiert(id)).map(str::to_owned)
+        };
+        self.code_rollen_modell = if std::env::var("NOKI_CODE_MODEL").is_ok() {
+            None
+        } else {
+            rollen.code(self.code_kreativ).filter(|id| installiert(id)).map(str::to_owned)
+        };
+    }
     pub fn set_reasoning(&mut self, tier: crate::reasoning::ReasoningTier) {
         self.reasoning = tier;
     }
@@ -316,8 +377,8 @@ impl ModelManager {
             AssistantMode::Work if self.work_tier == WorkTier::Tier4B => {
                 &self.config.chat_fast_model
             }
-            AssistantMode::Work => &self.config.chat_model,
-            AssistantMode::Code => &self.config.code_model,
+            AssistantMode::Work => self.chat_rollen_modell.as_deref().unwrap_or(&self.config.chat_model),
+            AssistantMode::Code => self.code_rollen_modell.as_deref().unwrap_or(&self.config.code_model),
         }
     }
     pub fn loaded_models(&self) -> Result<Vec<String>, String> {
@@ -341,7 +402,9 @@ impl ModelManager {
                     .or_else(|| m.get("model"))
                     .and_then(Value::as_str)
                 {
-                    let id = if raw.contains("JackOD") {
+                    let id = if raw.starts_with("noki-") {
+                        raw
+                    } else if raw.contains("JackOD") {
                         "jackod-9b"
                     } else if raw.contains("Qwen3.5-4B") || raw.contains("qwen3.5-4b") {
                         "qwen3.5-4b"
@@ -386,6 +449,10 @@ impl ModelManager {
         norm(a) == norm(b)
     }
     pub fn managed(&self, name: &str) -> bool {
+        // Benchmark-Presets (Rollen-Modelle) sind ebenso grosse Modelle.
+        if name.starts_with("noki-") {
+            return true;
+        }
         [
             self.config.chat_model.as_str(),
             self.config.chat_fast_model.as_str(),
@@ -452,6 +519,8 @@ impl ModelManager {
     }
     pub fn switch(&mut self, mode: AssistantMode) -> Result<u64, String> {
         ensure_llama_server()?;
+        // Rollen-Datei kann sich geaendert haben (Benchmark/Einstellungen).
+        self.rollen_auffrischen();
         let target = self.model_for(mode).to_owned();
         let loaded = self.loaded_large_models()?;
         let target_id = if llama_runtime() {
@@ -469,6 +538,9 @@ impl ModelManager {
             self.verify_absent(old)?;
         }
         if !exact {
+            if let Some(f) = WECHSEL_HOOK.get() {
+                f(&target, true);
+            }
             let t = Instant::now();
             if llama_runtime() {
                 request_llama(
@@ -499,6 +571,10 @@ impl ModelManager {
             }
             self.active = Some(mode);
             self.last_used = Some(Instant::now());
+            aktiv_setzen(&target);
+            if let Some(f) = WECHSEL_HOOK.get() {
+                f(&target, false);
+            }
             return Ok(load_ms);
         }
         if self.loaded_large_models()?.len() > 1 {
@@ -507,6 +583,7 @@ impl ModelManager {
         }
         self.active = Some(mode);
         self.last_used = Some(Instant::now());
+        aktiv_setzen(&target);
         Ok(0)
     }
     pub fn generate(
@@ -681,7 +758,7 @@ impl ModelManager {
                 "/v1/chat/completions",
                 json!({
                     "model": llama_model_id(&model), "messages":[{"role":"user","content":prompt}],
-                    "max_tokens":max, "temperature":0.0, "stream":false, "cache_prompt":true,
+                    "max_tokens":max, "temperature":self.code_temperatur(mode), "stream":false, "cache_prompt":true,
                     "response_format":{"type":"json_schema","json_schema":{"name":"agent_action","strict":true,"schema":schema}},
                     "chat_template_kwargs":{"enable_thinking":false}
                 }),
@@ -807,7 +884,8 @@ impl ModelManager {
         };
         let needed_timeout = (tokens as u64).saturating_mul(80).max(base_timeout);
         set_call_timeout(needed_timeout);
-        let mut body = json!({"model": llama_model_id(model), "messages":[{"role":"user","content":prompt}], "max_tokens":tokens, "temperature": if think { 0.2 } else { 0.0 }, "stream": stream, "cache_prompt": true});
+        let temperatur = if think { 0.2 } else { self.code_temperatur(mode) };
+        let mut body = json!({"model": llama_model_id(model), "messages":[{"role":"user","content":prompt}], "max_tokens":tokens, "temperature": temperatur, "stream": stream, "cache_prompt": true});
         if mode == AssistantMode::Work {
             body["chat_template_kwargs"] = json!({"enable_thinking":think});
         }
@@ -967,6 +1045,63 @@ fn request_llama(method: &str, path: &str, body: Option<Value>) -> Result<Value,
         body,
         Duration::from_secs(600),
     )
+    .map(denk_trennen)
+}
+
+/// Gedachte Zeichen der letzten lokalen Antwort (reasoning_content und
+/// `<think>`-Text im Inhalt) - fuer Metriken/Status, nie fuer die Antwort.
+static LETZTE_DENK_ZEICHEN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+pub fn letzte_denk_zeichen() -> usize {
+    LETZTE_DENK_ZEICHEN.load(Ordering::Relaxed)
+}
+/// Meldet waehrend des Streamens, dass (und wie viel) das Modell denkt -
+/// Noki Chat zeigt daraus "Noki denkt …". Gesetzt von intelligence.rs.
+static DENK_HOOK: OnceLock<fn(usize)> = OnceLock::new();
+pub fn denk_hook_setzen(f: fn(usize)) {
+    let _ = DENK_HOOK.set(f);
+}
+/// Modellwechsel (Ziel, beginnt?) - Noki Chat zeigt "Noki wechselt das
+/// Modell …" genau dann, wenn wirklich geladen wird.
+static WECHSEL_HOOK: OnceLock<fn(&str, bool)> = OnceLock::new();
+pub fn wechsel_hook_setzen(f: fn(&str, bool)) {
+    let _ = WECHSEL_HOOK.set(f);
+}
+/// Das zuletzt wirklich bereitgestellte lokale Modell (fuer ehrliche Anzeige).
+static AKTIVES_MODELL: Mutex<Option<String>> = Mutex::new(None);
+pub fn aktives_modell() -> Option<String> {
+    AKTIVES_MODELL.lock().ok().and_then(|g| g.clone())
+}
+fn aktiv_setzen(m: &str) {
+    if let Ok(mut g) = AKTIVES_MODELL.lock() {
+        *g = Some(m.to_owned());
+    }
+}
+fn denk_melden(zeichen: usize) {
+    if let Some(f) = DENK_HOOK.get() {
+        f(zeichen);
+    }
+}
+/// Antwort-JSON: `<think>`-Text aus dem sichtbaren Inhalt entfernen und das
+/// Denken zaehlen. Die Antwort enthaelt danach nie Denk-Tags.
+fn denk_trennen(mut v: Value) -> Value {
+    let mut denk = v
+        .pointer("/choices/0/message/reasoning_content")
+        .and_then(Value::as_str)
+        .map(|r| r.chars().count())
+        .unwrap_or(0);
+    if let Some(c) = v.pointer_mut("/choices/0/message/content") {
+        if let Some(text) = c.as_str() {
+            let (sauber, n) = crate::modell_rollen::antwort_bereinigen(text);
+            if n > 0 {
+                denk += n;
+                *c = Value::String(sauber);
+            }
+        }
+    }
+    if v.get("choices").is_some() {
+        LETZTE_DENK_ZEICHEN.store(denk, Ordering::Relaxed);
+    }
+    v
 }
 
 fn request_host(
@@ -1030,6 +1165,10 @@ fn request_llama_cancellable(
         .write_all(req.as_bytes())
         .map_err(|e| e.to_string())?;
     let streaming = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
+    let mut denk_filter = crate::modell_rollen::DenkFilter::default();
+    let mut denk_kanal = 0usize;
+    let mut denk_gemeldet = 0usize;
+    LETZTE_DENK_ZEICHEN.store(0, Ordering::Relaxed);
     // The tier's budget, not a fixed three minutes: a FAST request that stalls
     // must fail fast enough that the user still has a working app.
     let hard = Instant::now() + call_timeout();
@@ -1050,30 +1189,39 @@ fn request_llama_cancellable(
                 raw.extend_from_slice(&buf[..n]);
                 last = Instant::now();
                 if streaming {
-                    if let Some(ref mut cb) = on_token {
-                        while let Some(rel) = raw[parsed_cursor..]
-                            .windows(2)
-                            .position(|w| w == b"\r\n" || w == b"\n\n")
-                        {
-                            let line_end = parsed_cursor + rel;
-                            let line = String::from_utf8_lossy(&raw[parsed_cursor..line_end]);
-                            parsed_cursor = line_end + 2;
-                            let line_str = line.trim();
-                            if line_str.starts_with("data:") {
-                                let data = line_str.trim_start_matches("data:").trim();
-                                if data != "[DONE]" {
-                                    if let Ok(v) = serde_json::from_str::<Value>(data) {
-                                        if let Some(s) = v
-                                            .pointer("/choices/0/delta/content")
-                                            .and_then(Value::as_str)
-                                        {
-                                            if !s.is_empty() {
-                                                cb(s);
-                                            }
-                                        }
-                                    }
+                    // Zeilenweise: sichtbarer Inhalt geht (ohne Denk-Tags)
+                    // an den Token-Rueckruf; Denken wird nur gezaehlt.
+                    while let Some(rel) = raw[parsed_cursor..]
+                        .windows(2)
+                        .position(|w| w == b"\r\n" || w == b"\n\n")
+                    {
+                        let line_end = parsed_cursor + rel;
+                        let line = String::from_utf8_lossy(&raw[parsed_cursor..line_end]);
+                        parsed_cursor = line_end + 2;
+                        let line_str = line.trim();
+                        if !line_str.starts_with("data:") {
+                            continue;
+                        }
+                        let data = line_str.trim_start_matches("data:").trim();
+                        if data == "[DONE]" {
+                            continue;
+                        }
+                        let Ok(v) = serde_json::from_str::<Value>(data) else { continue };
+                        if let Some(r) = v.pointer("/choices/0/delta/reasoning_content").and_then(Value::as_str) {
+                            denk_kanal += r.chars().count();
+                        }
+                        if let Some(s) = v.pointer("/choices/0/delta/content").and_then(Value::as_str) {
+                            let sichtbar = denk_filter.push(s);
+                            if !sichtbar.is_empty() {
+                                if let Some(ref mut cb) = on_token {
+                                    cb(&sichtbar);
                                 }
                             }
+                        }
+                        let denk = denk_kanal + denk_filter.denk_zeichen;
+                        if denk > denk_gemeldet && (denk_gemeldet == 0 || denk - denk_gemeldet >= 400) {
+                            denk_gemeldet = denk;
+                            denk_melden(denk);
                         }
                     }
                 }
@@ -1092,9 +1240,22 @@ fn request_llama_cancellable(
         }
     }
     if streaming {
-        parse_openai_stream(raw)
+        let rest = denk_filter.ende();
+        if !rest.is_empty() {
+            if let Some(ref mut cb) = on_token {
+                cb(&rest);
+            }
+        }
+        let n = denk_kanal + denk_filter.denk_zeichen;
+        parse_openai_stream(raw).map(|v| {
+            let v = denk_trennen(v);
+            // Denk-Kanal des Streams (reasoning_content) mitzaehlen; die
+            // Tags im Inhalt zaehlen beide Wege - also das Groessere.
+            LETZTE_DENK_ZEICHEN.fetch_max(n, Ordering::Relaxed);
+            v
+        })
     } else {
-        parse_http(raw)
+        parse_http(raw).map(denk_trennen)
     }
 }
 
@@ -1343,6 +1504,45 @@ fn decode_chunked(raw: &[u8]) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn antwort_json_ohne_denk_tags() {
+        let v = denk_trennen(json!({"choices":[{"message":{"content":"<think>Rechne 6*7</think>\n\n42.","reasoning_content":"abc"}}]}));
+        assert_eq!(v.pointer("/choices/0/message/content").and_then(Value::as_str), Some("42."));
+        assert_eq!(letzte_denk_zeichen(), 3 + "Rechne 6*7".chars().count());
+        let ohne = denk_trennen(json!({"choices":[{"message":{"content":"Hallo!"}}]}));
+        assert_eq!(ohne.pointer("/choices/0/message/content").and_then(Value::as_str), Some("Hallo!"));
+        let models = denk_trennen(json!({"data":[{"id":"qwen3.5-9b"}]}));
+        assert!(models.get("data").is_some(), "andere Endpunkte bleiben unberuehrt");
+    }
+    #[test]
+    fn rollen_waehlen_nur_installierte_modelle() {
+        let d = std::env::temp_dir().join(format!("noki-mm-rollen-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("models.ini"), "[qwen3.5-9b]\nmodel = a.gguf\n[jackod-9b]\nmodel = b.gguf\n[noki-qwen3.5-9b-r7]\nmodel = r7.gguf\n[noki-swe-9b]\nmodel = swe.gguf\n[noki-cc-9b]\nmodel = cc.gguf\n").unwrap();
+        std::fs::write(d.join("noki-rollen.json"), r#"{"version":1,"chat":{"reasoning":"noki-qwen3.5-9b-r7","tools":"noki-fehlt-9b"},"code":{"funktional":"noki-swe-9b","kreativ":"noki-cc-9b"}}"#).unwrap();
+        std::env::set_var("NOKI_LLAMA_MODELS", &d);
+        if std::env::var("NOKI_LLM_RUNTIME").is_ok() || std::env::var("NOKI_CHAT_MODEL").is_ok() || std::env::var("NOKI_CODE_MODEL").is_ok() { return; }
+        use crate::modell_rollen::ChatRolle;
+        let mut m = ModelManager::default();
+        let standard = m.config().chat_model.clone();
+        m.set_chat_rolle(ChatRolle::General);
+        assert_eq!(m.model_for(AssistantMode::Work), standard, "ohne Eintrag: bisheriges Modell");
+        m.set_chat_rolle(ChatRolle::Reasoning);
+        assert_eq!(m.model_for(AssistantMode::Work), "noki-qwen3.5-9b-r7");
+        m.set_chat_rolle(ChatRolle::Tools);
+        assert_eq!(m.model_for(AssistantMode::Work), standard, "nicht installiertes Preset wird nie gewaehlt");
+        m.set_code_kreativ(false);
+        assert_eq!(m.model_for(AssistantMode::Code), "noki-swe-9b");
+        m.set_code_kreativ(true);
+        assert_eq!(m.model_for(AssistantMode::Code), "noki-cc-9b");
+        // Router-Namen der Benchmark-Presets bleiben, wie sie sind.
+        assert_eq!(llama_model_id("noki-qwen3.5-9b-r7"), "noki-qwen3.5-9b-r7");
+        assert_eq!(llama_model_id("qwen3.5:9b"), "qwen3.5-9b");
+        assert!(m.managed("noki-swe-9b"), "Rollen-Modelle zaehlen als grosse Modelle (Entladen/Sicherheitsstopp)");
+        m.set_work_tier(WorkTier::Tier4B);
+        assert_eq!(m.model_for(AssistantMode::Work), m.config().chat_fast_model, "4B-Rueckfall bleibt unberuehrt");
+        let _ = std::fs::remove_dir_all(&d);
+    }
     #[test]
     fn mode_config_is_central_and_distinct() {
         let c = ModelConfig::default();

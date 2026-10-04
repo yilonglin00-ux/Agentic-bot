@@ -281,6 +281,22 @@
 #askNoki .ni-steps li.fertig { color: var(--noki-text-muted); }
 #askNoki .ni-steps li.fertig::before { content: "✓  "; }
 #askNoki .ni-steps li:last-child::before { content: "·  "; }
+/* Laufender Schritt: ein ruhiger Punkt statt Text-Animation; erledigte
+   Schritte bleiben leise darueber stehen (echte Phasen, kein Timer). */
+#askNoki .ni-vorgang li.aktiv { color: var(--noki-text); }
+#askNoki .ni-vorgang li.aktiv::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 9px 1px 2px; border-radius: 50%;
+  background: var(--noki-text-secondary); animation: niVorgangPuls 1.3s ease-in-out infinite; }
+@keyframes niVorgangPuls { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { #askNoki .ni-vorgang li.aktiv::before { animation: none; } }
+/* "Vorgehen · N Schritte" ueber der Antwort: eingeklappt, klein, getrennt. */
+#askNoki .ni-vorgehen { margin: 0 0 10px; font-size: 12px; color: var(--noki-text-muted); }
+#askNoki .ni-vorgehen summary { cursor: pointer; list-style: none; user-select: none; width: fit-content; padding: 2px 0; }
+#askNoki .ni-vorgehen summary::-webkit-details-marker { display: none; }
+#askNoki .ni-vorgehen summary::before { content: "▸"; display: inline-block; width: 12px; transition: transform .15s; }
+#askNoki .ni-vorgehen[open] summary::before { transform: rotate(90deg); }
+#askNoki .ni-vorgehen summary:hover { color: var(--noki-text-secondary); }
+#askNoki .ni-vorgehen ul { list-style: none; margin: 4px 0 0; padding: 0 0 0 12px; border-left: 1px solid rgba(255, 255, 255, 0.08); }
+#askNoki .ni-vorgehen li { margin: 0 0 3px 8px; color: var(--noki-text-secondary); }
 /* ── Chat-Bibliothek Drawer ────────────────────────────────────────── */
 #askNoki .ni-drawer {
   position: absolute;
@@ -1836,3 +1852,10 @@ html[data-noki-schrift="impact"] #askNoki *, html[data-noki-schrift="impact"] #e
 /* Font picker: every option shows itself in its own face. */
 #einstellungen .e-font-chip, #einstellungen .e-font-chip * { font-family: var(--chip-font) !important; }
 
+/* Lokale Modelle nach Rolle: Rolle · Modell · Auswahl (Standard oder ein installiertes Preset). */
+#einstellungen .ni-rollen .ni-rolle { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+#einstellungen .ni-rolle-titel { color: var(--noki-text-secondary); font-size: 11px; }
+#einstellungen .ni-rollen .ni-modell-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#einstellungen select.ni-rolle-wahl { font: inherit; font-size: 11px; color: var(--noki-text); background: var(--noki-raised, rgba(255,255,255,.06));
+  border: 1px solid var(--noki-border, rgba(255,255,255,.12)); border-radius: 6px; padding: 2px 6px; max-width: 150px; }
+#einstellungen .ni-rollen .ni-modell-zusatz { margin: -2px 0 4px 140px; }
