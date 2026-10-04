@@ -16,6 +16,11 @@ pub const RATE: usize = 16_000;
 const FRAME: usize = RATE / 50;
 /// A pause this long after speech closes a segment (confirmed text).
 const STILLE_MS: usize = 650;
+/// In a segment that already holds this much audio, a shorter real pause
+/// (a breath, not the gap between words) closes it too - otherwise fluent
+/// dictation stays one open tail that is only transcribed after Stop.
+const LANG_AB_MS: usize = 5_000;
+const ATEM_MS: usize = 300;
 /// Less speech than this in a segment is noise, not a word.
 const MIN_SPRACHE_MS: usize = 160;
 /// Continuous speech without a pause is cut at the quietest point.
@@ -98,7 +103,8 @@ impl Segmentierer {
             } else {
                 self.stille_frames += 1;
             }
-            if self.hat_sprache() && self.stille_frames * 20 >= STILLE_MS {
+            let lang = ende - self.seg_start >= ms(LANG_AB_MS);
+            if self.hat_sprache() && (self.stille_frames * 20 >= STILLE_MS || (lang && self.stille_frames * 20 >= ATEM_MS)) {
                 // Pause after speech: the segment is confirmed.
                 let von = self.erste_sprache.map_or(self.seg_start, |e| e.saturating_sub(ms(VORLAUF_MS)).max(self.seg_start));
                 let bis = (self.letzte_sprache_ende + ms(NACHLAUF_MS)).min(ende);
@@ -130,6 +136,8 @@ impl Segmentierer {
         Some(Segment { von, bis: self.audio.len(), ueberlapp: self.seg_ueberlapp })
     }
     pub fn dauer_ms(&self) -> u64 { (self.audio.len() * 1000 / RATE) as u64 }
+    /// End (sample) of the last speech frame seen so far.
+    pub fn sprache_ende(&self) -> usize { self.letzte_sprache_ende }
 }
 
 /// 16 kHz mono PCM16 WAV.
@@ -513,12 +521,33 @@ mod tests {
     #[test]
     fn lange_rede_wird_mit_ueberlappung_geschnitten() {
         let mut s = Segmentierer::default();
-        let mut a = ton(9000, 0.3); a.extend(ton(400, 0.02)); a.extend(ton(15000, 0.3));
+        // only a short dip (< ATEM_MS), no real pause: forced cut
+        let mut a = ton(9000, 0.3); a.extend(ton(200, 0.02)); a.extend(ton(15000, 0.3));
         let seg = fuettern(&mut s, &a);
         assert_eq!(seg.len(), 1, "{seg:?}");
         assert!(seg[0].bis - seg[0].von <= ms(MAX_SEGMENT_MS));
         let offen = s.offen().unwrap();
         assert!(offen.ueberlapp && offen.von < seg[0].bis, "{offen:?}");
+    }
+
+    #[test]
+    fn atempause_schliesst_lange_segmente() {
+        // Fluent dictation: 2.2 s speech + 350 ms breath, five times.
+        let mut s = Segmentierer::default();
+        let mut a = rauschen(300, 0.004);
+        for _ in 0..5 { a.extend(ton(2200, 0.3)); a.extend(rauschen(350, 0.004)); }
+        let seg = fuettern(&mut s, &a);
+        // the first 5 s stay one segment (a breath alone does not cut short ones)
+        assert!(!seg.is_empty(), "{seg:?}");
+        assert!(seg[0].bis - seg[0].von >= ms(LANG_AB_MS) && seg[0].bis - seg[0].von < ms(9000), "{seg:?}");
+        assert!(seg.iter().all(|x| !x.ueberlapp), "cut at pauses, no overlap {seg:?}");
+        // the open tail after Stop is short, not the whole dictation
+        let offen = s.offen().map(|o| o.bis - o.von).unwrap_or(0);
+        assert!(offen < ms(6000), "offen {} ms", offen * 1000 / RATE);
+        // short segments still need the full pause
+        let mut k = Segmentierer::default();
+        let mut b = rauschen(300, 0.004); b.extend(ton(1500, 0.3)); b.extend(rauschen(350, 0.004)); b.extend(ton(1500, 0.3));
+        assert!(fuettern(&mut k, &b).is_empty());
     }
 
     #[test]

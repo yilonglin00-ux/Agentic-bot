@@ -21,7 +21,7 @@
 use crate::talk_kern::{self as kern, Segment, Segmentierer, Verlauf};
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{mpsc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager};
@@ -221,7 +221,9 @@ fn helfer_lesen(app: tauri::AppHandle, f: std::fs::File) {
         if r.read_line(&mut z).unwrap_or(0) == 0 { break; }
         let Ok(m) = serde_json::from_str::<serde_json::Value>(&z) else { continue };
         if let Some(b64) = m.get("pcm").and_then(|p| p.as_str()) {
-            sitzung_senden(Msg::Pcm(kern::base64_pcm(b64)));
+            let pcm = kern::base64_pcm(b64);
+            WARTEND.fetch_add(pcm.len(), Ordering::SeqCst);
+            sitzung_senden(Msg::Pcm(pcm));
             if let Some(l) = m.get("level").and_then(|l| l.as_f64()) {
                 // UI only on real level changes, ~16/s.
                 if pegel_t.elapsed() >= Duration::from_millis(60) {
@@ -290,6 +292,12 @@ pub fn ton(_start: bool) {}
 // ---- one dictation -------------------------------------------------------------
 enum Msg { Pcm(Vec<i16>), Aufnahme, Stop, Abbruch, Gestoppt, Fehler(String) }
 static SITZUNG: Mutex<Option<mpsc::Sender<Msg>>> = Mutex::new(None);
+/// Stop was pressed: from this moment no queued audio starts new work.
+static STOPP: AtomicBool = AtomicBool::new(false);
+static STOPP_T: Mutex<Option<Instant>> = Mutex::new(None);
+/// Samples handed to the dictation thread but not yet processed (backlog).
+static WARTEND: AtomicUsize = AtomicUsize::new(0);
+static STOPP_ABBRUCH: AtomicBool = AtomicBool::new(false);
 fn sitzung_senden(m: Msg) {
     if let Ok(g) = SITZUNG.lock() { if let Some(tx) = g.as_ref() { let _ = tx.send(m); } }
 }
@@ -311,11 +319,14 @@ pub fn starten(app: &tauri::AppHandle) {
             // recording, and the panel must not claim "Noki hoert zu".
             drop(g);
             crate::stimme_extern_beendet();
-            melden(app, serde_json::json!({ "zustand": "schreibt", "meldung": "Noki schreibt noch …" }));
+            melden(app, serde_json::json!({ "zustand": "schreibt", "meldung": "Noki verarbeitet noch …" }));
             return;
         }
         *g = Some(tx);
     }
+    STOPP.store(false, Ordering::SeqCst);
+    WARTEND.store(0, Ordering::SeqCst);
+    if let Ok(mut t) = STOPP_T.lock() { *t = None; }
     let h = app.clone();
     let t0 = Instant::now();
     let _ = std::thread::Builder::new().name("noki-talk".into()).spawn(move || {
@@ -324,8 +335,21 @@ pub fn starten(app: &tauri::AppHandle) {
         leerlauf_planen();
     });
 }
-/// Option twice again / Space (stop) or Esc (cancel).
-pub fn stoppen(abbruch: bool) { sitzung_senden(if abbruch { Msg::Abbruch } else { Msg::Stop }); }
+/// Option once / Space (stop) or Esc (cancel). The microphone is closed
+/// RIGHT HERE (not when the dictation thread gets to the message - it may
+/// be busy with a transcription and have audio queued behind it).
+pub fn stoppen(abbruch: bool) {
+    if !STOPP.swap(true, Ordering::SeqCst) {
+        STOPP_ABBRUCH.store(abbruch, Ordering::SeqCst);
+        if let Ok(mut t) = STOPP_T.lock() { *t = Some(Instant::now()); }
+        let befehl = if abbruch { "cancel" } else { "stop" };
+        // Off the caller's (main) thread; one short line into the FIFO.
+        let _ = std::thread::Builder::new().name("noki-talk-stop".into()).spawn(move || {
+            if let Err(f) = helfer_senden(befehl) { trace(&format!("NOKI_TALK stop_send_failed {f}")); }
+        });
+    }
+    sitzung_senden(if abbruch { Msg::Abbruch } else { Msg::Stop });
+}
 /// App exit: microphone closed, model unloaded.
 pub fn alles_beenden() {
     let _ = helfer_senden("quit");
@@ -341,6 +365,9 @@ fn diktat(app: &tauri::AppHandle, rx: mpsc::Receiver<Msg>, t0: Instant) {
         crate::stimme_extern_beendet();
         return melden(app, serde_json::json!({ "zustand": "fehler", "meldung": f }));
     }
+    // Stop came before the helper had the "start" (first launch): repeat it,
+    // the microphone must never stay open.
+    if STOPP.load(Ordering::SeqCst) { let _ = helfer_senden(if STOPP_ABBRUCH.load(Ordering::SeqCst) { "cancel" } else { "stop" }); }
     // Model warm-up starts NOW, in parallel to speaking.
     let modell = modell_wahl(&e);
     let mut server_fehler = match &modell {
@@ -358,6 +385,9 @@ fn diktat(app: &tauri::AppHandle, rx: mpsc::Receiver<Msg>, t0: Instant) {
     let mut stop_t: Option<Instant> = None;
     let mut abbruch = false;
     let mut fehler: Option<String> = None;
+    // Last preview of the open tail: (von, bis, sprache, prompt, text). Reused
+    // as the final tail when nothing but silence followed it.
+    let mut vorschau: Option<(usize, usize, String, String, String)> = None;
     let transkr = |pcm: &[i16], spr: &str, prompt: &str| kern::transkribieren(PORT, pcm, spr, prompt, Duration::from_secs(30));
     loop {
         let m = match rx.recv_timeout(Duration::from_secs(120)) {
@@ -372,8 +402,10 @@ fn diktat(app: &tauri::AppHandle, rx: mpsc::Receiver<Msg>, t0: Instant) {
                 trace(&format!("NOKI_TALK_TIMING shortcut_to_recording_ms={ms}"));
             }
             Msg::Pcm(p) => {
+                WARTEND.fetch_sub(p.len().min(WARTEND.load(Ordering::SeqCst)), Ordering::SeqCst);
                 for s in seg.push(&p) { offen_seit.push(s); }
-                if stop_t.is_some() { continue; }
+                // Stop pressed: queued audio is only collected, no new work.
+                if stop_t.is_some() || STOPP.load(Ordering::SeqCst) { continue; }
                 if !bereit && server_fehler.is_none() && bereit_t.elapsed() > Duration::from_millis(400) {
                     bereit_t = Instant::now();
                     bereit = kern::gesund(PORT) == Some(true);
@@ -386,11 +418,16 @@ fn diktat(app: &tauri::AppHandle, rx: mpsc::Receiver<Msg>, t0: Instant) {
                         text = kern::anfuegen(&text, &kern::segment_bereinigen(&a.text), s.ueberlapp);
                     }
                 }
-                // Preview of the open tail (may still change).
-                if let Some(o) = seg.offen() {
+                // Preview of the open tail (may still change). Skipped while
+                // audio is queued behind us: a stale preview would only delay
+                // the confirmed segments and the reaction to Stop.
+                let rueckstau = WARTEND.load(Ordering::SeqCst) > kern::RATE / 4;
+                if let (Some(o), false) = (seg.offen(), rueckstau || STOPP.load(Ordering::SeqCst)) {
                     if vorschau_t.elapsed() >= Duration::from_millis(650) && seg.audio.len() >= vorschau_bis + kern::RATE / 2 {
                         vorschau_t = Instant::now(); vorschau_bis = seg.audio.len();
-                        if let Ok(a) = transkr(&seg.audio[o.von..o.bis], &sprache, &prompt(&text)) {
+                        let pr = prompt(&text);
+                        if let Ok(a) = transkr(&seg.audio[o.von..o.bis], &sprache, &pr) {
+                            vorschau = Some((o.von, o.bis, sprache.clone(), pr, a.text.clone()));
                             let v = kern::anfuegen(&text, &kern::segment_bereinigen(&a.text), o.ueberlapp);
                             melden(app, serde_json::json!({ "zustand": "hoert", "text": kern::abschliessen(&v) }));
                             continue;
@@ -400,10 +437,23 @@ fn diktat(app: &tauri::AppHandle, rx: mpsc::Receiver<Msg>, t0: Instant) {
                 melden(app, serde_json::json!({ "zustand": "hoert", "text": kern::abschliessen(&text) }));
             }
             Msg::Stop => {
-                if stop_t.is_none() { stop_t = Some(Instant::now()); let _ = helfer_senden("stop"); }
-                melden(app, serde_json::json!({ "zustand": "schreibt" }));
+                if stop_t.is_none() {
+                    // The microphone was already closed by stoppen().
+                    stop_t = Some(STOPP_T.lock().ok().and_then(|t| *t).unwrap_or_else(Instant::now));
+                    melden(app, serde_json::json!({ "zustand": "schreibt" }));
+                    // While the helper flushes its last buffers: confirmed
+                    // segments that are still pending are done now.
+                    if bereit {
+                        for s in std::mem::take(&mut offen_seit) {
+                            if let Ok(a) = transkr(&seg.audio[s.von..s.bis], &sprache, &prompt(&text)) {
+                                if sprache == "auto" && !a.sprache.is_empty() { erkannt = a.sprache.clone(); sprache = a.sprache.clone(); }
+                                text = kern::anfuegen(&text, &kern::segment_bereinigen(&a.text), s.ueberlapp);
+                            }
+                        }
+                    }
+                }
             }
-            Msg::Abbruch => { abbruch = true; let _ = helfer_senden("cancel"); }
+            Msg::Abbruch => { abbruch = true; }
             Msg::Gestoppt => break,
             Msg::Fehler(f) => { fehler = Some(f); let _ = helfer_senden("cancel"); break; }
         }
@@ -432,7 +482,20 @@ fn diktat(app: &tauri::AppHandle, rx: mpsc::Receiver<Msg>, t0: Instant) {
         return melden(app, serde_json::json!({ "zustand": "fehler", "meldung": f, "aktion": "einrichten" }));
     }
     let mut rest = std::mem::take(&mut offen_seit);
-    rest.extend(seg.offen());
+    let schwanz = seg.offen();
+    // Reuse the last preview as the final tail when it ran on exactly this
+    // segment with the same context and only silence came after it - the
+    // same audio would just be transcribed a second time.
+    let wiederverwendet = match (&schwanz, &vorschau) {
+        (Some(o), Some((von, bis, spr, pr, t))) if rest.is_empty() && o.von == *von && seg.sprache_ende() <= *bis
+            && *spr == sprache && *pr == prompt(&text) => {
+            text = kern::anfuegen(&text, &kern::segment_bereinigen(t), o.ueberlapp);
+            true
+        }
+        _ => false,
+    };
+    if !wiederverwendet { rest.extend(schwanz); }
+    trace(&format!("NOKI_TALK final pending={} tail_reused={wiederverwendet}", rest.len()));
     for s in rest {
         match transkr(&seg.audio[s.von..s.bis.min(seg.audio.len())], &sprache, &prompt(&text)) {
             Ok(a) => {

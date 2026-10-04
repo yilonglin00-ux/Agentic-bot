@@ -129,9 +129,19 @@ const server = http.createServer((req, res) => {
   await ev('noki-talk', { zustand: 'hoert', text: 'Ich wollte morgen eigentlich noch zur Uni …' });
   t = await tafel();
   check(t.text === 'Ich wollte morgen eigentlich noch zur Uni …', 'Live-Vorschau erscheint');
+  const tStopp = Date.now();
   await ev('noki://stimme', { was: 'stop' });
   t = await tafel();
-  check(t.label === 'Noki schreibt …' && t.zustand === 'arbeitet', `Stopp: "${t.label}"`);
+  const msStopp = Date.now() - tStopp;
+  check(t.label === 'Noki verarbeitet …' && t.zustand === 'arbeitet' && t.eq === 'none', `Stopp: sofort "${t.label}", Waveform aus (${msStopp} ms inkl. Abfrage)`);
+  check(t.bars.every(b => b <= 0.15), 'Pegelbalken zurueckgesetzt');
+  // late events from the queue must not bring "Noki hoert zu" back
+  await ev('noki-talk', { pegel: 0.9 });
+  await ev('noki-talk', { zustand: 'hoert', text: 'Ich wollte morgen eigentlich noch zur Uni zu' });
+  await ev('noki-talk', { zustand: 'schreibt' });
+  t = await tafel();
+  check(t.label === 'Noki verarbeitet …' && t.zustand === 'arbeitet' && t.eq === 'none' && t.bars.every(b => b <= 0.15), `spaete Vorschau/Pegel nach Stopp ignoriert (${t.label})`);
+  check(await main.evaluate(() => getComputedStyle(document.getElementById('nokiStimmeLabel')).animationName) === 'nokiVerarbeitet', 'eigene ruhige Verarbeitungs-Animation (keine Waveform)');
   await ev('noki-talk', { zustand: 'fertig', text: 'Ich wollte morgen eigentlich noch zur Uni.', meldung: '', verlauf: true });
   t = await tafel();
   check(t.label === 'Eingefügt' && t.text === 'Ich wollte morgen eigentlich noch zur Uni.', `Fertig: ${t.label}`);
@@ -165,12 +175,24 @@ const server = http.createServer((req, res) => {
   const bis = (fn, ms) => einst.waitForFunction(fn, null, { timeout: ms || 8000 }).catch(() => {});
   const sprachKnoepfe = () => einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-sprachen .e-seg-btn')].map(b => b.textContent + (b.classList.contains('aktiv') ? '*' : '')));
   let sk = await sprachKnoepfe();
-  check(sk.join('|') === 'Auto*|Deutsch|Englisch|Französisch|Chinesisch|Auswählen …', `Standard-Sprachen, Auswählen zuletzt (${sk.join('|')})`);
+  check(sk.join('|') === 'Auto*|Deutsch|Englisch|Französisch|Chinesisch', `Standard-Sprachen im Raster (${sk.join('|')})`);
+  const layout = () => einst.evaluate(() => {
+    const bs = [...document.querySelectorAll('#einstellungen .t-sprachen .e-seg-btn')], r = bs.map(b => b.getBoundingClientRect());
+    const w = document.querySelector('#einstellungen [data-e="talk_waehlen"]');
+    return { hoehen: [...new Set(r.map(x => Math.round(x.height)))], breiten: [...new Set(r.map(x => Math.round(x.width)))],
+      abgeschnitten: bs.filter(b => b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1).map(b => b.textContent),
+      waehlenImRaster: !!w.closest('.t-sprachen'), waehlenDarunter: w.getBoundingClientRect().top >= Math.max(...r.map(x => x.bottom)) + 4, waehlenText: w.textContent,
+      hilfe: /Antippen fügt/.test(document.querySelector('#einstellungen').textContent) };
+  });
+  let ly = await layout();
+  check(ly.hoehen.length === 1 && ly.breiten.length === 1 && ly.abgeschnitten.length === 0, `Sprachknoepfe gleich gross, nichts abgeschnitten (H ${ly.hoehen}, B ${ly.breiten})`);
+  check(!ly.waehlenImRaster && ly.waehlenDarunter && ly.waehlenText === 'Sprachen auswählen …', `"${ly.waehlenText}" separat darunter`);
   await klick('.e-seg-btn[data-e="talk_sprache"]', 'Deutsch');
   let e = (await calls('noki_talk_einstellung')).pop();
   check(e && e.args.schluessel === 'sprache' && e.args.wert === 'de', 'Sprache Deutsch wird gespeichert');
   await bis(() => document.querySelector('#einstellungen .t-sprachen .aktiv[data-v="de"]'));
   check((await sprachKnoepfe())[1] === 'Deutsch*', 'aktive Sprache klar markiert');
+  check(await einst.evaluate(() => { const b = document.querySelector('#einstellungen .t-sprachen .aktiv'); const c = getComputedStyle(b); return c.borderTopColor !== getComputedStyle(document.querySelector('#einstellungen .t-sprachen .e-seg-btn:not(.aktiv)')).borderTopColor; }), 'Auswahl sichtbar markiert (Rahmen)');
   // Picker: add Japanese, search, remove the active German -> Auto.
   await klick('[data-e="talk_waehlen"]');
   await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length > 0);
@@ -178,6 +200,7 @@ const server = http.createServer((req, res) => {
   check(zeilenSprachen.length === 16 && zeilenSprachen.includes('Japanisch') && zeilenSprachen.includes('Kantonesisch') && zeilenSprachen.includes('Deutsch✓'),
     `Auswahl zeigt den Whisper-Katalog, vorhandene mit ✓ (${zeilenSprachen.length})`);
   check(!(await einst.evaluate(() => document.querySelector('#einstellungen .t-sprachen').textContent)).includes('×'), 'keine dauerhaften X-Symbole');
+  check(!(await layout()).hilfe, 'kein Hilfetext unter Sprache (auch bei offener Auswahl)');
   await einst.fill('#einstellungen [data-talksuche]', 'jap');
   await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length === 1);
   const gefiltert = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].map(z => z.textContent));
@@ -195,7 +218,21 @@ const server = http.createServer((req, res) => {
   await klick('[data-e="talk_waehlen"]');
   await bis(() => !document.querySelector('#einstellungen .t-sprachwahl'));
   sk = await sprachKnoepfe();
-  check(sk.join('|') === 'Auto*|Englisch|Französisch|Chinesisch|Japanisch|Auswählen …', `danach Auto aktiv, Japanisch als Schnellknopf (${sk.join('|')})`);
+  check(sk.join('|') === 'Auto*|Englisch|Französisch|Chinesisch|Japanisch', `danach Auto aktiv, Japanisch als Schnellknopf (${sk.join('|')})`);
+  // long names: add Hawaiian + Cantonese too - still uniform, nothing cut
+  await klick('[data-e="talk_waehlen"]');
+  await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length > 0);
+  await klick('.t-sprachzeile', 'Kantonesisch');
+  await bis(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].some(z => z.textContent === 'Kantonesisch✓'));
+  await klick('.t-sprachzeile', 'Niederländisch');
+  await bis(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].some(z => z.textContent === 'Niederländisch✓'));
+  await klick('[data-e="talk_waehlen"]');
+  await bis(() => !document.querySelector('#einstellungen .t-sprachwahl'));
+  ly = await layout();
+  if (process.env.SHOTS) { await einst.locator('#einstellungen .t-sprachen').scrollIntoViewIfNeeded(); await einst.screenshot({ path: process.env.SHOTS + '/sprache.png' }); }
+  sk = await sprachKnoepfe();
+  check(sk.length === 7 && ly.hoehen.length === 1 && ly.breiten.length === 1 && ly.abgeschnitten.length === 0 && ly.waehlenDarunter,
+    `7 Sprachen inkl. langer Namen sauber (${sk.join('|')}; H ${ly.hoehen}, B ${ly.breiten})`);
   check(!(await einst.evaluate(() => !!document.querySelector('#einstellungen .t-sprachwahl'))), 'Auswahl schliesst mit "Fertig"');
   await klick('.e-seg-btn[data-e="talk_auto"]', 'Aus');
   e = (await calls('noki_talk_einstellung')).pop();
@@ -212,6 +249,7 @@ const server = http.createServer((req, res) => {
   const kopf = await einst.evaluate(() => { const k = document.querySelector('#einstellungen .t-karte'); return { zeit: k.querySelector('.t-zeit').textContent, dauer: k.querySelector('.t-dauer').textContent, vorschau: !!k.querySelector('.t-vorschau') }; });
   check(/^Heute · \d\d:\d\d$/.test(kopf.zeit) && kopf.dauer === '0:18' && kopf.vorschau, `Kompakte Zeile: Datum/Uhrzeit, Dauer, Vorschau (${kopf.zeit} | ${kopf.dauer})`);
   await klick('button.t-e');
+  await bis(() => document.querySelector('#einstellungen .t-karte.auf .t-voll'));
   const offen = await einst.evaluate(() => { const k = document.querySelector('#einstellungen .t-karte.auf'); return { voll: (k.querySelector('.t-voll') || {}).textContent || '', vorschau: k.querySelectorAll('.t-vorschau').length, n: (k.textContent.match(/Ich wollte morgen/g) || []).length }; });
   check(offen.voll.startsWith('Ich wollte morgen') && offen.voll.endsWith('fertig zu schreiben.'), 'Eintrag oeffnet den vollstaendigen Text');
   check(offen.vorschau === 0 && offen.n === 1, `Text erscheint genau einmal (Vorschau ersetzt, ${offen.n}x)`);

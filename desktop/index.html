@@ -198,6 +198,10 @@
      Aufnahme, aktualisiert nur bei echten Pegel-Ereignissen (kein Takt). */
   #nokiStimmeEq { display: none; align-items: center; gap: 2px; height: 12px; align-self: center; }
   html[data-noki-stimme="1"] #nokiStimmeEq { display: inline-flex; }
+  /* Verarbeitung: keine Waveform, nur ein ruhiges Atmen der Zustandszeile -
+     eindeutig anders als die laufende Aufnahme. */
+  html[data-noki-stimme="arbeitet"] #nokiStimmeLabel { animation: nokiVerarbeitet 1.4s ease-in-out infinite; }
+  @keyframes nokiVerarbeitet { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
   #nokiStimmeEq i { display: block; width: 2px; height: 12px; border-radius: 1px; background: rgba(227,222,212,.62);
     transform: scaleY(.14); transform-origin: center; transition: transform 70ms linear; }
 
@@ -1474,8 +1478,13 @@
   #einstellungen .e-kv-mono { font: 11.5px "SF Mono", ui-monospace, Menlo, monospace; color: var(--noki-text-secondary); }
   #einstellungen .e-kv-w .e-btn-klein { margin-left: auto; }
   /* Noki Talk · Sprache + Verlauf (dieselben Flaechen, Linien und Akzente wie die uebrigen Einstellungen) */
-  #einstellungen .t-sprachen { flex-wrap: wrap; }
-  #einstellungen .t-sprachen .t-waehlen { color: var(--noki-text-secondary); }
+  #einstellungen .t-sprachen { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); grid-auto-rows: 1fr; gap: 6px; width: 100%; }
+  #einstellungen .t-sprachen .e-seg-btn { display: flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 34px; padding: 6px 10px;
+    border-radius: 8px; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; background: var(--noki-raised); border: 1px solid var(--noki-border); }
+  #einstellungen .t-sprachen .e-seg-btn:hover { border-color: rgba(255, 255, 255, 0.18); }
+  #einstellungen .t-sprachen .e-seg-btn.aktiv { background: rgba(var(--noki-accent-rgb), .16); border-color: var(--noki-accent); color: var(--noki-text); }
+  #einstellungen .t-sprach-aktion { margin-top: 12px; }
+  #einstellungen .t-sprach-aktion .t-waehlen.aktiv { border-color: var(--noki-accent); }
   #einstellungen .t-sprachwahl { margin-top: 10px; }
   #einstellungen .t-sprachzeile .t-haken { margin-left: auto; color: var(--noki-accent); font-size: 13px; width: 16px; text-align: center; }
   #einstellungen .t-sprachzeile.drin .n-app-name { color: var(--noki-text); }
@@ -1501,54 +1510,87 @@
   #einstellungen input.t-seek::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); }
   #einstellungen input.t-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; margin-top: -4px; border-radius: 50%; background: var(--noki-accent); border: 0; }
   /* Noki Kamera · Galerie + Bearbeiten (dieselben Flaechen/Akzente wie Noki Talk) */
-  #einstellungen .k-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
-  #einstellungen button.k-kachel { all: unset; position: relative; aspect-ratio: 1; border-radius: 9px; overflow: hidden; cursor: pointer; box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
-  #einstellungen button.k-kachel:hover { border-color: var(--noki-accent); }
+  #einstellungen .k-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+  #einstellungen button.k-kachel { all: unset; display: flex; flex-direction: column; min-width: 0; border-radius: 10px; overflow: hidden; cursor: pointer; box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); }
+  #einstellungen button.k-kachel:hover { border-color: rgba(var(--noki-accent-rgb), .6); background: rgba(var(--noki-accent-rgb), .05); }
   #einstellungen button.k-kachel:focus-visible { outline: 2px solid var(--noki-accent); outline-offset: 1px; }
-  #einstellungen .k-kachel img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #einstellungen .k-vorschau { position: relative; display: block; aspect-ratio: 16 / 10; background: rgba(0, 0, 0, 0.28); }
+  #einstellungen .k-vorschau img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  #einstellungen .k-typ { position: absolute; left: 6px; top: 6px; width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    color: #fff; background: rgba(0, 0, 0, 0.5); }
+  #einstellungen .k-typ svg { width: 12px; height: 12px; }
   #einstellungen .k-play { position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    background: rgba(0, 0, 0, 0.5); color: #fff; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+    background: rgba(0, 0, 0, 0.5); color: #fff; }
   #einstellungen .k-play svg { width: 13px; height: 13px; margin-left: 2px; }
-  #einstellungen .k-dauer { position: absolute; right: 5px; bottom: 5px; padding: 1px 5px; border-radius: 5px; font-size: 10.5px; color: #fff; background: rgba(0, 0, 0, 0.55); font-variant-numeric: tabular-nums; }
-  #einstellungen .k-kopf { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; min-width: 0; }
+  #einstellungen .k-dauer { position: absolute; right: 6px; bottom: 6px; padding: 1px 5px; border-radius: 5px; font-size: 10.5px; color: #fff; background: rgba(0, 0, 0, 0.55); font-variant-numeric: tabular-nums; }
+  /* EINE Zeile je Karte: Name (gekuerzt mit …) + Zeit - nie umbrechen. */
+  #einstellungen .k-fuss { display: flex; align-items: baseline; gap: 8px; height: 30px; box-sizing: border-box; padding: 8px 9px 0; min-width: 0; white-space: nowrap; }
+  #einstellungen .k-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; color: var(--noki-text); }
+  #einstellungen .k-zeit { flex: none; font-size: 10.5px; color: var(--noki-text-muted); font-variant-numeric: tabular-nums; }
+  #einstellungen .k-kopf { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; min-width: 0; }
+  #einstellungen .k-zurueck { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px 6px 8px; }
+  #einstellungen .k-zurueck svg, #einstellungen .k-reset svg { width: 14px; height: 14px; }
   #einstellungen .k-titel { font-size: 12.5px; font-weight: 600; color: var(--noki-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-  #einstellungen .k-info { margin-left: auto; flex: none; font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
+  #einstellungen .k-info { margin-left: auto; flex: none; font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
   #einstellungen .k-buehne-rahmen { display: flex; justify-content: center; align-items: center; border-radius: 10px; background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.06); padding: 8px; }
   #einstellungen .k-gross { display: block; max-width: 100%; max-height: 52vh; border-radius: 6px; }
   #einstellungen .k-buehne { position: relative; max-width: 100%; overflow: hidden; border-radius: 4px; touch-action: none; user-select: none; -webkit-user-select: none; }
   #einstellungen .k-buehne .k-bild { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: fill; }
   #einstellungen .k-buehne.werkzeug-stift { cursor: crosshair; }
   #einstellungen .k-buehne.werkzeug-radierer { cursor: cell; }
+  #einstellungen .k-buehne.werkzeug-text { cursor: text; }
   #einstellungen .k-buehne.werkzeug-crop, #einstellungen .k-buehne[data-zieh] { cursor: crosshair; }
   #einstellungen .k-ueber { position: absolute; inset: 0; pointer-events: none; }
   #einstellungen .k-ueber.aktiv { pointer-events: auto; }
   #einstellungen .k-striche { position: absolute; inset: 0; width: 100%; height: 100%; }
   #einstellungen .k-striche path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  #einstellungen .k-striche text { font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; white-space: pre; }
+  #einstellungen .k-striche .k-textwahl { fill: none; stroke: var(--noki-accent); }
   #einstellungen .k-crop { position: absolute; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); outline: 1px solid rgba(255, 255, 255, 0.35); }
   #einstellungen .k-crop.an { pointer-events: auto; cursor: move; outline: 1.5px solid var(--noki-accent); }
   #einstellungen .k-g { position: absolute; width: 12px; height: 12px; border-radius: 3px; background: var(--noki-accent); border: 1.5px solid #fff; box-sizing: border-box; }
   #einstellungen .k-g.nw { left: -6px; top: -6px; cursor: nwse-resize; } #einstellungen .k-g.se { right: -6px; bottom: -6px; cursor: nwse-resize; }
   #einstellungen .k-g.ne { right: -6px; top: -6px; cursor: nesw-resize; } #einstellungen .k-g.sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
-  #einstellungen .k-werkzeuge { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-  #einstellungen .k-werkzeuge .k-seg { margin-right: auto; }
-  #einstellungen .k-farben { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-  #einstellungen button.k-farbe { all: unset; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, 0.25); }
-  #einstellungen button.k-farbe.aktiv { box-shadow: 0 0 0 2px var(--noki-bg-tief, #111), 0 0 0 3.5px var(--noki-accent); }
-  #einstellungen button.k-dicke { all: unset; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--noki-border); background: var(--noki-raised); }
+  /* Werkzeugleiste: Werkzeuge links, Undo-Symbol + Zuruecksetzen rechts. */
+  #einstellungen .k-werkzeuge { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  #einstellungen .k-rand { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+  #einstellungen .k-rand button.t-rund { width: 32px; height: 32px; }
+  #einstellungen .k-rand button.t-rund svg { width: 15px; height: 15px; }
+  #einstellungen button.t-rund[disabled] { opacity: .38; cursor: default; }
+  #einstellungen .k-reset { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; }
+  #einstellungen .k-kontext { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; min-height: 32px; }
+  #einstellungen .k-farben { display: inline-flex; align-items: center; gap: 6px; }
+  #einstellungen .k-farbe { all: unset; position: relative; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, 0.25); flex: none; }
+  #einstellungen .k-farbe.aktiv { box-shadow: 0 0 0 2px var(--noki-bg-tief, #111), 0 0 0 3.5px var(--noki-accent); }
+  /* Eigene Farbe: Regenbogenring, darin der native Farbwaehler (unsichtbar). */
+  #einstellungen .k-eigen { background: conic-gradient(#ff453a, #ffd60a, #30d158, #64d2ff, #0a84ff, #bf5af2, #ff453a); overflow: hidden; }
+  #einstellungen .k-eigen input { position: absolute; inset: -4px; width: 26px; height: 26px; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+  #einstellungen .k-dicken { display: inline-flex; gap: 6px; }
+  #einstellungen button.k-dicke { all: unset; width: 28px; height: 28px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--noki-border); background: var(--noki-raised); box-sizing: border-box; }
   #einstellungen button.k-dicke i { display: block; border-radius: 50%; background: var(--noki-text); }
   #einstellungen button.k-dicke.aktiv { border-color: var(--noki-accent); background: rgba(var(--noki-accent-rgb), .12); }
-  #einstellungen .k-trenner { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.08); margin: 0 4px; }
-  #einstellungen .k-leiste { margin-top: 10px; }
+  #einstellungen .k-textfeld { all: unset; box-sizing: border-box; width: 200px; height: 30px; padding: 0 10px; border-radius: 7px; font-size: 12.5px; color: var(--noki-text);
+    background: var(--noki-bg-tief, rgba(0,0,0,.25)); border: 1px solid var(--noki-border); }
+  #einstellungen .k-textfeld:focus { border-color: var(--noki-accent); }
+  #einstellungen .k-tipp { font-size: 11.5px; color: var(--noki-text-secondary); }
+  #einstellungen .k-seg-klein .e-seg-btn { padding: 5px 10px; }
+  #einstellungen .e-seg-btn.k-fett { font-weight: 700; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--noki-border); }
+  #einstellungen .k-trenner { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.08); margin: 0 2px; }
+  #einstellungen .k-leiste { margin-top: 12px; }
   #einstellungen .k-gefahr { color: #ff8a80; }
   #einstellungen .k-gefahr svg { width: 13px; height: 13px; margin-right: 5px; vertical-align: -2px; }
   #einstellungen .k-frage { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 8px 10px; border-radius: 8px; font-size: 12px; color: var(--noki-text);
     background: rgba(255, 138, 128, 0.08); border: 1px solid rgba(255, 138, 128, 0.28); }
   #einstellungen .k-frage span { margin-right: auto; }
   #einstellungen .k-meldung { margin-bottom: 8px; }
-  #einstellungen .k-trim { margin-top: 10px; }
-  #einstellungen .k-trim-spur { position: relative; height: 26px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); touch-action: none; }
-  #einstellungen .k-trim-band { position: absolute; top: 0; bottom: 0; background: rgba(var(--noki-accent-rgb), .22); border-top: 2px solid var(--noki-accent); border-bottom: 2px solid var(--noki-accent); box-sizing: border-box; }
+  /* Video: Play/Pause + Position, daneben die Zeitleiste mit Trim und Abspielkopf. */
+  #einstellungen .k-zeitleiste { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  #einstellungen .k-transport { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+  #einstellungen .k-pos { min-width: 74px; font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
+  #einstellungen .k-trim-spur { position: relative; flex: 1; height: 28px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); touch-action: none; cursor: pointer; }
+  #einstellungen .k-trim-band { position: absolute; top: 0; bottom: 0; background: rgba(var(--noki-accent-rgb), .22); border-top: 2px solid var(--noki-accent); border-bottom: 2px solid var(--noki-accent); box-sizing: border-box; pointer-events: none; }
+  #einstellungen .k-kopf-linie { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); pointer-events: none; }
   #einstellungen .k-trim-griff { position: absolute; top: -3px; bottom: -3px; width: 10px; margin-left: -5px; border-radius: 4px; background: var(--noki-accent); border: 1.5px solid #fff; box-sizing: border-box; cursor: ew-resize; }
   #einstellungen .k-trim-zeit { margin-top: 6px; font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
   #einstellungen .k-export { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--noki-text-secondary); }
@@ -17202,7 +17244,10 @@
   // Rechtsklick auf Noki, Menue "Noki Einstellungen", Shortcut-Uebersicht).
   // Konfiguration und direkte Aktionen teilen die bestehenden Werkzeug-Funktionen.
   // Werte liegen lokal (werk_daten "einstellungen").
-  var einstWerte = { freeze: "anomalie", timer: { dauer: 25, blase: true, gruss: true },
+  // timer.gruss (Winken-Schalter) gibt es nicht mehr - das Winken beim
+  // Ablauf ist fest. Ein alter gespeicherter Wert wird beim Laden nicht
+  // uebernommen (nur bekannte Schluessel) und beim naechsten Sichern entfernt.
+  var einstWerte = { freeze: "anomalie", timer: { dauer: 25, blase: true },
                      fokus: { energie: "sparend" }, profile: {}, kamera: { aktionen: false } };   // Post-Capture-Leiste derzeit aus
   var timerEinstellungen = einstWerte.timer;
   // DARSTELLUNG · FARBEN. Die Huelle (Material M_WHITE) wird im Shader mit
@@ -17590,6 +17635,7 @@
     }
     if (d.t === "esc") { einstellungenZu(); return; }
     if (d.t === "zieh") { kameraZieh(String(d.art || ""), +d.u, +d.w, d.phase); return; }
+    if (d.t === "medium") { kamMedienStand(d); return; }
     if (d.t === "farbe" && d.ziel) { obFarbe(d.ziel, d.art, +d.u, +d.w, !!d.ende); return; }
     if (d.t === "farbe") {
       farbeAusZeiger(d.art, { u: +d.u, w: +d.w });
@@ -17690,6 +17736,8 @@
       var t = e.target;
       if (t && t.getAttribute && t.getAttribute("data-appsuche")) { einstellungen.appSuche = String(t.value || ""); einstBauen(); return; }
       if (t && t.getAttribute && t.getAttribute("data-talksuche")) { talk.suche = String(t.value || ""); einstBauen(); return; }
+      if (t && t.getAttribute && t.getAttribute("data-kamtext")) { kamTextEingabe(t.value); return; }
+      if (t && t.getAttribute && t.getAttribute("data-kamfarbe")) { kamFarbeSetzen(String(t.value || "")); einstBauen(); return; }
       if (t && t.getAttribute && t.getAttribute("data-talkseek")) { talkSeek(+t.getAttribute("data-talkseek"), t.value); return; }
       if (t && t.getAttribute && t.getAttribute("data-schriftsuche")) { einstellungen.schriftSuche = String(t.value || ""); einstBauen(); return; }
       if (!t || !t.getAttribute || !t.getAttribute("data-groesse")) return;
@@ -18041,9 +18089,10 @@
         + (fehlt ? '<div class="e-hinweis">Einmalig einrichten (lädt whisper.cpp und das Modell aus den offiziellen Quellen): <span class="e-kv-mono">~/NOKI/desktop/talk/whisper-einrichten.sh</span> · Modelle liegen in <span class="e-kv-mono">' + abEsc((S && S.modell_dir) || "") + '</span></div>' : ''));
     // Sprache: Auto + die eigene Schnellauswahl + "Auswählen" (letzter Knopf).
     var aktiv = (S && S.sprache) || "auto", schnell = talkSchnell();
-    var leiste = '<div class="e-seg t-sprachen">' + ["auto"].concat(schnell).map(function (c) {
+    // Sprachen als gleichmaessiges Raster; "Auswählen" ist eine eigene Aktion darunter.
+    var leiste = '<div class="t-sprachen">' + ["auto"].concat(schnell).map(function (c) {
         return '<button class="e-seg-btn' + (aktiv === c ? ' aktiv' : '') + '" data-e="talk_sprache" data-v="' + abEsc(c) + '">' + abEsc(talkSprachname(c)) + '</button>';
-      }).join("") + '<button class="e-seg-btn t-waehlen' + (talk.waehlen ? ' aktiv' : '') + '" data-e="talk_waehlen">' + (talk.waehlen ? 'Fertig' : 'Auswählen …') + '</button></div>';
+      }).join("") + '</div><div class="t-sprach-aktion"><button class="e-btn-sekundaer t-waehlen' + (talk.waehlen ? ' aktiv' : '') + '" data-e="talk_waehlen">' + (talk.waehlen ? 'Fertig' : 'Sprachen auswählen …') + '</button></div>';
     var wahl = "";
     if (talk.waehlen) {
       var q = talk.suche.trim().toLowerCase();
@@ -18057,7 +18106,7 @@
               + '<span class="n-app-name">' + abEsc(x[1]) + '</span><span class="t-haken">' + (drin ? '✓' : '') + '</span></button>';
           }).join("") : '<div class="e-hinweis">Keine passende Sprache</div>') + '</div></div>';
     }
-    var sprache = einstSek("Sprache", talk.waehlen ? "Antippen fügt eine Sprache hinzu oder entfernt sie aus der Auswahl. Auto bleibt immer." : "", leiste + wahl);
+    var sprache = einstSek("Sprache", "", leiste + wahl);
     var weitere = einstSek("Automatisch einfügen", "Aus: der Text kommt nur in die Zwischenablage. Passwortfelder werden nie beschrieben.",
           einstSeg("talk_auto", S && S.auto_einfuegen === false ? "aus" : "an", [["an", "An"], ["aus", "Aus"]]))
       + (modelle.length > 1 ? einstSek("Lokales Modell", "", einstSeg("talk_modell", (S && S.modell) || "", modelle.map(function (m) { return [m, abEsc(m.replace(/^ggml-/, "").replace(/\.bin$/, ""))]; }))) : "");
@@ -18185,15 +18234,23 @@
   // Liste/Dateien/Vorschauen kommen von der nativen Seite (kamera_* und das
   // Protokoll nokimedien://). Vorschaubilder laden "lazy" nur im sichtbaren
   // Einstellungsfenster (das losgeloeste Element hier laedt sie nie).
-  // Bearbeiten: Foto zuschneiden/zeichnen -> Kopie (Standard) oder bewusst
-  // "Original ersetzen"; Video schneiden/zuschneiden -> neue Datei.
+  // Bearbeiten: Foto zuschneiden/zeichnen/beschriften -> Kopie (Standard)
+  // oder bewusst "Original ersetzen"; Video schneiden/zuschneiden -> neue Datei.
   var kam = { liste: null, mehr: 60, offen: "", loeschen: "", ed: null, zieh: null, export: null, meldung: "", metaT: 0 };
   var KAM_BASIS = /Windows/.test(navigator.userAgent) ? "http://nokimedien.localhost/" : "nokimedien://localhost/";
-  var KAM_FARBEN = [["#ff453a", "Rot"], ["#ffd60a", "Gelb"], ["#30d158", "Grün"], ["#0a84ff", "Blau"], ["#ffffff", "Weiß"], ["#1c1c1e", "Schwarz"]];
+  // Schnellfarben; jede andere Farbe ueber den Farbwaehler (macOS-Farbfenster).
+  var KAM_FARBEN = [["#ff453a", "Rot"], ["#ff9f0a", "Orange"], ["#ffd60a", "Gelb"], ["#30d158", "Grün"], ["#0a84ff", "Blau"], ["#bf5af2", "Lila"], ["#ffffff", "Weiß"], ["#1c1c1e", "Schwarz"]];
   var KAM_DICKE = [[0.004, "Fein"], [0.009, "Mittel"], [0.018, "Dick"]];
+  var KAM_TEXTGROESSE = [[0.035, "S"], [0.06, "M"], [0.1, "L"]];
   var KAM_ICON = {
     play: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z" fill="currentColor"/></svg>',
-    weg: TALK_ICON.weg
+    pause: TALK_ICON.pause,
+    weg: TALK_ICON.weg,
+    foto: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.8" y="4" width="12.4" height="9" rx="1.8"/><path d="M5.6 4l1-1.6h2.8l1 1.6"/><circle cx="8" cy="8.5" r="2.2"/></svg>',
+    video: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.6" y="4" width="9.4" height="8" rx="1.6"/><path d="M11 7l3.4-2v6L11 9z"/></svg>',
+    zurueck: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg>',
+    undo: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5L2.5 6.5l3 3"/><path d="M2.8 6.5h6.7a3.8 3.8 0 0 1 0 7.6H6"/></svg>',
+    reset: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 8a5.2 5.2 0 1 0 1.6-3.8"/><path d="M2.6 2.4v2.9h2.9"/></svg>'
   };
   function kamUrl(art, m) { return KAM_BASIS + art + "/" + encodeURIComponent(m.name) + "?v=" + (m.zeit || 0); }
   function kamMedium(name) { return (kam.liste || []).filter(function (m) { return m.name === name; })[0] || null; }
@@ -18207,7 +18264,14 @@
   function kamDauer(s) { return s == null ? "" : talkUhr(s); }
   function kamGroesse(b) { return b > 1048576 ? (b / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
   function kamClamp(x) { return Math.max(0, Math.min(1, +x || 0)); }
+  // Kurz fuer die Karte: "Heute 10:42" / "04.10. 10:42".
+  function kamKurzDatum(ms) {
+    var d = new Date(+ms || 0), h = new Date(), z = talkZweistellig;
+    var heute = d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth() && d.getDate() === h.getDate();
+    return (heute ? "Heute" : z(d.getDate()) + "." + z(d.getMonth() + 1) + ".") + " " + z(d.getHours()) + ":" + z(d.getMinutes());
+  }
 
+  // Galerie: einheitliche Karten - Vorschau (Typ, ggf. Dauer) + EINE Zeile.
   function kamGalerie() {
     var L = kam.liste;
     if (!L) return '<div class="e-hinweis">Wird geladen …</div>';
@@ -18215,19 +18279,28 @@
     return '<div class="k-raster">' + L.slice(0, kam.mehr).map(function (m) {
         var v = m.art === "video";
         return '<button class="k-kachel" data-e="k_auf" data-v="' + abEsc(m.name) + '" title="' + abEsc(m.name) + '" aria-label="' + (v ? "Video " : "Foto ") + abEsc(m.name) + '">'
-          + '<img loading="lazy" decoding="async" alt="" draggable="false" src="' + abEsc(kamUrl("t", m)) + '">'
+          + '<span class="k-vorschau"><img loading="lazy" decoding="async" alt="" draggable="false" src="' + abEsc(kamUrl("t", m)) + '">'
+          + '<span class="k-typ">' + (v ? KAM_ICON.video : KAM_ICON.foto) + '</span>'
           + (v ? '<span class="k-play">' + KAM_ICON.play + '</span>' + (m.dauer != null ? '<span class="k-dauer">' + kamDauer(m.dauer) + '</span>' : '') : '')
+          + '</span><span class="k-fuss"><span class="k-name">' + abEsc(m.name) + '</span><span class="k-zeit">' + kamKurzDatum(m.zeit) + '</span></span>'
           + '</button>';
       }).join("") + '</div>'
       + (L.length > kam.mehr ? '<div class="n-controls"><button class="e-btn-sekundaer e-btn-klein" data-e="k_mehr">Mehr anzeigen (' + (L.length - kam.mehr) + ')</button></div>' : '');
   }
-  // Zuschnitt-Rahmen + Striche ueber dem Bild/Video (auch live beim Ziehen).
+  function kamTextBreite(o, W) { return Math.max(1, o.t.length) * o.g * W * (o.w >= 600 ? 0.6 : 0.55); }
+  // Zuschnitt-Rahmen + Striche + Texte ueber dem Bild/Video (auch live).
   function kamUeberlagerung() {
     var ed = kam.ed; if (!ed) return "";
     var W = ed.w || 1000, H = ed.h || 1000, c = ed.crop, s = "";
     if (ed.art === "foto" && ed.striche.length) {
-      s += '<svg class="k-striche" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' + ed.striche.map(function (st) {
-        var d = st.p.map(function (p, i) { return (i ? "L" : "M") + (p[0] * W).toFixed(1) + " " + (p[1] * H).toFixed(1); }).join("");
+      s += '<svg class="k-striche" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' + ed.striche.map(function (st, i) {
+        if (st.typ === "text") {
+          var gr = st.g * W, x = st.x * W, y = st.y * H;
+          var rahmen = ed.werkzeug === "text" && ed.textSel === i
+            ? '<rect class="k-textwahl" x="' + (x - gr * 0.15).toFixed(1) + '" y="' + (y - gr * 1.0).toFixed(1) + '" width="' + (kamTextBreite(st, W) + gr * 0.3).toFixed(1) + '" height="' + (gr * 1.3).toFixed(1) + '" stroke-width="' + Math.max(1, W / 500).toFixed(1) + '" stroke-dasharray="' + (W / 120).toFixed(1) + '"/>' : '';
+          return rahmen + '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" fill="' + st.f + '" font-size="' + gr.toFixed(1) + '" font-weight="' + st.w + '">' + abEsc(st.t || (ed.textSel === i ? "Text" : "")) + '</text>';
+        }
+        var d = st.p.map(function (p, k) { return (k ? "L" : "M") + (p[0] * W).toFixed(1) + " " + (p[1] * H).toFixed(1); }).join("");
         if (st.p.length === 1) d += "l0.1 0";
         return '<path d="' + d + '" stroke="' + st.f + '" stroke-width="' + (st.b * W).toFixed(2) + '"/>';
       }).join("") + '</svg>';
@@ -18240,25 +18313,64 @@
     }
     return s;
   }
+  // Zeitleiste des Videos: Trim-Band, Start-/End-Griff, Abspielposition.
   function kamTrim() {
     var ed = kam.ed, D = ed.dauer || 0; if (!D) return "";
-    var a = ed.a / D * 100, b = ed.b / D * 100;
+    var a = ed.a / D * 100, b = ed.b / D * 100, p = Math.max(0, Math.min(100, (ed.pos || 0) / D * 100));
     return '<div class="k-trim-band" style="left:' + a.toFixed(3) + '%;width:' + (b - a).toFixed(3) + '%"></div>'
-      + '<i class="k-trim-griff" data-zieh="trim-a" style="left:' + a.toFixed(3) + '%"></i><i class="k-trim-griff" data-zieh="trim-b" style="left:' + b.toFixed(3) + '%"></i>';
+      + '<i class="k-kopf-linie" style="left:' + p.toFixed(3) + '%"></i>'
+      + '<i class="k-trim-griff" data-zieh="trim-a" title="Start" style="left:' + a.toFixed(3) + '%"></i><i class="k-trim-griff" data-zieh="trim-b" title="Ende" style="left:' + b.toFixed(3) + '%"></i>';
   }
   function kamTrimText() { var ed = kam.ed; return talkUhr(ed.a) + " – " + talkUhr(ed.b) + " · " + (Math.round((ed.b - ed.a) * 10) / 10).toFixed(1).replace(".", ",") + " s"; }
-  // Nur Rahmen/Striche/Trim neu schreiben (kein ganzer Neuaufbau je Mausbewegung).
+  function kamTransport() {
+    var ed = kam.ed;
+    return '<button class="t-rund k-play-knopf" data-e="k_play" title="' + (ed.spielt ? "Pause" : "Abspielen") + '" aria-label="' + (ed.spielt ? "Pause" : "Abspielen") + '">' + (ed.spielt ? KAM_ICON.pause : KAM_ICON.play) + '</button>'
+      + '<span class="k-pos">' + talkUhr(ed.pos || 0) + ' / ' + talkUhr(ed.dauer || 0) + '</span>';
+  }
+  // Nur die lebenden Teile neu schreiben (kein ganzer Neuaufbau je Bewegung).
   function kamLive() {
     var el = einstellungen.el; if (!el || !kam.ed) return;
     var u = el.querySelector(".k-ueber"); if (u) u.innerHTML = kamUeberlagerung();
-    var t = el.querySelector(".k-trim-spur"); if (t && kam.ed.art === "video") t.innerHTML = kamTrim();
-    var tt = el.querySelector(".k-trim-zeit"); if (tt && kam.ed.art === "video") tt.textContent = kamTrimText();
+    if (kam.ed.art !== "video") return;
+    var t = el.querySelector(".k-trim-spur"); if (t) t.innerHTML = kamTrim();
+    var tt = el.querySelector(".k-trim-zeit"); if (tt) tt.textContent = kamTrimText();
+    var tr = el.querySelector(".k-transport"); if (tr) tr.innerHTML = kamTransport();
+  }
+  // Wiedergabe im Einstellungsfenster steuern (dort laeuft das Video).
+  function kamMedienBefehl(d) {
+    var T = window.__TAURI__;
+    if (T && T.event && T.event.emitTo) T.event.emitTo("einstellungen", "noki://einst_medium", d).catch(function () {});
+  }
+  function kamSeek(t) { var ed = kam.ed; ed.pos = Math.max(0, Math.min(ed.dauer || 0, t)); kamMedienBefehl({ id: "k", was: "seek", t: ed.pos }); }
+  // Stand des Videos (vom Einstellungsfenster gemeldet).
+  function kamMedienStand(d) {
+    var ed = kam.ed; if (!ed || ed.art !== "video" || ed.laedt) return;
+    var war = ed.spielt;
+    if (isFinite(+d.zeit)) ed.pos = +d.zeit;
+    ed.spielt = !!d.laeuft;
+    kamLive();
+    if (war !== ed.spielt) einstSpiegeln();
+  }
+  function kamKopf(m) {
+    var v = m.art === "video";
+    return '<div class="k-kopf"><button class="e-btn-sekundaer k-zurueck" data-e="k_zu">' + KAM_ICON.zurueck + 'Galerie</button>'
+      + '<span class="k-titel" title="' + abEsc(m.name) + '">' + abEsc(m.name) + '</span>'
+      + '<span class="k-info">' + kamKurzDatum(m.zeit) + (m.w && m.h ? ' · ' + m.w + '×' + m.h : '') + (v && m.dauer != null ? ' · ' + kamDauer(m.dauer) : '') + ' · ' + kamGroesse(m.groesse) + '</span></div>';
+  }
+  function kamRandKnoepfe(ed) {
+    return '<span class="k-rand"><button class="t-rund" data-e="k_undo" title="Rückgängig" aria-label="Rückgängig"' + (ed.undo.length ? '' : ' disabled') + '>' + KAM_ICON.undo + '</button>'
+      + '<button class="e-btn-sekundaer k-reset" data-e="k_reset" title="Alle ungespeicherten Änderungen verwerfen">' + KAM_ICON.reset + 'Zurücksetzen</button></span>';
+  }
+  function kamFarbwahl(ed) {
+    var bekannt = KAM_FARBEN.some(function (f) { return f[0] === ed.farbe; });
+    return '<span class="k-farben">' + KAM_FARBEN.map(function (f) {
+        return '<button class="k-farbe' + (ed.farbe === f[0] ? ' aktiv' : '') + '" data-e="k_farbe" data-v="' + f[0] + '" style="background:' + f[0] + '" title="' + f[1] + '" aria-label="' + f[1] + '"></button>';
+      }).join("")
+      + '<label class="k-farbe k-eigen' + (bekannt ? '' : ' aktiv') + '" title="Eigene Farbe" style="' + (bekannt ? '' : 'background:' + ed.farbe) + '"><input type="color" data-kamfarbe="1" value="' + abEsc(ed.farbe) + '" aria-label="Eigene Farbe"></label></span>';
   }
   function kamAnsicht(m) {
     var ed = kam.ed && kam.ed.name === m.name ? kam.ed : null, v = m.art === "video";
-    var kopf = '<div class="k-kopf"><button class="e-btn-sekundaer e-btn-klein" data-e="k_zu">‹ Galerie</button>'
-      + '<span class="k-titel" title="' + abEsc(m.name) + '">' + abEsc(m.name) + '</span>'
-      + '<span class="k-info">' + talkDatum(m.zeit) + (m.w && m.h ? ' · ' + m.w + '×' + m.h : '') + (v && m.dauer != null ? ' · ' + kamDauer(m.dauer) : '') + ' · ' + kamGroesse(m.groesse) + '</span></div>';
+    var kopf = kamKopf(m);
     var meldung = kam.meldung ? '<div class="e-hinweis k-meldung">' + abEsc(kam.meldung) + '</div>' : '';
     if (ed && ed.laedt) return kopf + '<div class="e-hinweis">Wird vorbereitet …</div>';
     if (!ed) {
@@ -18275,38 +18387,52 @@
     // Seitenverhaeltnis exakt halten, auch wenn die Hoehe begrenzt.
     var stil = 'aspect-ratio:' + ed.w + ' / ' + ed.h + ';width:min(100%, calc(52vh * ' + (ed.w / ed.h).toFixed(5) + '))';
     if (ed.art === "foto") {
-      var werkzeug = '<div class="e-seg k-seg">' + [["crop", "Zuschneiden"], ["stift", "Stift"], ["radierer", "Radierer"]].map(function (w) {
+      // Galerie > Vorschau > Werkzeugleiste (+ Undo/Zuruecksetzen) > Kontext > Speichern
+      var werkzeug = '<div class="e-seg k-seg">' + [["crop", "Zuschneiden"], ["stift", "Stift"], ["radierer", "Radierer"], ["text", "Text"]].map(function (w) {
           return '<button class="e-seg-btn' + (ed.werkzeug === w[0] ? ' aktiv' : '') + '" data-e="k_werkzeug" data-v="' + w[0] + '">' + w[1] + '</button>';
         }).join("") + '</div>';
-      var stift = ed.werkzeug === "stift" ? '<div class="k-farben">' + KAM_FARBEN.map(function (f) {
-          return '<button class="k-farbe' + (ed.farbe === f[0] ? ' aktiv' : '') + '" data-e="k_farbe" data-v="' + f[0] + '" style="background:' + f[0] + '" title="' + f[1] + '" aria-label="' + f[1] + '"></button>';
-        }).join("") + '<span class="k-trenner"></span>' + KAM_DICKE.map(function (d) {
+      var kontext = "";
+      if (ed.werkzeug === "stift") {
+        kontext = kamFarbwahl(ed) + '<span class="k-trenner"></span><span class="k-dicken">' + KAM_DICKE.map(function (d) {
           return '<button class="k-dicke' + (ed.dicke === d[0] ? ' aktiv' : '') + '" data-e="k_dicke" data-v="' + d[0] + '" title="' + d[1] + '" aria-label="' + d[1] + '"><i style="width:' + Math.round(d[0] * 500) + 'px;height:' + Math.round(d[0] * 500) + 'px"></i></button>';
-        }).join("") + '</div>' : '';
+        }).join("") + '</span>';
+      } else if (ed.werkzeug === "text") {
+        var sel = ed.textSel != null ? ed.striche[ed.textSel] : null;
+        kontext = (sel
+            ? '<input class="k-textfeld" type="text" data-kamtext="1" data-fokus="t' + ed.textSel + '-' + ed.textGen + '" placeholder="Text eingeben" autocomplete="off" spellcheck="false" value="' + abEsc(sel.t) + '">'
+            : '<span class="k-tipp">Ins Bild klicken, um Text zu setzen</span>')
+          + kamFarbwahl(ed) + '<span class="k-trenner"></span><span class="e-seg k-seg-klein">' + KAM_TEXTGROESSE.map(function (g) {
+            return '<button class="e-seg-btn' + (ed.textGroesse === g[0] ? ' aktiv' : '') + '" data-e="k_textgroesse" data-v="' + g[0] + '">' + g[1] + '</button>';
+          }).join("") + '</span><button class="e-seg-btn k-fett' + (ed.textFett ? ' aktiv' : '') + '" data-e="k_textfett" title="Fett" aria-label="Fett">B</button>';
+      }
       var frage = ed.ersetzenFragen
         ? '<div class="k-frage"><span>Original wirklich ersetzen? Das bisherige Foto wandert in den Papierkorb.</span><button class="e-btn-sekundaer e-btn-klein" data-e="k_ersetzen_nein">Abbrechen</button><button class="e-btn-sekundaer e-btn-klein k-gefahr" data-e="k_ersetzen_ja">Original ersetzen</button></div>' : '';
-      return kopf + meldung + '<div class="k-werkzeuge">' + werkzeug
-        + '<button class="e-btn-sekundaer e-btn-klein" data-e="k_undo"' + (ed.undo.length ? '' : ' disabled') + '>Rückgängig</button>'
-        + '<button class="e-btn-sekundaer e-btn-klein" data-e="k_reset">Zurücksetzen</button></div>' + stift
+      return kopf + meldung
         + '<div class="k-buehne-rahmen"><div class="k-buehne werkzeug-' + ed.werkzeug + '" data-buehne="1" data-zieh="flaeche" style="' + stil + '">'
         + '<img class="k-bild" loading="lazy" alt="" draggable="false" src="' + abEsc(kamUrl("f", m)) + '"><div class="k-ueber">' + kamUeberlagerung() + '</div></div></div>'
+        + '<div class="k-werkzeuge">' + werkzeug + kamRandKnoepfe(ed) + '</div>'
+        + (kontext ? '<div class="k-kontext">' + kontext + '</div>' : '')
         + '<div class="n-controls k-leiste"><button class="e-btn-primaer" data-e="k_kopie"' + (ed.speichert ? ' disabled' : '') + '>' + (ed.speichert ? 'Speichert …' : 'Kopie speichern') + '</button>'
         + '<button class="e-btn-sekundaer" data-e="k_ersetzen"' + (ed.speichert ? ' disabled' : '') + '>Original ersetzen</button>'
         + '<button class="e-btn-sekundaer" data-e="k_abbrechen">Abbrechen</button></div>' + frage;
     }
-    // Video: Zeitbereich + optionaler Zuschnitt, Export als neue Datei.
+    // Video: EIN Video ohne eigene Bedienelemente; Play/Pause, Position und
+    // Zeitleiste (mit Trim-Griffen und Abspielkopf) liegen darunter.
     var ex = kam.export, laeuft = ex && !ex.ende;
     var fort = ex ? '<div class="k-export"><div class="k-fortschritt"><i style="width:' + Math.round((ex.p || 0) * 100) + '%"></i></div>'
         + '<span>' + (laeuft ? 'Exportiert … ' + Math.round((ex.p || 0) * 100) + ' %' : abEsc(ex.ende)) + '</span>'
         + (laeuft ? '<button class="e-btn-sekundaer e-btn-klein" data-e="k_export_stopp">Abbrechen</button>' : '') + '</div>' : '';
-    return kopf + meldung + '<div class="k-werkzeuge"><div class="e-seg k-seg">'
+    return kopf + meldung
+      + '<div class="k-buehne-rahmen"><div class="k-buehne" data-buehne="1"' + (ed.zuschnitt ? ' data-zieh="flaeche"' : '') + ' style="' + stil + '">'
+      + '<video class="k-bild" data-medium="k" playsinline preload="none" poster="' + abEsc(kamUrl("t", m)) + '" src="' + abEsc(kamUrl("f", m)) + '"></video>'
+      + '<div class="k-ueber' + (ed.zuschnitt ? ' aktiv' : '') + '">' + kamUeberlagerung() + '</div></div></div>'
+      + '<div class="k-zeitleiste"><span class="k-transport">' + kamTransport() + '</span>'
+      + '<div class="k-trim-spur" data-buehne="1" data-zieh="seek">' + kamTrim() + '</div></div>'
+      + '<div class="k-trim-zeit">' + kamTrimText() + '</div>'
+      + '<div class="k-werkzeuge"><div class="e-seg k-seg">'
       + '<button class="e-seg-btn' + (!ed.zuschnitt ? ' aktiv' : '') + '" data-e="k_zuschnitt" data-v="aus">Nur schneiden</button>'
       + '<button class="e-seg-btn' + (ed.zuschnitt ? ' aktiv' : '') + '" data-e="k_zuschnitt" data-v="an">Bildausschnitt</button></div>'
-      + '<button class="e-btn-sekundaer e-btn-klein" data-e="k_reset">Zurücksetzen</button></div>'
-      + '<div class="k-buehne-rahmen"><div class="k-buehne" data-buehne="1"' + (ed.zuschnitt ? ' data-zieh="flaeche"' : '') + ' style="' + stil + '">'
-      + '<video class="k-bild" controls playsinline preload="none" poster="' + abEsc(kamUrl("t", m)) + '" src="' + abEsc(kamUrl("f", m)) + '"></video>'
-      + '<div class="k-ueber' + (ed.zuschnitt ? ' aktiv' : '') + '">' + kamUeberlagerung() + '</div></div></div>'
-      + '<div class="k-trim"><div class="k-trim-spur" data-buehne="1">' + kamTrim() + '</div><div class="k-trim-zeit">' + kamTrimText() + '</div></div>'
+      + kamRandKnoepfe(ed) + '</div>'
       + '<div class="n-controls k-leiste"><button class="e-btn-primaer" data-e="k_export"' + (laeuft ? ' disabled' : '') + '>Als neue Datei exportieren</button>'
       + '<button class="e-btn-sekundaer" data-e="k_abbrechen"' + (laeuft ? ' disabled' : '') + '>Fertig</button></div>' + fort;
   }
@@ -18321,7 +18447,8 @@
   // ---- Bearbeiten ------------------------------------------------------------
   function kamEditorAuf(m) {
     var ed = { name: m.name, art: m.art, laedt: true, w: m.w || 0, h: m.h || 0, crop: { x: 0, y: 0, w: 1, h: 1 }, undo: [],
-               striche: [], werkzeug: "crop", farbe: KAM_FARBEN[0][0], dicke: KAM_DICKE[1][0], zuschnitt: false, dauer: m.dauer || 0, a: 0, b: m.dauer || 0 };
+               striche: [], werkzeug: "crop", farbe: KAM_FARBEN[0][0], dicke: KAM_DICKE[1][0], textGroesse: KAM_TEXTGROESSE[1][0], textFett: true,
+               textSel: null, textGen: 0, textGemerkt: false, zuschnitt: false, dauer: m.dauer || 0, a: 0, b: m.dauer || 0, pos: 0, spielt: false };
     kam.ed = ed; kam.meldung = ""; kam.export = null;
     var fertig = function (w, h, d) {
       if (kam.ed !== ed) return;
@@ -18343,9 +18470,26 @@
       vd.src = kamUrl("f", m);
     }
   }
+  // Ein Bearbeitungsschritt = ein Schnappschuss (Undo nimmt genau einen zurueck).
   function kamSchnappschuss() { var ed = kam.ed; return JSON.stringify({ c: ed.crop, s: ed.striche, a: ed.a, b: ed.b }); }
-  function kamMerken() { var ed = kam.ed; ed.undo.push(kamSchnappschuss()); if (ed.undo.length > 60) ed.undo.shift(); }
-  function kamZurueck(snap) { var ed = kam.ed, z = JSON.parse(snap); ed.crop = z.c; ed.striche = z.s; ed.a = z.a; ed.b = z.b; }
+  function kamMerken() { var ed = kam.ed; ed.undo.push(kamSchnappschuss()); if (ed.undo.length > 80) ed.undo.shift(); }
+  function kamZurueck(snap) { var ed = kam.ed, z = JSON.parse(snap); ed.crop = z.c; ed.striche = z.s; ed.a = z.a; ed.b = z.b; kamTextAbwaehlen(true); }
+  // Leere Texte verschwinden beim Abwaehlen.
+  function kamTextAbwaehlen(still) {
+    var ed = kam.ed; if (!ed || ed.textSel == null) return;
+    var o = ed.striche[ed.textSel];
+    if (o && o.typ === "text" && !String(o.t || "").trim()) ed.striche.splice(ed.textSel, 1);
+    ed.textSel = null; ed.textGemerkt = false;
+  }
+  function kamTextTreffer(u, w) {
+    var ed = kam.ed, W = ed.w || 1, H = ed.h || 1;
+    for (var i = ed.striche.length - 1; i >= 0; i--) {
+      var o = ed.striche[i]; if (o.typ !== "text") continue;
+      var x = u * W, y = w * H, ox = o.x * W, oy = o.y * H, gr = o.g * W;
+      if (x >= ox - gr * 0.2 && x <= ox + kamTextBreite(o, W) + gr * 0.2 && y >= oy - gr * 1.05 && y <= oy + gr * 0.35) return i;
+    }
+    return -1;
+  }
   // Ein Zug aus dem Einstellungsfenster: u/w = 0..1 relativ zur Buehne.
   function kameraZieh(art, u, w, phase) {
     var ed = kam.ed; if (!ed || ed.laedt) return;
@@ -18355,8 +18499,12 @@
       if (phase === "start") kamMerken();
       var t = u * (ed.dauer || 0), luecke = Math.min(0.2, (ed.dauer || 0) / 4);
       if (art === "trim-a") ed.a = Math.max(0, Math.min(t, ed.b - luecke)); else ed.b = Math.min(ed.dauer || 0, Math.max(t, ed.a + luecke));
-      kamLive(); return;
+      // Das Bild zeigt genau die Schnittstelle.
+      kamSeek(art === "trim-a" ? ed.a : ed.b);
+      if (phase === "ende") einstBauen(); else kamLive();
+      return;
     }
+    if (art === "seek") { kamSeek(u * (ed.dauer || 0)); kamLive(); return; }
     var rahmen = ed.art === "foto" ? ed.werkzeug === "crop" : ed.zuschnitt;
     if (rahmen) {
       if (phase === "start") {
@@ -18388,10 +18536,35 @@
       kamLive(); return;
     }
     if (ed.art !== "foto") return;
+    if (ed.werkzeug === "text") {
+      if (phase === "start") {
+        var i = kamTextTreffer(u, w);
+        if (i >= 0) {
+          // Vorhandenen Text waehlen und verschieben.
+          if (ed.textSel !== i) { kamTextAbwaehlen(true); i = kamTextTreffer(u, w); ed.textSel = i; ed.textGen++; }
+          var o = ed.striche[i];
+          kam.zieh = { text: i, u0: u, w0: w, x0: o.x, y0: o.y, gemerkt: false };
+        } else {
+          kamTextAbwaehlen(true);
+          kamMerken();
+          ed.striche.push({ typ: "text", t: "", x: +u.toFixed(5), y: +w.toFixed(5), f: ed.farbe, g: ed.textGroesse, w: ed.textFett ? 700 : 400 });
+          ed.textSel = ed.striche.length - 1; ed.textGen++; ed.textGemerkt = true;
+          kam.zieh = null;
+        }
+        einstBauen(); return;
+      }
+      var zt = kam.zieh;
+      if (zt && zt.text != null && ed.striche[zt.text]) {
+        if (!zt.gemerkt && (Math.abs(u - zt.u0) > 0.003 || Math.abs(w - zt.w0) > 0.003)) { kamMerken(); zt.gemerkt = true; }
+        if (zt.gemerkt) { var ob = ed.striche[zt.text]; ob.x = kamClamp(zt.x0 + u - zt.u0); ob.y = kamClamp(zt.y0 + w - zt.w0); }
+      }
+      if (phase === "ende") { kam.zieh = null; einstBauen(); } else kamLive();
+      return;
+    }
     if (ed.werkzeug === "stift") {
       if (phase === "start") { kamMerken(); ed.striche.push({ f: ed.farbe, b: ed.dicke, p: [[u, w]] }); }
       else {
-        var st = ed.striche[ed.striche.length - 1], l = st && st.p[st.p.length - 1];
+        var st = ed.striche[ed.striche.length - 1], l = st && st.p && st.p[st.p.length - 1];
         if (st && l && Math.hypot((u - l[0]) * W, (w - l[1]) * H) > Math.max(W, H) * 0.002) st.p.push([+u.toFixed(5), +w.toFixed(5)]);
       }
       if (phase === "ende") einstBauen(); else kamLive();
@@ -18401,16 +18574,36 @@
       if (phase === "start") { kamMerken(); kam.zieh = { radiert: false }; }
       var r = Math.max(W, H) * 0.03, vorher = ed.striche.length;
       ed.striche = ed.striche.filter(function (st) {
+        if (st.typ === "text") return kamTextTreffer(u, w) !== ed.striche.indexOf(st);
         return !st.p.some(function (p) { return Math.hypot((p[0] - u) * W, (p[1] - w) * H) < r + st.b * W / 2; });
       });
       if (ed.striche.length !== vorher && kam.zieh) kam.zieh.radiert = true;
       if (phase === "ende") { if (kam.zieh && !kam.zieh.radiert) ed.undo.pop(); kam.zieh = null; einstBauen(); } else kamLive();
     }
   }
-  // Volle Aufloesung: Ausschnitt + Striche auf ein Canvas, als PNG an Rust
-  // (dort im Format des Originals, mit dessen Metadaten, gespeichert).
+  // Text des gewaehlten Textobjekts (Eingabefeld). Ein Undo-Schritt je Bearbeitung.
+  function kamTextEingabe(wert) {
+    var ed = kam.ed; if (!ed || ed.textSel == null) return;
+    var o = ed.striche[ed.textSel]; if (!o || o.typ !== "text") return;
+    if (!ed.textGemerkt) { kamMerken(); ed.textGemerkt = true; }
+    o.t = String(wert || "").slice(0, 200);
+    kamLive();
+  }
+  // Farbe/Groesse/Staerke: neue Striche/Texte; ein gewaehlter Text uebernimmt sie.
+  function kamTextAendern(feld, wert) {
+    var ed = kam.ed, o = ed && ed.textSel != null ? ed.striche[ed.textSel] : null;
+    if (!o || o.typ !== "text" || ed.werkzeug !== "text" || o[feld] === wert) return;
+    kamMerken(); o[feld] = wert;
+  }
+  function kamFarbeSetzen(f) {
+    var ed = kam.ed; if (!ed || !/^#[0-9a-fA-F]{6}$/.test(f)) return;
+    ed.farbe = f.toLowerCase(); kamTextAendern("f", ed.farbe);
+  }
+  // Volle Aufloesung: Ausschnitt + Striche + Texte auf ein Canvas, als PNG
+  // an Rust (dort im Format des Originals, mit dessen Metadaten, gespeichert).
   function kamFotoSpeichern(ersetzen) {
     var ed = kam.ed, img = ed && ed.bild; if (!img || ed.speichert) return;
+    kamTextAbwaehlen(true);
     var W = img.naturalWidth, H = img.naturalHeight, c = ed.crop;
     var cx = Math.round(c.x * W), cy = Math.round(c.y * H), cw = Math.max(1, Math.round(c.w * W)), ch = Math.max(1, Math.round(c.h * H));
     var daten;
@@ -18419,6 +18612,12 @@
       var g = cv.getContext("2d");
       g.drawImage(img, -cx, -cy);
       ed.striche.forEach(function (st) {
+        if (st.typ === "text") {
+          g.fillStyle = st.f; g.textBaseline = "alphabetic";
+          g.font = st.w + " " + (st.g * W).toFixed(1) + "px -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+          g.fillText(st.t, st.x * W - cx, st.y * H - cy);
+          return;
+        }
         g.strokeStyle = st.f; g.lineWidth = st.b * W; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath();
         st.p.forEach(function (p, i) { var x = p[0] * W - cx, y = p[1] * H - cy; if (i) g.lineTo(x, y); else g.moveTo(x, y); });
         if (st.p.length === 1) g.lineTo(st.p[0][0] * W - cx + 0.1, st.p[0][1] * H - cy);
@@ -18445,7 +18644,7 @@
   function kamAktion(a, v) {
     var ed = kam.ed;
     if (a === "k_auf") { kam.offen = String(v); kam.loeschen = ""; kam.meldung = ""; kam.ed = null; }
-    else if (a === "k_zu") { kam.offen = ""; kam.ed = null; kam.loeschen = ""; kam.meldung = ""; }
+    else if (a === "k_zu") { if (ed && ed.spielt) kamMedienBefehl({ id: "k", was: "pause" }); kam.offen = ""; kam.ed = null; kam.loeschen = ""; kam.meldung = ""; }
     else if (a === "k_mehr") kam.mehr += 60;
     else if (a === "k_loeschen") kam.loeschen = kam.offen;
     else if (a === "k_loeschen_nein") kam.loeschen = "";
@@ -18455,18 +18654,32 @@
         .catch(function (e) { kam.meldung = "Löschen fehlgeschlagen: " + (e && e.message || e); einstBauen(); });
     }
     else if (a === "k_bearbeiten") { var m = kamMedium(kam.offen); if (m) kamEditorAuf(m); }
-    else if (a === "k_abbrechen") { if (!(kam.export && !kam.export.ende)) { kam.ed = null; kam.export = null; } }
+    else if (a === "k_abbrechen") { if (!(kam.export && !kam.export.ende)) { if (ed && ed.spielt) kamMedienBefehl({ id: "k", was: "pause" }); kam.ed = null; kam.export = null; } }
     else if (!ed) { /* nichts offen */ }
-    else if (a === "k_werkzeug") { ed.werkzeug = String(v); ed.ersetzenFragen = false; }
-    else if (a === "k_farbe") { ed.farbe = String(v); }
+    else if (a === "k_werkzeug") { if (ed.werkzeug !== String(v)) kamTextAbwaehlen(true); ed.werkzeug = String(v); ed.ersetzenFragen = false; }
+    else if (a === "k_farbe") kamFarbeSetzen(String(v));
     else if (a === "k_dicke") { ed.dicke = +v || KAM_DICKE[1][0]; }
+    else if (a === "k_textgroesse") { ed.textGroesse = +v || KAM_TEXTGROESSE[1][0]; kamTextAendern("g", ed.textGroesse); }
+    else if (a === "k_textfett") { ed.textFett = !ed.textFett; kamTextAendern("w", ed.textFett ? 700 : 400); }
+    // Undo: genau EIN Schritt je Klick.
     else if (a === "k_undo") { var s = ed.undo.pop(); if (s) kamZurueck(s); }
-    else if (a === "k_reset") { kamMerken(); ed.crop = { x: 0, y: 0, w: 1, h: 1 }; ed.striche = []; ed.a = 0; ed.b = ed.dauer || 0; }
+    // Zuruecksetzen: alles Ungespeicherte weg, Originalzustand dieser Datei.
+    else if (a === "k_reset") {
+      kamTextAbwaehlen(true);
+      ed.crop = { x: 0, y: 0, w: 1, h: 1 }; ed.striche = []; ed.a = 0; ed.b = ed.dauer || 0; ed.zuschnitt = false; ed.undo = [];
+      ed.ersetzenFragen = false;
+      if (ed.art === "video") { if (ed.spielt) kamMedienBefehl({ id: "k", was: "pause" }); kamSeek(0); }
+    }
+    else if (a === "k_play") {
+      if (ed.spielt) kamMedienBefehl({ id: "k", was: "pause" });
+      else kamMedienBefehl({ id: "k", was: "play", von: ed.a, bis: ed.b });
+      return;
+    }
     else if (a === "k_kopie") { kamFotoSpeichern(false); return; }
     else if (a === "k_ersetzen") ed.ersetzenFragen = true;
     else if (a === "k_ersetzen_nein") ed.ersetzenFragen = false;
     else if (a === "k_ersetzen_ja") { kamFotoSpeichern(true); return; }
-    else if (a === "k_zuschnitt") ed.zuschnitt = v === "an";
+    else if (a === "k_zuschnitt") { if ((v === "an") !== ed.zuschnitt) { ed.zuschnitt = v === "an"; } }
     else if (a === "k_export") { kamVideoExport(); return; }
     else if (a === "k_export_stopp") abRuf("kamera_video_abbrechen").catch(function () {});
     einstBauen();
@@ -18542,7 +18755,7 @@
           + '<button class="e-btn-sekundaer" data-e="tende">Beenden</button></div>'
         : timerEingabe("e") + '<div class="n-controls n-mitte"><button class="e-btn-primaer n-start" data-e="tstart">Start</button></div>')
         + '</div>'
-        + einstSek("Anzeige", "", einstCheck("timer.blase", "Timer in Nokis Händen zeigen", E.timer.blase) + einstCheck("timer.gruss", "Noki winkt, wenn die Zeit abläuft", E.timer.gruss));
+        + einstSek("Anzeige", "", einstCheck("timer.blase", "Timer in Nokis Händen zeigen", E.timer.blase));
     }
     if (tab === "ablage" || tab === "ordner") {
       // EIN Bereich: was Noki gerade haelt (Ablage-Verweise) und darunter der
@@ -35309,6 +35522,9 @@
   var talkEq = document.getElementById("nokiStimmeEq");
   var talkBalken = talkEq ? Array.prototype.slice.call(talkEq.children) : [];
   var talkPegel = [], talkSchluss = 0;
+  // Nach Stopp ist die Aufnahme vorbei: spaete Pegel/Vorschauen aus der
+  // Warteschlange duerfen die Tafel nicht zurueck auf "hoert zu" stellen.
+  var talkVerarbeitet = false;
   function talkZeigen(zustand, text, label) {
     if (talkSchluss) { clearTimeout(talkSchluss); talkSchluss = 0; }
     stimmeTafel(zustand, text);
@@ -35330,16 +35546,16 @@
   }
   an("noki://stimme", function (event) {
     var w = String((event && event.payload && event.payload.was) || "");
-    if (w === "start") { talkPegelSetzen(0, true); talkZeigen("1", "", "Noki hört zu"); }
-    else if (w === "stop") talkZeigen("arbeitet", undefined, "Noki schreibt …");
-    else if (w === "abbruch") talkSchliessen(150);
+    if (w === "start") { talkVerarbeitet = false; talkPegelSetzen(0, true); talkZeigen("1", "", "Noki hört zu"); }
+    else if (w === "stop") { talkVerarbeitet = true; talkPegelSetzen(0, true); talkZeigen("arbeitet", undefined, "Noki verarbeitet …"); }
+    else if (w === "abbruch") { talkVerarbeitet = true; talkSchliessen(150); }
   });
   an("noki-talk", function (event) {
     var p = (event && event.payload) || {};
-    if (typeof p.pegel === "number") { talkPegelSetzen(p.pegel); return; }
+    if (typeof p.pegel === "number") { if (!talkVerarbeitet) talkPegelSetzen(p.pegel); return; }
     var z = String(p.zustand || "");
-    if (z === "hoert") talkZeigen("1", typeof p.text === "string" ? p.text : undefined, "Noki hört zu");
-    else if (z === "schreibt") talkZeigen("arbeitet", undefined, p.meldung || "Noki schreibt …");
+    if (z === "hoert") { if (!talkVerarbeitet) talkZeigen("1", typeof p.text === "string" ? p.text : undefined, "Noki hört zu"); }
+    else if (z === "schreibt") talkZeigen("arbeitet", undefined, p.meldung || "Noki verarbeitet …");
     else if (z === "fertig") { talkZeigen("fertig", p.text || "", p.meldung || "Eingefügt"); talkSchliessen(p.meldung ? 2600 : 1400); }
     else if (z === "leer") { talkZeigen("leer", "", p.meldung || "Nichts verstanden"); talkSchliessen(1300); }
     else if (z === "fehler") { talkZeigen("leer", "", p.meldung || "Noki Talk ist gerade nicht verfügbar."); talkSchliessen(4200); }

@@ -71,6 +71,41 @@
     }
     while (a.length > n.length) alt.removeChild(a[a.length - 1]);
   }
+  var fokusZuletzt = "";
+  // ---- media (Kamera video editor) -------------------------------------------
+  // The video plays HERE; the main window sends play/pause/seek and gets the
+  // position back (about 15 times a second while playing, nothing when idle).
+  function medium(id) { return root.querySelector('video[data-medium="' + id + '"]'); }
+  var medienTakt = 0, medienT = 0, medienBis = 0;
+  function medienMelden(v) {
+    if (!v.paused && medienBis > 0 && v.currentTime >= medienBis) { v.pause(); v.currentTime = medienBis; }
+    senden({ t: "medium", id: v.getAttribute("data-medium"), zeit: v.currentTime, laeuft: !v.paused && !v.ended });
+  }
+  function medienLauf() {
+    medienTakt = 0;
+    var v = root.querySelector("video[data-medium]");
+    if (!v || v.paused) return;
+    var t = performance.now();
+    if (t - medienT >= 66) { medienT = t; medienMelden(v); }
+    medienTakt = requestAnimationFrame(medienLauf);
+  }
+  ["play", "pause", "seeked", "ended", "loadedmetadata"].forEach(function (n) {
+    root.addEventListener(n, function (e) {
+      var v = e.target; if (!v || !v.hasAttribute || !v.hasAttribute("data-medium")) return;
+      medienMelden(v);
+      if (n === "play" && !medienTakt) medienTakt = requestAnimationFrame(medienLauf);
+    }, true);
+  });
+  ev.listen("noki://einst_medium", function (e) {
+    var p = e.payload || {}, v = medium(p.id); if (!v) return;
+    if (p.was === "play") {
+      // Within the trim range: from its start if outside, stop at its end.
+      medienBis = p.bis > 0 ? +p.bis : 0;
+      if (p.von != null && (v.currentTime < p.von - 0.01 || v.currentTime >= p.bis - 0.05)) v.currentTime = p.von;
+      v.play().catch(function () {});
+    } else if (p.was === "pause") { medienBis = 0; v.pause(); }
+    else if (p.was === "seek" && isFinite(p.t)) { try { v.currentTime = p.t; } catch (x) {} }
+  });
   ev.listen("noki://einst_html", function (e) {
     var p = e.payload || {}, tpl = document.createElement("div");
     tpl.innerHTML = p.html || "";
@@ -78,6 +113,10 @@
     morph(root, tpl);
     if (p.tab != null) root.setAttribute("data-tab", p.tab);
     if (p.tab != null && tabAlt !== p.tab) { var inh = root.querySelector(".e-inhalt"); if (inh) inh.scrollTop = 0; }
+    // A newly shown field that asks for focus (Kamera text tool) gets it once.
+    var f = root.querySelector("[data-fokus]");
+    if (f && f.getAttribute("data-fokus") !== fokusZuletzt) { fokusZuletzt = f.getAttribute("data-fokus"); try { f.focus(); } catch (x) {} }
+    else if (!f) fokusZuletzt = "";
     // Canvas pixels are not part of the DOM: drawn from the main window's copy.
     var cv = root.querySelectorAll("canvas");
     (p.canvases || []).forEach(function (url, k) {

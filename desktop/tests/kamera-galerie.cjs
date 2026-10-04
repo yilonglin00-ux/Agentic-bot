@@ -49,7 +49,13 @@ const server = http.createServer((req, res) => {
     anfragen.push({ art, name, seite: req.frame().page() === main ? 'main' : 'einst' });
     const h = { 'Access-Control-Allow-Origin': '*' };
     if (art === 't') return route.fulfill({ status: 200, headers: { ...h, 'Content-Type': 'image/jpeg' }, body: THUMB });
-    if (art === 'f' && /\.mov$/.test(name)) return route.fulfill({ status: 200, headers: { ...h, 'Content-Type': 'video/webm' }, body: CLIP });
+    if (art === 'f' && /\.mov$/.test(name)) {
+      // like the real nokimedien:// protocol: HTTP Range (needed to seek)
+      const r = /bytes=(\d*)-(\d*)/.exec(req.headers()['range'] || '');
+      if (!r) return route.fulfill({ status: 200, headers: { ...h, 'Content-Type': 'video/webm', 'Accept-Ranges': 'bytes' }, body: CLIP });
+      const a = r[1] ? +r[1] : CLIP.length - +r[2], e = r[1] && r[2] ? Math.min(+r[2], CLIP.length - 1) : CLIP.length - 1;
+      return route.fulfill({ status: 206, headers: { ...h, 'Content-Type': 'video/webm', 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${a}-${e}/${CLIP.length}` }, body: CLIP.subarray(a, e + 1) });
+    }
     if (art === 'f') return route.fulfill({ status: 200, headers: { ...h, 'Content-Type': 'image/png' }, body: FOTO });
     return route.fulfill({ status: 404 });
   });
@@ -60,7 +66,8 @@ const server = http.createServer((req, res) => {
     window.__emit = (n, p) => (window.__ev[n] || []).forEach(f => f({ payload: p }));
     const jetzt = Date.now();
     window.__kam = { liste: [{ name: 'Noki-Recording-1.mov', art: 'video', groesse: 4.2e6, zeit: jetzt - 1000, w: null, h: null, dauer: null }]
-      .concat(Array.from({ length: 69 }, (_, i) => ({ name: `Noki-Screenshot-${i}.png`, art: 'foto', groesse: 300000, zeit: jetzt - 60000 * (i + 1), w: 800, h: 500, dauer: null }))) };
+      .concat(Array.from({ length: 69 }, (_, i) => ({ name: i === 2 ? 'Bildschirmaufnahme 2026-10-04 um 10.42.17 mit einem wirklich sehr langen Dateinamen.png' : i === 3 ? 'a.png' : `Noki-Screenshot-${i}.png`,
+        art: 'foto', groesse: 300000, zeit: jetzt - 60000 * (i + 1), w: 800, h: 500, dauer: null }))) };
     const invoke = async (name, args) => {
       window.__calls.push({ name, args });
       const K = window.__kam;
@@ -134,6 +141,18 @@ const server = http.createServer((req, res) => {
   await einst.waitForTimeout(800);
   const thumbsEinst = anfragen.filter(a => a.art === 't' && a.seite === 'einst').length, thumbsMain = anfragen.filter(a => a.art === 't' && a.seite === 'main').length;
   check(thumbsEinst > 0 && thumbsMain === 0, `Vorschauen laden nur im sichtbaren Fenster (einst ${thumbsEinst}, main ${thumbsMain})`);
+  // Cards: uniform, ONE line per card, long names with an ellipsis
+  const karten = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .k-kachel')].slice(0, 8).map(k => {
+    const n = k.querySelector('.k-name'), f = k.querySelector('.k-fuss'), cs = getComputedStyle(n);
+    return { name: n.textContent, h: Math.round(k.getBoundingClientRect().height), fussH: Math.round(f.getBoundingClientRect().height),
+      zeilen: Math.round(n.getBoundingClientRect().height / parseFloat(cs.lineHeight || 14) ) || 1, nowrap: cs.whiteSpace === 'nowrap', ellipsis: cs.textOverflow === 'ellipsis',
+      gekuerzt: n.scrollWidth > n.clientWidth, zeit: (k.querySelector('.k-zeit') || {}).textContent || '', typ: !!k.querySelector('.k-typ svg') };
+  }));
+  const lang = karten.find(k => /^Bildschirmaufnahme/.test(k.name)), kurz = karten.find(k => k.name === 'a.png');
+  check(new Set(karten.map(k => k.h)).size === 1 && new Set(karten.map(k => k.fussH)).size === 1, `alle Karten gleich hoch (${[...new Set(karten.map(k => k.h))]} px), keine Layoutspruenge`);
+  check(lang && lang.nowrap && lang.ellipsis && lang.gekuerzt && kurz && !kurz.gekuerzt, 'langer Name einzeilig mit …, kurzer Name ganz');
+  check(karten.every(k => k.typ && /^(Heute|\d\d\.\d\d\.) \d\d:\d\d$/.test(k.zeit)), `Typ-Symbol + Datum/Zeit je Karte (${karten[1].zeit})`);
+  if (process.env.SHOTS) await einst.screenshot({ path: process.env.SHOTS + '/galerie.png' });
   await klick('[data-e="k_mehr"]');
   await bis(() => document.querySelectorAll('#einstellungen .k-kachel').length === 70);
   check(await einst.evaluate(() => document.querySelectorAll('#einstellungen .k-kachel').length) === 70, 'Mehr anzeigen laedt den Rest');
@@ -174,6 +193,59 @@ const server = http.createServer((req, res) => {
   await klick('[data-e="k_undo"]');
   await bis(() => document.querySelectorAll('#einstellungen .k-striche path').length === 1);
   check(await einst.evaluate(() => document.querySelectorAll('#einstellungen .k-striche path').length) === 1, 'Rueckgaengig holt ihn zurueck');
+  // toolbar: four tools as one group; undo is an icon; reset is a real button
+  const leiste = await einst.evaluate(() => ({ tools: [...document.querySelectorAll('#einstellungen .k-werkzeuge .k-seg .e-seg-btn')].map(b => b.textContent),
+    undoIcon: !!document.querySelector('#einstellungen [data-e="k_undo"] svg') && document.querySelector('#einstellungen [data-e="k_undo"]').textContent.trim() === '',
+    reset: !!document.querySelector('#einstellungen .k-werkzeuge [data-e="k_reset"]'),
+    reihe: (() => { const e = document.querySelector('#einstellungen'); const y = s => e.querySelector(s).getBoundingClientRect().top;
+      return y('.k-zurueck') < y('.k-buehne') && y('.k-buehne') < y('.k-werkzeuge') && y('.k-werkzeuge') < y('[data-e="k_kopie"]'); })() }));
+  check(leiste.tools.join('|') === 'Zuschneiden|Stift|Radierer|Text' && leiste.undoIcon && leiste.reset && leiste.reihe,
+    `Werkzeugleiste ${leiste.tools.join(' | ')}, Undo als Symbol, Reihenfolge Galerie > Vorschau > Werkzeuge > Speichern`);
+  // free colour: native colour picker
+  await klick('.e-seg-btn[data-e="k_werkzeug"]', 'Stift');
+  await bis(() => document.querySelector('#einstellungen input[data-kamfarbe]'));
+  await einst.evaluate(() => { const i = document.querySelector('#einstellungen input[data-kamfarbe]'); i.value = '#12ab34'; i.dispatchEvent(new Event('input', { bubbles: true })); });
+  await bis(() => document.querySelector('#einstellungen .k-eigen.aktiv'));
+  await ziehen('.k-buehne', [0.4, 0.3], [0.7, 0.35]);
+  await bis(() => document.querySelectorAll('#einstellungen .k-striche path').length === 2);
+  striche = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .k-striche path')].map(p => p.getAttribute('stroke')));
+  check(striche[1] === '#12ab34', `freie Farbwahl (Farbwaehler) fuer den Stift (${striche[1]})`);
+  // text: click into the picture, type, size, move
+  await klick('.e-seg-btn[data-e="k_werkzeug"]', 'Text');
+  const bb = await einst.locator('#einstellungen .k-buehne').boundingBox();
+  await einst.mouse.click(bb.x + bb.width * 0.3, bb.y + bb.height * 0.6);
+  await bis(() => document.activeElement && document.activeElement.matches('.k-textfeld'));
+  check(await einst.evaluate(() => document.activeElement && document.activeElement.matches('.k-textfeld')), 'Klick ins Bild setzt Text, Eingabefeld hat den Fokus');
+  await einst.keyboard.type('Hallo Noki');
+  await bis(() => (document.querySelector('#einstellungen .k-striche text') || {}).textContent === 'Hallo Noki');
+  await klick('.e-seg-btn[data-e="k_textgroesse"]', 'L');
+  await bis(() => +(document.querySelector('#einstellungen .k-striche text') || { getAttribute: () => 0 }).getAttribute('font-size') > 70);
+  let tx = await einst.evaluate(() => { const t = document.querySelector('#einstellungen .k-striche text'); return { t: t.textContent, f: t.getAttribute('fill'), g: +t.getAttribute('font-size'), x: +t.getAttribute('x'), y: +t.getAttribute('y'), w: t.getAttribute('font-weight') }; });
+  check(tx.t === 'Hallo Noki' && tx.f === '#12ab34' && Math.abs(tx.g - 80) < 1 && tx.w === '700', `Text mit Inhalt, Farbe, Groesse, Staerke (${tx.t}, ${tx.f}, ${tx.g}px, ${tx.w})`);
+  await ziehen('.k-buehne', [0.32, 0.57], [0.52, 0.77]);
+  await bis(() => Math.abs(+document.querySelector('#einstellungen .k-striche text').getAttribute('x') - 0.5 * 800) < 8);
+  tx = await einst.evaluate(() => { const t = document.querySelector('#einstellungen .k-striche text'); return { x: +t.getAttribute('x'), y: +t.getAttribute('y') }; });
+  if (process.env.SHOTS) await einst.screenshot({ path: process.env.SHOTS + '/foto-editor.png' });
+  check(Math.abs(tx.x - 400) < 8 && Math.abs(tx.y - 400) < 8, `Text verschiebbar (${tx.x}, ${tx.y})`);
+  // undo step by step: move, size, typing, the text itself
+  const anzahl = () => einst.evaluate(() => ({ p: document.querySelectorAll('#einstellungen .k-striche path').length, t: [...document.querySelectorAll('#einstellungen .k-striche text')].map(t => t.textContent + '@' + t.getAttribute('x') + '/' + t.getAttribute('font-size')) }));
+  const schritte = [];
+  let undoVorher = JSON.stringify(await anzahl());
+  for (let i = 0; i < 4; i++) {
+    await klick('[data-e="k_undo"]');
+    await einst.waitForFunction(v => JSON.stringify({ p: document.querySelectorAll('#einstellungen .k-striche path').length, t: [...document.querySelectorAll('#einstellungen .k-striche text')].map(t => t.textContent + '@' + t.getAttribute('x') + '/' + t.getAttribute('font-size')) }) !== v, undoVorher, { timeout: 5000 }).catch(() => {});
+    undoVorher = JSON.stringify(await anzahl()); schritte.push(undoVorher);
+  }
+  console.log('  Undo-Schritte:', schritte.join('  >  '));
+  check(schritte.join('|') === ['{"p":2,"t":["Hallo Noki@240.0/80.0"]}', '{"p":2,"t":["Hallo Noki@240.0/48.0"]}', '{"p":2,"t":[]}', '{"p":1,"t":[]}'].join('|'),
+    'Undo nimmt je Klick genau einen Schritt zurueck (Verschieben > Groesse > Text > gruener Strich)');
+  // redo the text for the export check
+  await einst.mouse.click(bb.x + bb.width * 0.5, bb.y + bb.height * 0.9);
+  await bis(() => document.activeElement && document.activeElement.matches('.k-textfeld'));
+  await einst.keyboard.type('Export');
+  await bis(() => [...document.querySelectorAll('#einstellungen .k-striche text')].some(t => t.textContent === 'Export'));
+  await main.evaluate(() => { const o = CanvasRenderingContext2D.prototype.fillText; window.__ft = [];
+    CanvasRenderingContext2D.prototype.fillText = function (t, x, y) { window.__ft.push([t, x, y, this.fillStyle]); return o.apply(this, arguments); }; });
   // "Original ersetzen" needs a confirmation; cancel = nothing happens
   await klick('[data-e="k_ersetzen"]');
   await bis(() => document.querySelector('#einstellungen [data-e="k_ersetzen_ja"]'));
@@ -188,6 +260,8 @@ const server = http.createServer((req, res) => {
   const g = png.length > 24 ? pngGroesse(png) : {};
   check(sp && sp.args.ersetzen === false && sp.args.name === 'Noki-Screenshot-0.png', 'Kopie speichern = Standard (Original bleibt)');
   check(Math.abs(g.w - 600) <= 4 && Math.abs(g.h - 400) <= 4, `gespeichertes Bild = Zuschnitt in voller Aufloesung (${g.w}x${g.h})`);
+  const ft = await main.evaluate(() => window.__ft);
+  check(ft.length === 1 && ft[0][0] === 'Export' && Math.abs(ft[0][1] - (400 - 200)) < 3 && Math.abs(ft[0][2] - (450 - 100)) < 3, `Kopie enthaelt den Text, im Zuschnitt richtig versetzt (${JSON.stringify(ft[0])})`);
   await bis(() => /Als Kopie gespeichert/.test(document.querySelector('#einstellungen').textContent));
   check(await einst.evaluate(() => /Als Kopie gespeichert: Noki-Screenshot-0-bearbeitet\.png/.test(document.querySelector('#einstellungen').textContent)), 'Bestaetigung + die Kopie ist geoeffnet');
   // replace original deliberately
@@ -195,6 +269,19 @@ const server = http.createServer((req, res) => {
   await klick('.k-kachel[data-v="Noki-Screenshot-1.png"]');
   await klick('[data-e="k_bearbeiten"]');
   await bis(() => document.querySelector('#einstellungen .k-buehne'), 15000);
+  await ziehen('.k-buehne', [0.002, 0.003], [0.3, 0.3]);
+  await klick('.e-seg-btn[data-e="k_werkzeug"]', 'Stift');
+  await ziehen('.k-buehne', [0.4, 0.5], [0.8, 0.5]);
+  await klick('.e-seg-btn[data-e="k_werkzeug"]', 'Text');
+  const bb2 = await einst.locator('#einstellungen .k-buehne').boundingBox();
+  await einst.mouse.click(bb2.x + bb2.width * 0.5, bb2.y + bb2.height * 0.5);
+  await bis(() => document.activeElement && document.activeElement.matches('.k-textfeld'));
+  await einst.keyboard.type('weg');
+  await bis(() => !!document.querySelector('#einstellungen .k-striche text'));
+  await klick('[data-e="k_reset"]');
+  await bis(() => !document.querySelector('#einstellungen .k-striche'));
+  const nachReset = await einst.evaluate(() => ({ striche: !!document.querySelector('#einstellungen .k-striche'), crop: document.querySelector('#einstellungen .k-crop') && document.querySelector('#einstellungen .k-crop').getAttribute('style'), undo: document.querySelector('#einstellungen [data-e="k_undo"]').disabled }));
+  check(!nachReset.striche && (!nachReset.crop || /left:0\.000%;top:0\.000%;width:100\.000%;height:100\.000%/.test(nachReset.crop)) && nachReset.undo, 'Zuruecksetzen verwirft Zuschnitt, Striche und Text auf einmal');
   await klick('[data-e="k_ersetzen"]');
   await klick('[data-e="k_ersetzen_ja"]');
   await main.waitForFunction(() => window.__calls.filter(c => c.name === 'kamera_bild_speichern').length === 2, null, { timeout: 15000 }).catch(() => {});
@@ -220,13 +307,68 @@ const server = http.createServer((req, res) => {
   await einst.evaluate(() => document.querySelector('#einstellungen video.k-gross').play().catch(() => {}));
   await bis(() => document.querySelector('#einstellungen video.k-gross').currentTime > 0.3, 10000);
   check(await einst.evaluate(() => document.querySelector('#einstellungen video.k-gross').currentTime > 0.3), 'Video spielt im Einstellungsfenster');
+  await einst.evaluate(() => document.querySelector('#einstellungen video.k-gross').pause());
   await klick('[data-e="k_bearbeiten"]');
   await bis(() => document.querySelector('#einstellungen .k-trim-griff'), 15000);
+  const vEd = () => einst.evaluate(() => { const v = document.querySelector('#einstellungen video[data-medium]'); const k = document.querySelector('#einstellungen .k-kopf-linie');
+    return { t: v.currentTime, paused: v.paused, kopf: parseFloat(k.style.left), pos: document.querySelector('#einstellungen .k-pos').textContent,
+      knopf: document.querySelector('#einstellungen [data-e="k_play"]').getAttribute('aria-label'), zweite: document.querySelectorAll('#einstellungen video').length,
+      reset: (() => { const r = document.querySelector('#einstellungen [data-e="k_reset"]'); return r && r.textContent.trim() === 'Zurücksetzen' && r.offsetHeight >= 26; })() }; });
+  let ve = await vEd();
+  check(ve.zweite === 1 && ve.knopf === 'Abspielen' && ve.reset, 'Editor: ein Video, Play-Knopf, sichtbarer "Zurücksetzen"-Knopf');
+  await klick('[data-e="k_play"]');
+  await bis(() => !document.querySelector('#einstellungen video[data-medium]').paused);
+  await bis(() => parseFloat(document.querySelector('#einstellungen .k-kopf-linie').style.left) > 10 && document.querySelector('#einstellungen video[data-medium]').currentTime > 0.4, 8000);
+  ve = await vEd();
+  check(!ve.paused && ve.t > 0.4 && ve.kopf > 10 && ve.knopf === 'Pause', `Play waehrend der Bearbeitung: Abspielkopf laeuft (${ve.t.toFixed(2)} s, ${ve.kopf.toFixed(1)} %, ${ve.pos})`);
+  await klick('[data-e="k_play"]');
+  await bis(() => document.querySelector('#einstellungen video[data-medium]').paused);
+  ve = await vEd();
+  const angehalten = ve.t;
+  await einst.waitForTimeout(500);
+  ve = await vEd();
+  check(ve.paused && Math.abs(ve.t - angehalten) < 0.01 && ve.knopf === 'Abspielen', `Pause haelt an (${ve.t.toFixed(2)} s)`);
+  // trim start: the picture jumps to the cut
   await ziehen('.k-trim-spur', [0, 0.5], [0.2, 0.5]);
+  await bis(() => Math.abs(document.querySelector('#einstellungen video[data-medium]').currentTime - 0.6) < 0.1);
+  ve = await vEd();
+  check(Math.abs(ve.t - 0.6) < 0.1, `Trim-Start setzt die Vorschau auf den Schnitt (${ve.t.toFixed(2)} s)`);
+  await klick('[data-e="k_play"]');
+  await bis(() => document.querySelector('#einstellungen video[data-medium]').currentTime > 0.8, 8000);
+  ve = await vEd();
+  check(!ve.paused && ve.t > 0.8, `weiter abspielen ab dem Start (${ve.t.toFixed(2)} s)`);
+  await klick('[data-e="k_play"]');
+  await bis(() => document.querySelector('#einstellungen video[data-medium]').paused);
   await ziehen('.k-trim-spur', [1, 0.5], [0.8, 0.5]);
+  // seek: click into the timeline
+  const spur = await einst.locator('#einstellungen .k-trim-spur').boundingBox();
+  await einst.mouse.click(spur.x + spur.width * 0.5, spur.y + spur.height * 0.5);
+  await bis(() => Math.abs(document.querySelector('#einstellungen video[data-medium]').currentTime - 1.5) < 0.1);
+  ve = await vEd();
+  check(Math.abs(ve.t - 1.5) < 0.1 && Math.abs(ve.kopf - 50) < 3, `Seek per Zeitleiste (${ve.t.toFixed(2)} s, Kopf ${ve.kopf.toFixed(1)} %)`);
+  // playing stops at the trim end
+  await klick('[data-e="k_play"]');
+  await bis(() => document.querySelector('#einstellungen video[data-medium]').paused && document.querySelector('#einstellungen video[data-medium]').currentTime > 2, 8000);
+  ve = await vEd();
+  if (process.env.SHOTS) await einst.screenshot({ path: process.env.SHOTS + '/video-editor.png' });
+  check(ve.paused && Math.abs(ve.t - 2.4) < 0.15, `Wiedergabe endet am Trim-Ende (${ve.t.toFixed(2)} s)`);
   await bis(() => /0:01 – 0:02 · 1,8 s/.test((document.querySelector('#einstellungen .k-trim-zeit') || {}).textContent || ''));
   const tz = await einst.evaluate(() => document.querySelector('#einstellungen .k-trim-zeit').textContent);
+  await bis(() => !document.querySelector('#einstellungen [data-e="k_undo"]').disabled);
+  check(await einst.evaluate(() => !document.querySelector('#einstellungen [data-e="k_undo"]').disabled), 'Undo nach Trim verfuegbar');
   check(/0:01 – 0:02 · 1,8 s/.test(tz), `Schneiden mit Start-/End-Griff (${tz})`);
+  await klick('.e-seg-btn[data-e="k_zuschnitt"]', 'Bildausschnitt');
+  await bis(() => document.querySelector('#einstellungen .k-crop.an'));
+  await ziehen('.k-buehne', [0.998, 0.997], [0.5, 0.5]);
+  // Zuruecksetzen: trim + crop back to the original state
+  await klick('[data-e="k_reset"]');
+  await bis(() => /0:00 – 0:03 · 3,0 s/.test(document.querySelector('#einstellungen .k-trim-zeit').textContent));
+  const rz = await einst.evaluate(() => ({ t: document.querySelector('#einstellungen .k-trim-zeit').textContent, crop: !!document.querySelector('#einstellungen .k-crop'),
+    nur: document.querySelector('#einstellungen .e-seg-btn.aktiv[data-e="k_zuschnitt"]').textContent, undo: document.querySelector('#einstellungen [data-e="k_undo"]').disabled }));
+  check(/0:00 – 0:03 · 3,0 s/.test(rz.t) && !rz.crop && rz.nur === 'Nur schneiden' && rz.undo, `Zuruecksetzen: volle Dauer, kein Zuschnitt (${rz.t})`);
+  // again for the export
+  await ziehen('.k-trim-spur', [0, 0.5], [0.2, 0.5]);
+  await ziehen('.k-trim-spur', [1, 0.5], [0.8, 0.5]);
   await klick('.e-seg-btn[data-e="k_zuschnitt"]', 'Bildausschnitt');
   await bis(() => document.querySelector('#einstellungen .k-crop.an'));
   await ziehen('.k-buehne', [0.998, 0.997], [0.5, 0.5]);
