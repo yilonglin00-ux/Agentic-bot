@@ -52,6 +52,8 @@ pub mod mcp_policy;
 mod memory;
 mod noki_talk;
 mod talk_kern;
+mod kamera_kern;
+mod kamera_galerie;
 pub mod model_manager;
 pub mod model_registry;
 pub mod pdf;
@@ -16635,6 +16637,8 @@ pub fn run() {
         // Shortcut 9 card pictures as raw PNG bytes (no base64 over the IPC).
         // Live preview of a Noki code project (read-only, no IPC for the page).
         .register_uri_scheme_protocol("nokicode", |_ctx, anfrage| code_vorschau::protokoll(anfrage))
+        // Noki Kamera: Vorschaubilder + Dateien der Galerie (eigener Thread, Range).
+        .register_asynchronous_uri_scheme_protocol("nokimedien", |ctx, anfrage, antworter| kamera_galerie::protokoll(ctx.app_handle(), anfrage, antworter))
         .register_uri_scheme_protocol("nokibild", |_ctx, anfrage| {
             let antwort = tauri::http::Response::builder();
             match window_overview::bild_antwort(anfrage.uri().path()) {
@@ -16668,6 +16672,11 @@ pub fn run() {
             noki_talk::noki_talk_kopieren,
             noki_talk::noki_talk_loeschen,
             noki_talk::noki_talk_mikrofon_freigabe,
+            kamera_galerie::kamera_medien,
+            kamera_galerie::kamera_bild_speichern,
+            kamera_galerie::kamera_loeschen,
+            kamera_galerie::kamera_video_export,
+            kamera_galerie::kamera_video_abbrechen,
             intelligence::code_vorschau_oeffnen,
             intelligence::code_projekt_zeigen,
             intelligence::code_projekte,

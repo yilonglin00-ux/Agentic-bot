@@ -114,6 +114,22 @@ if [ -f "$talk_src" ] && command -v swiftc >/dev/null 2>&1; then
   ditto "$talk_app" "$app/Contents/Helpers/NokiTalk.app"
 fi
 
+# Noki Kamera: Medien-Helfer (Vorschaubilder, Bild speichern, Video
+# schneiden/zuschneiden). Kurzlebiger Kindprozess von Noki, kein eigenes
+# Bundle noetig (keine eigene Freigabe; Zugriff wie Noki selbst).
+medien_src="$_here/kamera/noki-medien.swift"
+medien_bin="$_projekt/.local/kamera/noki-medien"
+if [ -f "$medien_src" ] && command -v swiftc >/dev/null 2>&1; then
+  mkdir -p "$(dirname "$medien_bin")"
+  if [ ! -x "$medien_bin" ] || [ "$medien_src" -nt "$medien_bin" ]; then
+    echo "==> Kamera-Medien-Helfer (swiftc)"
+    swiftc -O -swift-version 5 -o "$medien_bin" "$medien_src" -framework AVFoundation -framework ImageIO
+  fi
+  codesign --force -s - "$medien_bin" >/dev/null 2>&1 || true
+  mkdir -p "$app/Contents/Helpers"
+  cp "$medien_bin" "$app/Contents/Helpers/noki-medien.neu" && mv -f "$app/Contents/Helpers/noki-medien.neu" "$app/Contents/Helpers/noki-medien"
+fi
+
 # Photos-Adapter (PhotoKit): eigener kleiner App-Helper fuer macOS Fotos-Mediathek
 photos_src="$_here/photos/noki-photos.swift"
 photos_app="$_projekt/.local/photos/NokiPhotos.app"

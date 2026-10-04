@@ -123,6 +123,24 @@
   function farbEnde(e) { if (farbe && farbe.pid === e.pointerId) { farbPunkt(e, true); farbe = null; } }
   root.addEventListener("pointerup", farbEnde);
   root.addEventListener("pointercancel", farbEnde);
+  // Drags (Kamera editor: crop frame, pen, eraser, trim handles): position
+  // relative to the nearest [data-buehne], computed here like the colours.
+  var zieh = null;
+  function ziehPunkt(e, phase) {
+    var r = zieh.ref.getBoundingClientRect();
+    senden({ t: "zieh", art: zieh.art, u: (e.clientX - r.left) / Math.max(r.width, 1), w: (e.clientY - r.top) / Math.max(r.height, 1), phase: phase });
+  }
+  root.addEventListener("pointerdown", function (e) {
+    var t = e.target.closest && e.target.closest("[data-zieh]");
+    if (!t || e.button !== 0) return;
+    zieh = { art: t.getAttribute("data-zieh"), ref: t.closest("[data-buehne]") || t, pid: e.pointerId };
+    try { t.setPointerCapture(e.pointerId); } catch (x) {}
+    ziehPunkt(e, "start"); e.preventDefault();
+  });
+  root.addEventListener("pointermove", function (e) { if (zieh && zieh.pid === e.pointerId) ziehPunkt(e, "zug"); });
+  function ziehEnde(e) { if (zieh && zieh.pid === e.pointerId) { ziehPunkt(e, "ende"); zieh = null; } }
+  root.addEventListener("pointerup", ziehEnde);
+  root.addEventListener("pointercancel", ziehEnde);
   // Timer fields: the main window's document-level helpers never see this page.
   root.addEventListener("keydown", function (e) {
     var f = e.target; if (!f || !f.hasAttribute || !f.hasAttribute("data-zeit")) return;

@@ -1500,6 +1500,60 @@
   #einstellungen input.t-seek { flex: 1; min-width: 60px; height: 14px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
   #einstellungen input.t-seek::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); }
   #einstellungen input.t-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; margin-top: -4px; border-radius: 50%; background: var(--noki-accent); border: 0; }
+  /* Noki Kamera · Galerie + Bearbeiten (dieselben Flaechen/Akzente wie Noki Talk) */
+  #einstellungen .k-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  #einstellungen button.k-kachel { all: unset; position: relative; aspect-ratio: 1; border-radius: 9px; overflow: hidden; cursor: pointer; box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+  #einstellungen button.k-kachel:hover { border-color: var(--noki-accent); }
+  #einstellungen button.k-kachel:focus-visible { outline: 2px solid var(--noki-accent); outline-offset: 1px; }
+  #einstellungen .k-kachel img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #einstellungen .k-play { position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.5); color: #fff; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  #einstellungen .k-play svg { width: 13px; height: 13px; margin-left: 2px; }
+  #einstellungen .k-dauer { position: absolute; right: 5px; bottom: 5px; padding: 1px 5px; border-radius: 5px; font-size: 10.5px; color: #fff; background: rgba(0, 0, 0, 0.55); font-variant-numeric: tabular-nums; }
+  #einstellungen .k-kopf { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; min-width: 0; }
+  #einstellungen .k-titel { font-size: 12.5px; font-weight: 600; color: var(--noki-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #einstellungen .k-info { margin-left: auto; flex: none; font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
+  #einstellungen .k-buehne-rahmen { display: flex; justify-content: center; align-items: center; border-radius: 10px; background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.06); padding: 8px; }
+  #einstellungen .k-gross { display: block; max-width: 100%; max-height: 52vh; border-radius: 6px; }
+  #einstellungen .k-buehne { position: relative; max-width: 100%; overflow: hidden; border-radius: 4px; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #einstellungen .k-buehne .k-bild { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: fill; }
+  #einstellungen .k-buehne.werkzeug-stift { cursor: crosshair; }
+  #einstellungen .k-buehne.werkzeug-radierer { cursor: cell; }
+  #einstellungen .k-buehne.werkzeug-crop, #einstellungen .k-buehne[data-zieh] { cursor: crosshair; }
+  #einstellungen .k-ueber { position: absolute; inset: 0; pointer-events: none; }
+  #einstellungen .k-ueber.aktiv { pointer-events: auto; }
+  #einstellungen .k-striche { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #einstellungen .k-striche path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  #einstellungen .k-crop { position: absolute; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); outline: 1px solid rgba(255, 255, 255, 0.35); }
+  #einstellungen .k-crop.an { pointer-events: auto; cursor: move; outline: 1.5px solid var(--noki-accent); }
+  #einstellungen .k-g { position: absolute; width: 12px; height: 12px; border-radius: 3px; background: var(--noki-accent); border: 1.5px solid #fff; box-sizing: border-box; }
+  #einstellungen .k-g.nw { left: -6px; top: -6px; cursor: nwse-resize; } #einstellungen .k-g.se { right: -6px; bottom: -6px; cursor: nwse-resize; }
+  #einstellungen .k-g.ne { right: -6px; top: -6px; cursor: nesw-resize; } #einstellungen .k-g.sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
+  #einstellungen .k-werkzeuge { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  #einstellungen .k-werkzeuge .k-seg { margin-right: auto; }
+  #einstellungen .k-farben { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  #einstellungen button.k-farbe { all: unset; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, 0.25); }
+  #einstellungen button.k-farbe.aktiv { box-shadow: 0 0 0 2px var(--noki-bg-tief, #111), 0 0 0 3.5px var(--noki-accent); }
+  #einstellungen button.k-dicke { all: unset; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--noki-border); background: var(--noki-raised); }
+  #einstellungen button.k-dicke i { display: block; border-radius: 50%; background: var(--noki-text); }
+  #einstellungen button.k-dicke.aktiv { border-color: var(--noki-accent); background: rgba(var(--noki-accent-rgb), .12); }
+  #einstellungen .k-trenner { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.08); margin: 0 4px; }
+  #einstellungen .k-leiste { margin-top: 10px; }
+  #einstellungen .k-gefahr { color: #ff8a80; }
+  #einstellungen .k-gefahr svg { width: 13px; height: 13px; margin-right: 5px; vertical-align: -2px; }
+  #einstellungen .k-frage { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 8px 10px; border-radius: 8px; font-size: 12px; color: var(--noki-text);
+    background: rgba(255, 138, 128, 0.08); border: 1px solid rgba(255, 138, 128, 0.28); }
+  #einstellungen .k-frage span { margin-right: auto; }
+  #einstellungen .k-meldung { margin-bottom: 8px; }
+  #einstellungen .k-trim { margin-top: 10px; }
+  #einstellungen .k-trim-spur { position: relative; height: 26px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); touch-action: none; }
+  #einstellungen .k-trim-band { position: absolute; top: 0; bottom: 0; background: rgba(var(--noki-accent-rgb), .22); border-top: 2px solid var(--noki-accent); border-bottom: 2px solid var(--noki-accent); box-sizing: border-box; }
+  #einstellungen .k-trim-griff { position: absolute; top: -3px; bottom: -3px; width: 10px; margin-left: -5px; border-radius: 4px; background: var(--noki-accent); border: 1.5px solid #fff; box-sizing: border-box; cursor: ew-resize; }
+  #einstellungen .k-trim-zeit { margin-top: 6px; font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
+  #einstellungen .k-export { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--noki-text-secondary); }
+  #einstellungen .k-fortschritt { flex: 1; max-width: 220px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+  #einstellungen .k-fortschritt i { display: block; height: 100%; background: var(--noki-accent); transition: width .2s linear; }
   #einstellungen .e-btn-klein { all: unset; padding: 4px 9px; border-radius: 6px; font-size: 12px; font-weight: 550; color: var(--noki-text-secondary); cursor: pointer; }
   #einstellungen .e-btn-klein:hover { background: rgba(255, 255, 255, 0.09); color: var(--noki-text); }
   #einstellungen .e-punkt { display: inline-block; width: 7px; height: 7px; margin-right: 9px; border-radius: 50%; background: #d9534f; vertical-align: 1px; }
@@ -17535,6 +17589,7 @@
       einstTabLaden(einstellungen.tab || "allgemein"); einstBauen();
     }
     if (d.t === "esc") { einstellungenZu(); return; }
+    if (d.t === "zieh") { kameraZieh(String(d.art || ""), +d.u, +d.w, d.phase); return; }
     if (d.t === "farbe" && d.ziel) { obFarbe(d.ziel, d.art, +d.u, +d.w, !!d.ende); return; }
     if (d.t === "farbe") {
       farbeAusZeiger(d.art, { u: +d.u, w: +d.w });
@@ -17690,6 +17745,7 @@
   }
   function einstTabLaden(tab) {
     if (tab === "talk") talkLaden();
+    if (tab === "kamera") kamLaden();
     if (tab === "allgemein") abRuf("noki_app_info").then(function (d) { einstellungen.info = d || null; einstBauen(); }).catch(function () {});
     if (tab === "intelligence") abRuf("kuerzel_info").then(function (d) { einstellungen.kuerzel = d || null; einstBauen(); }).catch(function () {});
     if (tab === "ordner" || tab === "ablage") abRuf("noki_ordner_liste").then(function (l) { einstellungen.ordner = Array.isArray(l) ? l : []; einstellungen.omit = null; einstBauen(); }).catch(function () {});
@@ -18125,6 +18181,314 @@
       }
     });
   })();
+  // ---- KAMERA: Galerie der Noki-Aufnahmen (~/Desktop/Noki Kamera) --------
+  // Liste/Dateien/Vorschauen kommen von der nativen Seite (kamera_* und das
+  // Protokoll nokimedien://). Vorschaubilder laden "lazy" nur im sichtbaren
+  // Einstellungsfenster (das losgeloeste Element hier laedt sie nie).
+  // Bearbeiten: Foto zuschneiden/zeichnen -> Kopie (Standard) oder bewusst
+  // "Original ersetzen"; Video schneiden/zuschneiden -> neue Datei.
+  var kam = { liste: null, mehr: 60, offen: "", loeschen: "", ed: null, zieh: null, export: null, meldung: "", metaT: 0 };
+  var KAM_BASIS = /Windows/.test(navigator.userAgent) ? "http://nokimedien.localhost/" : "nokimedien://localhost/";
+  var KAM_FARBEN = [["#ff453a", "Rot"], ["#ffd60a", "Gelb"], ["#30d158", "Grün"], ["#0a84ff", "Blau"], ["#ffffff", "Weiß"], ["#1c1c1e", "Schwarz"]];
+  var KAM_DICKE = [[0.004, "Fein"], [0.009, "Mittel"], [0.018, "Dick"]];
+  var KAM_ICON = {
+    play: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z" fill="currentColor"/></svg>',
+    weg: TALK_ICON.weg
+  };
+  function kamUrl(art, m) { return KAM_BASIS + art + "/" + encodeURIComponent(m.name) + "?v=" + (m.zeit || 0); }
+  function kamMedium(name) { return (kam.liste || []).filter(function (m) { return m.name === name; })[0] || null; }
+  function kamLaden() {
+    abRuf("kamera_medien").then(function (l) {
+      kam.liste = Array.isArray(l) ? l : [];
+      if (kam.offen && !kamMedium(kam.offen)) { kam.offen = ""; kam.ed = null; }
+      if (einstellungen.offen && einstellungen.tab === "kamera") einstBauen();
+    }).catch(function () { kam.liste = kam.liste || []; });
+  }
+  function kamDauer(s) { return s == null ? "" : talkUhr(s); }
+  function kamGroesse(b) { return b > 1048576 ? (b / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
+  function kamClamp(x) { return Math.max(0, Math.min(1, +x || 0)); }
+
+  function kamGalerie() {
+    var L = kam.liste;
+    if (!L) return '<div class="e-hinweis">Wird geladen …</div>';
+    if (!L.length) return '<div class="n-app-leer">Noch keine Fotos oder Videos – Fotoaufnahme oder Screen Recording starten.</div>';
+    return '<div class="k-raster">' + L.slice(0, kam.mehr).map(function (m) {
+        var v = m.art === "video";
+        return '<button class="k-kachel" data-e="k_auf" data-v="' + abEsc(m.name) + '" title="' + abEsc(m.name) + '" aria-label="' + (v ? "Video " : "Foto ") + abEsc(m.name) + '">'
+          + '<img loading="lazy" decoding="async" alt="" draggable="false" src="' + abEsc(kamUrl("t", m)) + '">'
+          + (v ? '<span class="k-play">' + KAM_ICON.play + '</span>' + (m.dauer != null ? '<span class="k-dauer">' + kamDauer(m.dauer) + '</span>' : '') : '')
+          + '</button>';
+      }).join("") + '</div>'
+      + (L.length > kam.mehr ? '<div class="n-controls"><button class="e-btn-sekundaer e-btn-klein" data-e="k_mehr">Mehr anzeigen (' + (L.length - kam.mehr) + ')</button></div>' : '');
+  }
+  // Zuschnitt-Rahmen + Striche ueber dem Bild/Video (auch live beim Ziehen).
+  function kamUeberlagerung() {
+    var ed = kam.ed; if (!ed) return "";
+    var W = ed.w || 1000, H = ed.h || 1000, c = ed.crop, s = "";
+    if (ed.art === "foto" && ed.striche.length) {
+      s += '<svg class="k-striche" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' + ed.striche.map(function (st) {
+        var d = st.p.map(function (p, i) { return (i ? "L" : "M") + (p[0] * W).toFixed(1) + " " + (p[1] * H).toFixed(1); }).join("");
+        if (st.p.length === 1) d += "l0.1 0";
+        return '<path d="' + d + '" stroke="' + st.f + '" stroke-width="' + (st.b * W).toFixed(2) + '"/>';
+      }).join("") + '</svg>';
+    }
+    var zeigeRahmen = ed.art === "foto" ? ed.werkzeug === "crop" : ed.zuschnitt;
+    var voll = c.x <= 0.0005 && c.y <= 0.0005 && c.w >= 0.9995 && c.h >= 0.9995;
+    if (zeigeRahmen || !voll) {
+      s += '<div class="k-crop' + (zeigeRahmen ? ' an' : '') + '" style="left:' + (c.x * 100).toFixed(3) + '%;top:' + (c.y * 100).toFixed(3) + '%;width:' + (c.w * 100).toFixed(3) + '%;height:' + (c.h * 100).toFixed(3) + '%"'
+        + (zeigeRahmen ? ' data-zieh="move"><i class="k-g nw" data-zieh="nw"></i><i class="k-g ne" data-zieh="ne"></i><i class="k-g sw" data-zieh="sw"></i><i class="k-g se" data-zieh="se"></i>' : '>') + '</div>';
+    }
+    return s;
+  }
+  function kamTrim() {
+    var ed = kam.ed, D = ed.dauer || 0; if (!D) return "";
+    var a = ed.a / D * 100, b = ed.b / D * 100;
+    return '<div class="k-trim-band" style="left:' + a.toFixed(3) + '%;width:' + (b - a).toFixed(3) + '%"></div>'
+      + '<i class="k-trim-griff" data-zieh="trim-a" style="left:' + a.toFixed(3) + '%"></i><i class="k-trim-griff" data-zieh="trim-b" style="left:' + b.toFixed(3) + '%"></i>';
+  }
+  function kamTrimText() { var ed = kam.ed; return talkUhr(ed.a) + " – " + talkUhr(ed.b) + " · " + (Math.round((ed.b - ed.a) * 10) / 10).toFixed(1).replace(".", ",") + " s"; }
+  // Nur Rahmen/Striche/Trim neu schreiben (kein ganzer Neuaufbau je Mausbewegung).
+  function kamLive() {
+    var el = einstellungen.el; if (!el || !kam.ed) return;
+    var u = el.querySelector(".k-ueber"); if (u) u.innerHTML = kamUeberlagerung();
+    var t = el.querySelector(".k-trim-spur"); if (t && kam.ed.art === "video") t.innerHTML = kamTrim();
+    var tt = el.querySelector(".k-trim-zeit"); if (tt && kam.ed.art === "video") tt.textContent = kamTrimText();
+  }
+  function kamAnsicht(m) {
+    var ed = kam.ed && kam.ed.name === m.name ? kam.ed : null, v = m.art === "video";
+    var kopf = '<div class="k-kopf"><button class="e-btn-sekundaer e-btn-klein" data-e="k_zu">‹ Galerie</button>'
+      + '<span class="k-titel" title="' + abEsc(m.name) + '">' + abEsc(m.name) + '</span>'
+      + '<span class="k-info">' + talkDatum(m.zeit) + (m.w && m.h ? ' · ' + m.w + '×' + m.h : '') + (v && m.dauer != null ? ' · ' + kamDauer(m.dauer) : '') + ' · ' + kamGroesse(m.groesse) + '</span></div>';
+    var meldung = kam.meldung ? '<div class="e-hinweis k-meldung">' + abEsc(kam.meldung) + '</div>' : '';
+    if (ed && ed.laedt) return kopf + '<div class="e-hinweis">Wird vorbereitet …</div>';
+    if (!ed) {
+      var medium = v
+        ? '<video class="k-gross" controls playsinline preload="none" poster="' + abEsc(kamUrl("t", m)) + '" src="' + abEsc(kamUrl("f", m)) + '"></video>'
+        : '<img class="k-gross" loading="lazy" decoding="async" alt="" draggable="false" src="' + abEsc(kamUrl("f", m)) + '">';
+      var weg = kam.loeschen === m.name
+        ? '<div class="k-frage"><span>„' + abEsc(m.name) + '“ in den Papierkorb legen?</span><button class="e-btn-sekundaer e-btn-klein" data-e="k_loeschen_nein">Abbrechen</button><button class="e-btn-sekundaer e-btn-klein k-gefahr" data-e="k_loeschen_ja">In den Papierkorb</button></div>'
+        : '';
+      return kopf + meldung + '<div class="k-buehne-rahmen">' + medium + '</div>'
+        + '<div class="n-controls k-leiste"><button class="e-btn-primaer" data-e="k_bearbeiten">Bearbeiten</button>'
+        + '<button class="e-btn-sekundaer k-gefahr" data-e="k_loeschen">' + KAM_ICON.weg + 'Löschen</button></div>' + weg;
+    }
+    // Seitenverhaeltnis exakt halten, auch wenn die Hoehe begrenzt.
+    var stil = 'aspect-ratio:' + ed.w + ' / ' + ed.h + ';width:min(100%, calc(52vh * ' + (ed.w / ed.h).toFixed(5) + '))';
+    if (ed.art === "foto") {
+      var werkzeug = '<div class="e-seg k-seg">' + [["crop", "Zuschneiden"], ["stift", "Stift"], ["radierer", "Radierer"]].map(function (w) {
+          return '<button class="e-seg-btn' + (ed.werkzeug === w[0] ? ' aktiv' : '') + '" data-e="k_werkzeug" data-v="' + w[0] + '">' + w[1] + '</button>';
+        }).join("") + '</div>';
+      var stift = ed.werkzeug === "stift" ? '<div class="k-farben">' + KAM_FARBEN.map(function (f) {
+          return '<button class="k-farbe' + (ed.farbe === f[0] ? ' aktiv' : '') + '" data-e="k_farbe" data-v="' + f[0] + '" style="background:' + f[0] + '" title="' + f[1] + '" aria-label="' + f[1] + '"></button>';
+        }).join("") + '<span class="k-trenner"></span>' + KAM_DICKE.map(function (d) {
+          return '<button class="k-dicke' + (ed.dicke === d[0] ? ' aktiv' : '') + '" data-e="k_dicke" data-v="' + d[0] + '" title="' + d[1] + '" aria-label="' + d[1] + '"><i style="width:' + Math.round(d[0] * 500) + 'px;height:' + Math.round(d[0] * 500) + 'px"></i></button>';
+        }).join("") + '</div>' : '';
+      var frage = ed.ersetzenFragen
+        ? '<div class="k-frage"><span>Original wirklich ersetzen? Das bisherige Foto wandert in den Papierkorb.</span><button class="e-btn-sekundaer e-btn-klein" data-e="k_ersetzen_nein">Abbrechen</button><button class="e-btn-sekundaer e-btn-klein k-gefahr" data-e="k_ersetzen_ja">Original ersetzen</button></div>' : '';
+      return kopf + meldung + '<div class="k-werkzeuge">' + werkzeug
+        + '<button class="e-btn-sekundaer e-btn-klein" data-e="k_undo"' + (ed.undo.length ? '' : ' disabled') + '>Rückgängig</button>'
+        + '<button class="e-btn-sekundaer e-btn-klein" data-e="k_reset">Zurücksetzen</button></div>' + stift
+        + '<div class="k-buehne-rahmen"><div class="k-buehne werkzeug-' + ed.werkzeug + '" data-buehne="1" data-zieh="flaeche" style="' + stil + '">'
+        + '<img class="k-bild" loading="lazy" alt="" draggable="false" src="' + abEsc(kamUrl("f", m)) + '"><div class="k-ueber">' + kamUeberlagerung() + '</div></div></div>'
+        + '<div class="n-controls k-leiste"><button class="e-btn-primaer" data-e="k_kopie"' + (ed.speichert ? ' disabled' : '') + '>' + (ed.speichert ? 'Speichert …' : 'Kopie speichern') + '</button>'
+        + '<button class="e-btn-sekundaer" data-e="k_ersetzen"' + (ed.speichert ? ' disabled' : '') + '>Original ersetzen</button>'
+        + '<button class="e-btn-sekundaer" data-e="k_abbrechen">Abbrechen</button></div>' + frage;
+    }
+    // Video: Zeitbereich + optionaler Zuschnitt, Export als neue Datei.
+    var ex = kam.export, laeuft = ex && !ex.ende;
+    var fort = ex ? '<div class="k-export"><div class="k-fortschritt"><i style="width:' + Math.round((ex.p || 0) * 100) + '%"></i></div>'
+        + '<span>' + (laeuft ? 'Exportiert … ' + Math.round((ex.p || 0) * 100) + ' %' : abEsc(ex.ende)) + '</span>'
+        + (laeuft ? '<button class="e-btn-sekundaer e-btn-klein" data-e="k_export_stopp">Abbrechen</button>' : '') + '</div>' : '';
+    return kopf + meldung + '<div class="k-werkzeuge"><div class="e-seg k-seg">'
+      + '<button class="e-seg-btn' + (!ed.zuschnitt ? ' aktiv' : '') + '" data-e="k_zuschnitt" data-v="aus">Nur schneiden</button>'
+      + '<button class="e-seg-btn' + (ed.zuschnitt ? ' aktiv' : '') + '" data-e="k_zuschnitt" data-v="an">Bildausschnitt</button></div>'
+      + '<button class="e-btn-sekundaer e-btn-klein" data-e="k_reset">Zurücksetzen</button></div>'
+      + '<div class="k-buehne-rahmen"><div class="k-buehne" data-buehne="1"' + (ed.zuschnitt ? ' data-zieh="flaeche"' : '') + ' style="' + stil + '">'
+      + '<video class="k-bild" controls playsinline preload="none" poster="' + abEsc(kamUrl("t", m)) + '" src="' + abEsc(kamUrl("f", m)) + '"></video>'
+      + '<div class="k-ueber' + (ed.zuschnitt ? ' aktiv' : '') + '">' + kamUeberlagerung() + '</div></div></div>'
+      + '<div class="k-trim"><div class="k-trim-spur" data-buehne="1">' + kamTrim() + '</div><div class="k-trim-zeit">' + kamTrimText() + '</div></div>'
+      + '<div class="n-controls k-leiste"><button class="e-btn-primaer" data-e="k_export"' + (laeuft ? ' disabled' : '') + '>Als neue Datei exportieren</button>'
+      + '<button class="e-btn-sekundaer" data-e="k_abbrechen"' + (laeuft ? ' disabled' : '') + '>Fertig</button></div>' + fort;
+  }
+  function einstKamera() {
+    var m = kam.offen ? kamMedium(kam.offen) : null;
+    var galerie = m ? kamAnsicht(m) : kamGalerie();
+    return einstSek("", "", '<div class="n-controls"><button class="e-btn-primaer" data-e="sc" data-v="1">Fotoaufnahme</button><button class="e-btn-primaer" data-e="sc" data-v="2">' + (aufnahmeLaeuft ? 'Aufnahme stoppen' : 'Screen Recording starten') + '</button></div>')
+      + einstSek("Speicherort", '<span class="n-pfad">~/Desktop/Noki Kamera</span>', '<div><button class="e-btn-warm" data-e="kordner">Ordner öffnen</button></div>')
+      + einstSek(m ? "" : "Galerie", m ? "" : "Fotos und Videos aus Noki Kamera, neueste zuerst.", galerie);
+  }
+
+  // ---- Bearbeiten ------------------------------------------------------------
+  function kamEditorAuf(m) {
+    var ed = { name: m.name, art: m.art, laedt: true, w: m.w || 0, h: m.h || 0, crop: { x: 0, y: 0, w: 1, h: 1 }, undo: [],
+               striche: [], werkzeug: "crop", farbe: KAM_FARBEN[0][0], dicke: KAM_DICKE[1][0], zuschnitt: false, dauer: m.dauer || 0, a: 0, b: m.dauer || 0 };
+    kam.ed = ed; kam.meldung = ""; kam.export = null;
+    var fertig = function (w, h, d) {
+      if (kam.ed !== ed) return;
+      ed.w = w || ed.w || 1600; ed.h = h || ed.h || 1000;
+      if (ed.art === "video") { ed.dauer = d || ed.dauer || 0; ed.a = 0; ed.b = ed.dauer; }
+      ed.laedt = false; einstBauen();
+    };
+    if (m.art === "foto") {
+      // Das Bild selbst (fuer die Groesse und spaeter fuer das Speichern).
+      var img = new Image(); img.crossOrigin = "anonymous"; img.decoding = "async";
+      img.onload = function () { ed.bild = img; fertig(img.naturalWidth, img.naturalHeight); };
+      img.onerror = function () { if (kam.ed === ed) { kam.ed = null; kam.meldung = "Foto konnte nicht geladen werden."; einstBauen(); } };
+      img.src = kamUrl("f", m);
+    } else {
+      var vd = document.createElement("video"); vd.preload = "metadata"; vd.muted = true;
+      var fertigV = function () { var w = vd.videoWidth, h = vd.videoHeight, d = vd.duration; vd.removeAttribute("src"); try { vd.load(); } catch (x) {} fertig(w, h, isFinite(d) ? d : 0); };
+      vd.onloadedmetadata = fertigV;
+      vd.onerror = function () { fertig(m.w, m.h, m.dauer); };
+      vd.src = kamUrl("f", m);
+    }
+  }
+  function kamSchnappschuss() { var ed = kam.ed; return JSON.stringify({ c: ed.crop, s: ed.striche, a: ed.a, b: ed.b }); }
+  function kamMerken() { var ed = kam.ed; ed.undo.push(kamSchnappschuss()); if (ed.undo.length > 60) ed.undo.shift(); }
+  function kamZurueck(snap) { var ed = kam.ed, z = JSON.parse(snap); ed.crop = z.c; ed.striche = z.s; ed.a = z.a; ed.b = z.b; }
+  // Ein Zug aus dem Einstellungsfenster: u/w = 0..1 relativ zur Buehne.
+  function kameraZieh(art, u, w, phase) {
+    var ed = kam.ed; if (!ed || ed.laedt) return;
+    u = kamClamp(u); w = kamClamp(w);
+    var W = ed.w || 1, H = ed.h || 1, MIN = 0.03;
+    if (art === "trim-a" || art === "trim-b") {
+      if (phase === "start") kamMerken();
+      var t = u * (ed.dauer || 0), luecke = Math.min(0.2, (ed.dauer || 0) / 4);
+      if (art === "trim-a") ed.a = Math.max(0, Math.min(t, ed.b - luecke)); else ed.b = Math.min(ed.dauer || 0, Math.max(t, ed.a + luecke));
+      kamLive(); return;
+    }
+    var rahmen = ed.art === "foto" ? ed.werkzeug === "crop" : ed.zuschnitt;
+    if (rahmen) {
+      if (phase === "start") {
+        kamMerken();
+        kam.zieh = { art: art === "flaeche" ? "neu" : art, u0: u, w0: w, c0: { x: ed.crop.x, y: ed.crop.y, w: ed.crop.w, h: ed.crop.h }, bewegt: false };
+        return;
+      }
+      var z = kam.zieh; if (!z) return;
+      var c0 = z.c0, du = u - z.u0, dw = w - z.w0;
+      if (Math.abs(du) > 0.002 || Math.abs(dw) > 0.002) z.bewegt = true;
+      var x1 = c0.x, y1 = c0.y, x2 = c0.x + c0.w, y2 = c0.y + c0.h;
+      if (z.art === "move") {
+        var nx = Math.max(0, Math.min(1 - c0.w, c0.x + du)), ny = Math.max(0, Math.min(1 - c0.h, c0.y + dw));
+        x1 = nx; y1 = ny; x2 = nx + c0.w; y2 = ny + c0.h;
+      } else if (z.art === "neu") {
+        x1 = Math.min(z.u0, u); x2 = Math.max(z.u0, u); y1 = Math.min(z.w0, w); y2 = Math.max(z.w0, w);
+      } else {
+        if (z.art.indexOf("w") >= 0) x1 = Math.min(u, x2 - MIN);
+        if (z.art.indexOf("e") >= 0) x2 = Math.max(u, x1 + MIN);
+        if (z.art.indexOf("n") >= 0) y1 = Math.min(w, y2 - MIN);
+        if (z.art.indexOf("s") >= 0) y2 = Math.max(w, y1 + MIN);
+      }
+      if (z.art !== "neu" || (x2 - x1 >= MIN && y2 - y1 >= MIN)) ed.crop = { x: kamClamp(x1), y: kamClamp(y1), w: kamClamp(x2) - kamClamp(x1), h: kamClamp(y2) - kamClamp(y1) };
+      if (phase === "ende") {
+        // Nur ein Klick (kein Ziehen) aendert nichts.
+        if (!z.bewegt) { var s = ed.undo.pop(); if (s) kamZurueck(s); }
+        kam.zieh = null; einstBauen(); return;
+      }
+      kamLive(); return;
+    }
+    if (ed.art !== "foto") return;
+    if (ed.werkzeug === "stift") {
+      if (phase === "start") { kamMerken(); ed.striche.push({ f: ed.farbe, b: ed.dicke, p: [[u, w]] }); }
+      else {
+        var st = ed.striche[ed.striche.length - 1], l = st && st.p[st.p.length - 1];
+        if (st && l && Math.hypot((u - l[0]) * W, (w - l[1]) * H) > Math.max(W, H) * 0.002) st.p.push([+u.toFixed(5), +w.toFixed(5)]);
+      }
+      if (phase === "ende") einstBauen(); else kamLive();
+      return;
+    }
+    if (ed.werkzeug === "radierer") {
+      if (phase === "start") { kamMerken(); kam.zieh = { radiert: false }; }
+      var r = Math.max(W, H) * 0.03, vorher = ed.striche.length;
+      ed.striche = ed.striche.filter(function (st) {
+        return !st.p.some(function (p) { return Math.hypot((p[0] - u) * W, (p[1] - w) * H) < r + st.b * W / 2; });
+      });
+      if (ed.striche.length !== vorher && kam.zieh) kam.zieh.radiert = true;
+      if (phase === "ende") { if (kam.zieh && !kam.zieh.radiert) ed.undo.pop(); kam.zieh = null; einstBauen(); } else kamLive();
+    }
+  }
+  // Volle Aufloesung: Ausschnitt + Striche auf ein Canvas, als PNG an Rust
+  // (dort im Format des Originals, mit dessen Metadaten, gespeichert).
+  function kamFotoSpeichern(ersetzen) {
+    var ed = kam.ed, img = ed && ed.bild; if (!img || ed.speichert) return;
+    var W = img.naturalWidth, H = img.naturalHeight, c = ed.crop;
+    var cx = Math.round(c.x * W), cy = Math.round(c.y * H), cw = Math.max(1, Math.round(c.w * W)), ch = Math.max(1, Math.round(c.h * H));
+    var daten;
+    try {
+      var cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+      var g = cv.getContext("2d");
+      g.drawImage(img, -cx, -cy);
+      ed.striche.forEach(function (st) {
+        g.strokeStyle = st.f; g.lineWidth = st.b * W; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath();
+        st.p.forEach(function (p, i) { var x = p[0] * W - cx, y = p[1] * H - cy; if (i) g.lineTo(x, y); else g.moveTo(x, y); });
+        if (st.p.length === 1) g.lineTo(st.p[0][0] * W - cx + 0.1, st.p[0][1] * H - cy);
+        g.stroke();
+      });
+      daten = cv.toDataURL("image/png");
+    } catch (x) { kam.meldung = "Speichern nicht möglich."; einstBauen(); return; }
+    ed.speichert = true; ed.ersetzenFragen = false; einstBauen();
+    abRuf("kamera_bild_speichern", { name: ed.name, daten: daten, ersetzen: !!ersetzen }).then(function (neu) {
+      if (kam.ed !== ed) return;
+      kam.ed = null; kam.offen = String(neu || ed.name);
+      kam.meldung = ersetzen ? "Original ersetzt – das bisherige Foto liegt im Papierkorb." : "Als Kopie gespeichert: " + neu;
+      kamLaden(); einstBauen();
+    }).catch(function (e) { ed.speichert = false; kam.meldung = "Speichern fehlgeschlagen: " + (e && e.message || e); einstBauen(); });
+  }
+  function kamVideoExport() {
+    var ed = kam.ed; if (!ed || (kam.export && !kam.export.ende)) return;
+    var c = ed.zuschnitt ? ed.crop : { x: 0, y: 0, w: 1, h: 1 };
+    kam.export = { name: "", p: 0, ende: "" }; kam.meldung = ""; einstBauen();
+    abRuf("kamera_video_export", { name: ed.name, start: ed.a, ende: ed.b, x: c.x, y: c.y, w: c.w, h: c.h }).then(function (n) {
+      if (kam.export && !kam.export.ende) kam.export.name = String(n || "");
+    }).catch(function (e) { kam.export = { name: "", p: 0, ende: "Export nicht möglich: " + (e && e.message || e) }; einstBauen(); });
+  }
+  function kamAktion(a, v) {
+    var ed = kam.ed;
+    if (a === "k_auf") { kam.offen = String(v); kam.loeschen = ""; kam.meldung = ""; kam.ed = null; }
+    else if (a === "k_zu") { kam.offen = ""; kam.ed = null; kam.loeschen = ""; kam.meldung = ""; }
+    else if (a === "k_mehr") kam.mehr += 60;
+    else if (a === "k_loeschen") kam.loeschen = kam.offen;
+    else if (a === "k_loeschen_nein") kam.loeschen = "";
+    else if (a === "k_loeschen_ja") {
+      var weg = kam.loeschen; kam.loeschen = "";
+      if (weg) abRuf("kamera_loeschen", { name: weg }).then(function () { if (kam.offen === weg) kam.offen = ""; kam.meldung = ""; kamLaden(); })
+        .catch(function (e) { kam.meldung = "Löschen fehlgeschlagen: " + (e && e.message || e); einstBauen(); });
+    }
+    else if (a === "k_bearbeiten") { var m = kamMedium(kam.offen); if (m) kamEditorAuf(m); }
+    else if (a === "k_abbrechen") { if (!(kam.export && !kam.export.ende)) { kam.ed = null; kam.export = null; } }
+    else if (!ed) { /* nichts offen */ }
+    else if (a === "k_werkzeug") { ed.werkzeug = String(v); ed.ersetzenFragen = false; }
+    else if (a === "k_farbe") { ed.farbe = String(v); }
+    else if (a === "k_dicke") { ed.dicke = +v || KAM_DICKE[1][0]; }
+    else if (a === "k_undo") { var s = ed.undo.pop(); if (s) kamZurueck(s); }
+    else if (a === "k_reset") { kamMerken(); ed.crop = { x: 0, y: 0, w: 1, h: 1 }; ed.striche = []; ed.a = 0; ed.b = ed.dauer || 0; }
+    else if (a === "k_kopie") { kamFotoSpeichern(false); return; }
+    else if (a === "k_ersetzen") ed.ersetzenFragen = true;
+    else if (a === "k_ersetzen_nein") ed.ersetzenFragen = false;
+    else if (a === "k_ersetzen_ja") { kamFotoSpeichern(true); return; }
+    else if (a === "k_zuschnitt") ed.zuschnitt = v === "an";
+    else if (a === "k_export") { kamVideoExport(); return; }
+    else if (a === "k_export_stopp") abRuf("kamera_video_abbrechen").catch(function () {});
+    einstBauen();
+  }
+  (function () {
+    var TE = window.__TAURI__ && window.__TAURI__.event;
+    if (!TE || !TE.listen) return;
+    // Dauer/Groesse eines Videos, sobald sein Vorschaubild erzeugt ist.
+    TE.listen("kamera-medien", function (e) {
+      var p = (e && e.payload) || {}, m = kamMedium(p.name); if (!m) return;
+      if (p.w) m.w = p.w; if (p.h) m.h = p.h; if (p.dauer != null) m.dauer = p.dauer;
+      if (!kam.metaT) kam.metaT = setTimeout(function () { kam.metaT = 0; if (einstellungen.offen && einstellungen.tab === "kamera") einstBauen(); }, 200);
+    });
+    TE.listen("kamera-export", function (e) {
+      var p = (e && e.payload) || {}, ex = kam.export; if (!ex) return;
+      if (p.p != null && !ex.ende) ex.p = p.p;
+      if (p.fertig) { ex.p = 1; ex.ende = "Gespeichert als " + p.name + " – das Original bleibt unverändert."; kamLaden(); }
+      else if (p.abgebrochen) ex.ende = "Export abgebrochen.";
+      else if (p.fehler) ex.ende = "Export fehlgeschlagen: " + p.fehler;
+      if (einstellungen.offen && einstellungen.tab === "kamera") einstBauen();
+    });
+  })();
   function einstAllgemein() {
     var I = einstellungen.info, R = I && I.rechte, lade = '<span class="e-kv-leise">…</span>';
     var fehlt = '<span class="e-kv-leise">Noch nicht hinterlegt</span>';
@@ -18302,10 +18666,7 @@
           + '</div>')
         + einstSek("Ausprobieren", "", '<div class="n-controls"><button class="e-btn-primaer" data-e="sc" data-v="9">Fensterübersicht öffnen</button></div>');
     }
-    if (tab === "kamera") {
-      return einstSek("", "", '<div class="n-controls"><button class="e-btn-primaer" data-e="sc" data-v="1">Fotoaufnahme</button><button class="e-btn-primaer" data-e="sc" data-v="2">' + (aufnahmeLaeuft ? 'Aufnahme stoppen' : 'Screen Recording starten') + '</button></div>')
-        + einstSek("Speicherort", '<span class="n-pfad">~/Desktop/Noki Kamera</span>', '<div><button class="e-btn-warm" data-e="kordner">Ordner öffnen</button></div>');
-    }
+    if (tab === "kamera") return einstKamera();
     return einstSek("Shortcut-Übersicht", "^/° tippen, dann die Ziffer – oder hier direkt starten.", shortcutFelder("e"));
   }
 
@@ -18406,6 +18767,7 @@
     else if (a === "pstart") profilStart(v);
     else if (a === "pende") fokusEnde();
     else if (a && a.indexOf("talk_") === 0) { talkAktion(a, v); return; }
+    else if (a && a.indexOf("k_") === 0) { kamAktion(a, v); return; }
     else if (a === "pspeichern") platzSpeichern(v);
     else if (a === "kordner") abRuf("kamera_ordner_oeffnen").catch(function () {});
     else if (a === "abordner") abRuf("noki_ablage_ordner_oeffnen").catch(function () {});
@@ -18534,6 +18896,8 @@
   var kameraAktion = { generation: 0, offen: false, el: null, rect: null, pfad: "", ueber: false, bisT: 0 };
   function kameraAktionNach(modus, r, ok) {
     if (!ok || !r || !r.pfad || (modus !== "foto" && modus !== "recstop")) return;
+    // Galerie offen: die neue Aufnahme erscheint sofort (kein Polling).
+    if (einstellungen.offen && einstellungen.tab === "kamera") kamLaden();
     kameraAktion.pfad = String(r.pfad);
     abRuf("werk_daten_schreiben", { schluessel: "kamera", wert: { pfad: kameraAktion.pfad } }).catch(function () {});
     if (!einstWerte.kamera.aktionen) return;
