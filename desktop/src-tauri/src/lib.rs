@@ -50,6 +50,8 @@ pub mod mcp;
 pub mod mcp_client;
 pub mod mcp_policy;
 mod memory;
+mod noki_talk;
+mod talk_kern;
 pub mod model_manager;
 pub mod model_registry;
 pub mod pdf;
@@ -1315,6 +1317,8 @@ fn stimme_starten(app: &tauri::AppHandle) {
     }
     tasten::stopp_taste(true);
     let _ = app.emit("noki://stimme", serde_json::json!({ "was": "start" }));
+    // Noki Talk: local dictation into the focused field (same trigger).
+    noki_talk::starten(app);
 }
 
 /// Leertaste waehrend des Zuhoerens: Aufnahme beenden, Text auswerten.
@@ -1329,6 +1333,15 @@ fn stimme_stoppen(app: &tauri::AppHandle, abbruch: bool) {
         "noki://stimme",
         serde_json::json!({ "was": if abbruch { "abbruch" } else { "stop" } }),
     );
+    noki_talk::stoppen(abbruch);
+}
+
+/// Noki Talk ended on its own (error, no microphone): the Space key is
+/// Space again and the next Option-twice starts a new dictation.
+pub(crate) fn stimme_extern_beendet() {
+    if STIMME_LAEUFT.swap(false, Ordering::Relaxed) {
+        tasten::stopp_taste(false);
+    }
 }
 
 /// Die Oberflaeche meldet, dass das Zuhoeren von sich aus endete (Fehler,
@@ -16581,6 +16594,14 @@ pub fn run() {
         .manage(std::sync::Arc::new(attachments::AttachmentStore::default()))
         .manage(intelligence::Intelligence::new())
         .invoke_handler(tauri::generate_handler![
+            noki_talk::noki_talk_status,
+            noki_talk::noki_talk_einstellung,
+            noki_talk::noki_talk_engine_starten,
+            noki_talk::noki_talk_verlauf,
+            noki_talk::noki_talk_audio,
+            noki_talk::noki_talk_kopieren,
+            noki_talk::noki_talk_loeschen,
+            noki_talk::noki_talk_mikrofon_freigabe,
             intelligence::code_vorschau_oeffnen,
             intelligence::code_projekt_zeigen,
             intelligence::code_projekte,
@@ -17624,6 +17645,8 @@ pub fn run() {
             tauri::RunEvent::Reopen { .. } => noki_zeigen(app),
             tauri::RunEvent::Exit => {
                 stop.store(true, Ordering::Relaxed);
+                // Noki Talk: microphone closed, local Whisper model unloaded.
+                noki_talk::alles_beenden();
                 #[cfg(target_os = "macos")]
                 vorschau::fernbedienung::ax_manuell_alle_aus();
                 #[cfg(target_os = "macos")]

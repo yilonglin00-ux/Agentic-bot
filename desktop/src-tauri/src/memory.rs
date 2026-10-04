@@ -44,7 +44,7 @@ pub enum Val<'a> {
     T(&'a str),
     I(i64),
 }
-struct Db(*mut c_void);
+pub(crate) struct Db(*mut c_void);
 unsafe impl Send for Db {}
 impl Drop for Db {
     fn drop(&mut self) {
@@ -54,7 +54,7 @@ impl Drop for Db {
     }
 }
 impl Db {
-    fn open(path: &Path) -> Result<Self, String> {
+    pub(crate) fn open(path: &Path) -> Result<Self, String> {
         if let Some(p) = path.parent() {
             std::fs::create_dir_all(p).map_err(|e| e.to_string())?;
         }
@@ -75,7 +75,7 @@ impl Db {
                 .into_owned()
         }
     }
-    fn exec(&self, sql: &str) -> Result<(), String> {
+    pub(crate) fn exec(&self, sql: &str) -> Result<(), String> {
         let c = CString::new(sql).map_err(|e| e.to_string())?;
         if unsafe {
             sqlite3_exec(
@@ -93,7 +93,7 @@ impl Db {
         }
     }
     /// Parameterised statement; returns every row as text columns.
-    fn query(&self, sql: &str, args: &[Val], cols: usize) -> Result<Vec<Vec<String>>, String> {
+    pub(crate) fn query(&self, sql: &str, args: &[Val], cols: usize) -> Result<Vec<Vec<String>>, String> {
         let c = CString::new(sql).map_err(|e| e.to_string())?;
         let mut st = std::ptr::null_mut();
         if unsafe { sqlite3_prepare_v2(self.0, c.as_ptr(), -1, &mut st, std::ptr::null_mut()) } != 0

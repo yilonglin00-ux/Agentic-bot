@@ -95,6 +95,25 @@ if [ -f "$stt_src" ] && command -v swiftc >/dev/null 2>&1; then
   ditto "$stt_app" "$app/Contents/Helpers/NokiSpeech.app"
 fi
 
+# Noki Talk: dauerhafter Aufnahme-Helfer (Mikrofon nur waehrend eines Diktats).
+# Feste Designated Requirement (Bundle-ID): die Mikrofon-Freigabe bleibt
+# ueber Neubauten erhalten.
+talk_src="$_here/talk/noki-talk.swift"
+talk_app="$_projekt/.local/talk/NokiTalk.app"
+talk_bin="$talk_app/Contents/MacOS/noki-talk"
+if [ -f "$talk_src" ] && command -v swiftc >/dev/null 2>&1; then
+  mkdir -p "$talk_app/Contents/MacOS"
+  if [ ! -x "$talk_bin" ] || [ "$talk_src" -nt "$talk_bin" ] || [ "$_here/talk/Info.plist" -nt "$talk_bin" ]; then
+    echo "==> Noki Talk Aufnahme-Helfer (swiftc)"
+    swiftc -O -swift-version 5 -o "$talk_bin" "$talk_src" -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "$_here/talk/Info.plist"
+  fi
+  cp "$_here/talk/Info.plist" "$talk_app/Contents/Info.plist"
+  codesign --force -s - -r='designated => identifier "com.noki.desktop.talk"' "$talk_app" >/dev/null 2>&1 || true
+  mkdir -p "$app/Contents/Helpers"
+  rm -rf "$app/Contents/Helpers/NokiTalk.app"
+  ditto "$talk_app" "$app/Contents/Helpers/NokiTalk.app"
+fi
+
 # Photos-Adapter (PhotoKit): eigener kleiner App-Helper fuer macOS Fotos-Mediathek
 photos_src="$_here/photos/noki-photos.swift"
 photos_app="$_projekt/.local/photos/NokiPhotos.app"

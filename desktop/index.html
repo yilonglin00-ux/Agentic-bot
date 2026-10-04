@@ -194,6 +194,12 @@
   #nokiStimmeText:empty::after { content: "…"; color: rgba(227,222,212,.38); }
   html[data-noki-stimme="arbeitet"] #nokiStimmeText,
   html[data-noki-stimme="leer"] #nokiStimmeText { color: rgba(227,222,212,.66); }
+  /* Noki Talk: kleiner Live-Pegel neben "Noki hoert zu" - nur waehrend der
+     Aufnahme, aktualisiert nur bei echten Pegel-Ereignissen (kein Takt). */
+  #nokiStimmeEq { display: none; align-items: center; gap: 2px; height: 12px; align-self: center; }
+  html[data-noki-stimme="1"] #nokiStimmeEq { display: inline-flex; }
+  #nokiStimmeEq i { display: block; width: 2px; height: 12px; border-radius: 1px; background: rgba(227,222,212,.62);
+    transform: scaleY(.14); transform-origin: center; transition: transform 70ms linear; }
 
   /* Nokis Sprechblase fuer Sprach-Antworten. NICHT Ask Noki: kein Fenster,
      keine Ampel, kein Verlauf - eine Aeusserung, die zu ihm gehoert. */
@@ -1467,6 +1473,19 @@
   #einstellungen .e-kv-warn { color: #e6c27a; }
   #einstellungen .e-kv-mono { font: 11.5px "SF Mono", ui-monospace, Menlo, monospace; color: var(--noki-text-secondary); }
   #einstellungen .e-kv-w .e-btn-klein { margin-left: auto; }
+  /* Noki Talk · Verlauf */
+  #einstellungen .t-liste { display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; background: rgba(255, 255, 255, 0.03); overflow: hidden; }
+  #einstellungen button.t-e { all: unset; display: flex; flex-direction: column; gap: 3px; padding: 9px 12px; cursor: pointer; box-sizing: border-box; width: 100%; }
+  #einstellungen button.t-e + button.t-e, #einstellungen .t-detail + button.t-e { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  #einstellungen button.t-e:hover, #einstellungen button.t-e.auf { background: rgba(var(--noki-accent-rgb), .08); }
+  #einstellungen .t-zeit { font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
+  #einstellungen .t-vorschau { font-size: 12.5px; color: var(--noki-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #einstellungen .t-detail { display: flex; flex-direction: column; gap: 10px; padding: 4px 12px 12px; background: rgba(var(--noki-accent-rgb), .08); }
+  #einstellungen .t-voll { font-size: 12.5px; line-height: 1.55; color: var(--noki-text); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow-y: auto; user-select: text; -webkit-user-select: text; }
+  #einstellungen .t-player { display: flex; align-items: center; gap: 10px; }
+  #einstellungen .t-balken { flex: 1; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.10); overflow: hidden; }
+  #einstellungen .t-balken i { display: block; height: 100%; background: var(--noki-accent); }
+  #einstellungen .t-uhr { font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
   #einstellungen .e-btn-klein { all: unset; padding: 4px 9px; border-radius: 6px; font-size: 12px; font-weight: 550; color: var(--noki-text-secondary); cursor: pointer; }
   #einstellungen .e-btn-klein:hover { background: rgba(255, 255, 255, 0.09); color: var(--noki-text); }
   #einstellungen .e-punkt { display: inline-block; width: 7px; height: 7px; margin-right: 9px; border-radius: 50%; background: #d9534f; vertical-align: 1px; }
@@ -1634,7 +1653,7 @@
      Koordinaten nichts aendert. -->
 <div id="nokiUi">
   <div id="nokiStimme" aria-live="polite">
-    <div id="nokiStimmeKopf"><span id="nokiStimmeLabel">Noki hört zu</span><span id="nokiStimmeModell"></span></div>
+    <div id="nokiStimmeKopf"><span id="nokiStimmeLabel">Noki hört zu</span><span id="nokiStimmeEq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span id="nokiStimmeModell"></span></div>
     <div id="nokiStimmeText"></div>
   </div>
 </div>
@@ -17140,7 +17159,7 @@
   }, 0);
   var einstellungen = { offen: false, el: null, rect: null, tab: "allgemein", dragT: 0, hielt: false, gesteT: 0 };
   // Anomalie preview strokes: fixed pattern (same every time, no motion).
-  var EINST_TABS = [["allgemein", "Allgemein"], ["darstellung", "Darstellung"], ["shortcuts", "Shortcuts"], ["miniatur", "Miniatur"], ["uebersicht", "Fensterübersicht"], ["intelligence", "Intelligence"], ["freeze", "Freeze"], ["timer", "Timer"], ["platz", "Arbeitsplatz-Fokus"],
+  var EINST_TABS = [["allgemein", "Allgemein"], ["darstellung", "Darstellung"], ["shortcuts", "Shortcuts"], ["miniatur", "Miniatur"], ["uebersicht", "Fensterübersicht"], ["intelligence", "Intelligence"], ["talk", "Noki Talk"], ["freeze", "Freeze"], ["timer", "Timer"], ["platz", "Arbeitsplatz-Fokus"],
                     ["kamera", "Kamera"], ["ablage", "Dokumente"], ["clip", "Zwischenablage"]];
   function nokiAskKontext() {
     return { timer_remaining_s: timer.laeuft ? Math.ceil(timerRest() / 1000) : null,
@@ -17645,6 +17664,7 @@
     return true;
   }
   function einstTabLaden(tab) {
+    if (tab === "talk") talkLaden();
     if (tab === "allgemein") abRuf("noki_app_info").then(function (d) { einstellungen.info = d || null; einstBauen(); }).catch(function () {});
     if (tab === "intelligence") abRuf("kuerzel_info").then(function (d) { einstellungen.kuerzel = d || null; einstBauen(); }).catch(function () {});
     if (tab === "ordner" || tab === "ablage") abRuf("noki_ordner_liste").then(function (l) { einstellungen.ordner = Array.isArray(l) ? l : []; einstellungen.omit = null; einstBauen(); }).catch(function () {});
@@ -17873,6 +17893,129 @@
     }).catch(function () {});
   }
   function einstKv(l, w) { return '<div class="e-kv"><span class="e-kv-l">' + l + '</span><span class="e-kv-w">' + w + '</span></div>'; }
+  // ---- NOKI TALK (lokales Diktat): Einstellungen + Verlauf der letzten 30 ----
+  // Status und Verlauf kommen von der nativen Seite (noki_talk_*); hier wird
+  // nur angezeigt und weitergereicht. Wiedergabe: EIN Audio-Element im
+  // Hauptfenster (die Einstellungsseite ist ein Spiegel ohne eigenes JS).
+  var talk = { status: null, verlauf: null, offen: 0, audio: null, spielt: 0, fortschritt: 0, zeit: "" };
+  function talkLaden() {
+    abRuf("noki_talk_status").then(function (d) { talk.status = d || null; if (einstellungen.offen && einstellungen.tab === "talk") einstBauen(); }).catch(function () {});
+    abRuf("noki_talk_verlauf").then(function (l) { talk.verlauf = Array.isArray(l) ? l : []; if (einstellungen.offen && einstellungen.tab === "talk") einstBauen(); }).catch(function () {});
+  }
+  function talkZweistellig(n) { return ("0" + n).slice(-2); }
+  function talkDauer(ms) { var s = Math.max(0, Math.round((+ms || 0) / 1000)); return talkZweistellig(Math.floor(s / 60)) + ":" + talkZweistellig(s % 60); }
+  function talkDatum(ms) {
+    var d = new Date(+ms || 0), h = new Date(), g = new Date(h.getTime() - 864e5);
+    var gleich = function (a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); };
+    var tag = gleich(d, h) ? "Heute" : gleich(d, g) ? "Gestern"
+      : d.getDate() + ". " + ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"][d.getMonth()] + (d.getFullYear() !== h.getFullYear() ? " " + d.getFullYear() : "");
+    return tag + " · " + talkZweistellig(d.getHours()) + ":" + talkZweistellig(d.getMinutes());
+  }
+  function einstTalk() {
+    var S = talk.status, lade = '<span class="e-kv-leise">…</span>';
+    var engine = !S ? lade
+      : S.server === "bereit" ? "Bereit · Modell geladen"
+      : S.server === "laedt" || S.server === "startet" ? "Modell lädt …"
+      : !S.programm ? '<span class="e-kv-warn">whisper.cpp fehlt</span>'
+      : !S.modell ? '<span class="e-kv-warn">Kein lokales Modell</span>'
+      : '<span class="e-kv-leise">Lädt beim ersten Diktat</span>';
+    var mikro = !S ? lade
+      : S.mikrofon === 3 ? "Freigegeben" + (S.geraet ? " · " + abEsc(S.geraet) : "")
+      : S.mikrofon === 1 || S.mikrofon === 2 ? '<span class="e-kv-warn">Nicht freigegeben</span><button class="e-btn-sekundaer e-btn-klein" data-e="talk_mikro">Freigabe öffnen</button>'
+      : '<span class="e-kv-leise">Wird beim ersten Diktat abgefragt</span>';
+    var modelle = (S && S.modelle) || [];
+    var fehlt = S && (!S.programm || !S.modell);
+    var oben = einstSek("Diktat", "Cursor in ein Textfeld setzen, Option zweimal drücken, sprechen, nochmal Option zweimal (oder Leertaste). Erkennung vollständig lokal mit whisper.cpp – Audio verlässt diesen Mac nie.",
+        '<div class="e-kv-liste">'
+        + einstKv("Lokale Engine", engine + (S && !fehlt && S.server !== "bereit" ? '<button class="e-btn-sekundaer e-btn-klein" data-e="talk_engine">Jetzt laden</button>' : ''))
+        + einstKv("Mikrofon", mikro)
+        + einstKv("Modell", S && S.modell ? '<span class="e-kv-mono">' + abEsc(S.modell) + '</span>' : (S ? '<span class="e-kv-leise">—</span>' : lade))
+        + einstKv("Kurzbefehl", '<kbd>⌥</kbd>&nbsp;zweimal · beenden: <kbd>⌥</kbd>&nbsp;zweimal oder Leertaste')
+        + '</div>'
+        + (fehlt ? '<div class="e-hinweis">Einmalig einrichten (lädt whisper.cpp und das Modell aus den offiziellen Quellen): <span class="e-kv-mono">~/NOKI/desktop/talk/whisper-einrichten.sh</span> · Modelle liegen in <span class="e-kv-mono">' + abEsc((S && S.modell_dir) || "") + '</span></div>' : ''))
+      + einstSek("Sprache", "", einstSeg("talk_sprache", (S && S.sprache) || "auto", [["auto", "Auto"], ["de", "Deutsch"], ["en", "Englisch"], ["fr", "Französisch"], ["zh", "Chinesisch"]]))
+      + einstSek("Automatisch einfügen", "Aus: der Text kommt nur in die Zwischenablage. Passwortfelder werden nie beschrieben.",
+          einstSeg("talk_auto", S && S.auto_einfuegen === false ? "aus" : "an", [["an", "An"], ["aus", "Aus"]]))
+      + (modelle.length > 1 ? einstSek("Lokales Modell", "", einstSeg("talk_modell", (S && S.modell) || "", modelle.map(function (m) { return [m, abEsc(m.replace(/^ggml-/, "").replace(/\.bin$/, ""))]; }))) : "");
+    var L = talk.verlauf;
+    var liste = !L ? '<div class="e-hinweis">Wird geladen …</div>'
+      : !L.length ? '<div class="n-app-leer">Noch keine Diktate</div>'
+      : '<div class="t-liste">' + L.map(function (e) {
+          var auf = talk.offen === e.id, spielt = auf && talk.spielt === e.id;
+          var kopf = '<button class="t-e' + (auf ? ' auf' : '') + '" data-e="talk_auf" data-v="' + e.id + '"><span class="t-zeit">' + talkDatum(e.created_at) + ' · ' + talkDauer(e.duration_ms) + '</span>'
+            + '<span class="t-vorschau">' + abEsc(e.transcript) + '</span></button>';
+          if (!auf) return kopf;
+          return kopf + '<div class="t-detail"><div class="t-voll">' + abEsc(e.transcript) + '</div>'
+            + '<div class="t-player"><button class="e-btn-sekundaer e-btn-klein" data-e="talk_play" data-v="' + e.id + '">' + (spielt ? 'Pause' : 'Abspielen') + '</button>'
+            + '<div class="t-balken"><i id="talkBalken" style="width:' + (auf ? Math.round(talk.fortschritt * 100) : 0) + '%"></i></div>'
+            + '<span class="t-uhr" id="talkUhr">' + (talk.zeit || ("00:00 / " + talkDauer(e.duration_ms))) + '</span></div>'
+            + '<div class="n-controls"><button class="e-btn-sekundaer" data-e="talk_kopie" data-v="' + e.id + '">Kopieren</button>'
+            + '<button class="e-btn-sekundaer" data-e="talk_weg" data-v="' + e.id + '">Löschen</button></div></div>';
+        }).join("") + '</div>';
+    return oben + einstSek("Verlauf", "Die letzten 30 Diktate mit Aufnahme, nur auf diesem Mac.", liste);
+  }
+  function talkStop() {
+    if (talk.audio) { try { talk.audio.pause(); } catch (x) {} }
+    talk.spielt = 0;
+  }
+  function talkAktion(a, v) {
+    var id = +v;
+    if (a === "talk_sprache" || a === "talk_auto" || a === "talk_modell") {
+      var key = a === "talk_sprache" ? "sprache" : a === "talk_auto" ? "auto_einfuegen" : "modell";
+      var wert = a === "talk_auto" ? v === "an" : String(v);
+      if (talk.status) { if (key === "auto_einfuegen") talk.status.auto_einfuegen = wert; else if (key === "sprache") talk.status.sprache = wert; else talk.status.modell = wert; }
+      abRuf("noki_talk_einstellung", { schluessel: key, wert: wert }).then(talkLaden).catch(function () {});
+    }
+    else if (a === "talk_mikro") abRuf("noki_talk_mikrofon_freigabe").catch(function () {});
+    else if (a === "talk_engine") {
+      if (talk.status) talk.status.server = "startet";
+      abRuf("noki_talk_engine_starten").catch(function () { if (talk.status) talk.status.server = "aus"; }).then(function () { setTimeout(talkLaden, 1500); });
+    }
+    else if (a === "talk_auf") { if (talk.offen !== id) { talkStop(); talk.fortschritt = 0; talk.zeit = ""; } talk.offen = talk.offen === id ? 0 : id; }
+    else if (a === "talk_kopie") abRuf("noki_talk_kopieren", { id: id }).catch(function () {});
+    else if (a === "talk_weg") {
+      if (talk.spielt === id) talkStop();
+      abRuf("noki_talk_loeschen", { id: id }).then(function () { if (talk.offen === id) talk.offen = 0; talkLaden(); }).catch(function () {});
+    }
+    else if (a === "talk_play") {
+      if (talk.spielt === id) { talkStop(); einstBauen(); return; }
+      talkStop();
+      abRuf("noki_talk_audio", { id: id }).then(function (url) {
+        if (!url) return;
+        var au = talk.audio || (talk.audio = new Audio());
+        var e = (talk.verlauf || []).filter(function (x) { return x.id === id; })[0];
+        var ges = e ? e.duration_ms / 1000 : 0;
+        au.onended = function () { talk.spielt = 0; talk.fortschritt = 0; talk.zeit = ""; einstBauen(); };
+        // Nur der Balken und die Uhr aendern sich (gespiegelt), ~4/s.
+        au.ontimeupdate = function () {
+          var d = isFinite(au.duration) && au.duration > 0 ? au.duration : ges;
+          talk.fortschritt = d ? Math.min(1, au.currentTime / d) : 0;
+          talk.zeit = talkDauer(au.currentTime * 1000) + " / " + talkDauer(d * 1000);
+          var b = einstellungen.el && einstellungen.el.querySelector("#talkBalken"), u = einstellungen.el && einstellungen.el.querySelector("#talkUhr");
+          if (b) b.style.width = Math.round(talk.fortschritt * 100) + "%";
+          if (u) u.textContent = talk.zeit;
+        };
+        au.src = url; talk.spielt = id;
+        au.play().catch(function () { talk.spielt = 0; einstBauen(); });
+        einstBauen();
+      }).catch(function () { talk.spielt = 0; einstBauen(); });
+      return;
+    }
+    einstBauen();
+  }
+  (function () {
+    var TE = window.__TAURI__ && window.__TAURI__.event;
+    if (!TE || !TE.listen) return;
+    TE.listen("noki-talk", function (ev) {
+      var p = (ev && ev.payload) || {};
+      if (p.verlauf && einstellungen.offen && einstellungen.tab === "talk") talkLaden();
+      // Fehlende Freigabe / fehlendes Modell: direkt dorthin, wo es sich beheben laesst.
+      if (p.zustand === "fehler" && (p.aktion === "mikrofon" || p.aktion === "einrichten")) {
+        if (einstellungen.offen) { einstellungen.tab = "talk"; einstTabLaden("talk"); einstBauen(); }
+        else einstellungenAuf("talk");
+      }
+    });
+  })();
   function einstAllgemein() {
     var I = einstellungen.info, R = I && I.rechte, lade = '<span class="e-kv-leise">…</span>';
     var fehlt = '<span class="e-kv-leise">Noch nicht hinterlegt</span>';
@@ -17894,6 +18037,7 @@
   }
   function einstInhaltSeite(tab) {
     if (tab === "allgemein") return einstAllgemein();
+    if (tab === "talk") return einstTalk();
     if (tab === "intelligence" && intelligence) {
       // Kuerzel aus dem Tastenmodul (kuerzel_info) - keine zweite Konstante.
       var K = einstellungen.kuerzel;
@@ -18152,6 +18296,7 @@
     else if (a === "ob_auf") { einstellungen.obAuf = einstellungen.obAuf || {}; einstellungen.obAuf[v] = !einstellungen.obAuf[v]; }
     else if (a === "pstart") profilStart(v);
     else if (a === "pende") fokusEnde();
+    else if (a && a.indexOf("talk_") === 0) { talkAktion(a, v); return; }
     else if (a === "pspeichern") platzSpeichern(v);
     else if (a === "kordner") abRuf("kamera_ordner_oeffnen").catch(function () {});
     else if (a === "abordner") abRuf("noki_ablage_ordner_oeffnen").catch(function () {});
@@ -34677,11 +34822,49 @@
     stimmeRuf("noki_log", { msg: "[Stimme] kein Weg fuer: " + satz }).catch(function () {});
   }
 
+  // NOKI TALK - derselbe Ausloeser ("Noki hoert zu", Option zweimal) ist
+  // jetzt lokales Diktat: die native Seite nimmt auf (NokiTalk.app),
+  // erkennt lokal (whisper.cpp) und setzt den Text in das Feld, das beim
+  // Start den Fokus hatte. Diese Tafel zeigt nur an: Zustand, Live-Pegel,
+  // Vorschau. Kein Ask Noki, kein Befehlsweg - Diktat ist kein Chat.
+  var talkEq = document.getElementById("nokiStimmeEq");
+  var talkBalken = talkEq ? Array.prototype.slice.call(talkEq.children) : [];
+  var talkPegel = [], talkSchluss = 0;
+  function talkZeigen(zustand, text, label) {
+    if (talkSchluss) { clearTimeout(talkSchluss); talkSchluss = 0; }
+    stimmeTafel(zustand, text);
+    if (stimmeLabel && label) stimmeLabel.textContent = label;
+  }
+  function talkSchliessen(nachMs) {
+    if (talkSchluss) clearTimeout(talkSchluss);
+    talkSchluss = setTimeout(function () { talkSchluss = 0; stimmeTafel("0", ""); talkPegelSetzen(0, true); }, nachMs);
+  }
+  // Wandernder Pegel: der neueste Wert rechts, je Ereignis eine Spalte.
+  function talkPegelSetzen(l, leeren) {
+    if (leeren) talkPegel = [];
+    else { talkPegel.push(Math.max(0, Math.min(1, +l || 0))); if (talkPegel.length > talkBalken.length) talkPegel.shift(); }
+    for (var i = 0; i < talkBalken.length; i++) {
+      var v = talkPegel[talkPegel.length - talkBalken.length + i];
+      var h = v === undefined ? 0.14 : 0.14 + 0.86 * Math.pow(v, 0.8);
+      talkBalken[i].style.transform = "scaleY(" + h.toFixed(2) + ")";
+    }
+  }
   an("noki://stimme", function (event) {
     var w = String((event && event.payload && event.payload.was) || "");
-    if (w === "start") stimmeStart();
-    else if (w === "stop") stimmeStop(false);
-    else if (w === "abbruch") stimmeStop(true);
+    if (w === "start") { talkPegelSetzen(0, true); talkZeigen("1", "", "Noki hört zu"); }
+    else if (w === "stop") talkZeigen("arbeitet", undefined, "Noki schreibt …");
+    else if (w === "abbruch") talkSchliessen(150);
+  });
+  an("noki-talk", function (event) {
+    var p = (event && event.payload) || {};
+    if (typeof p.pegel === "number") { talkPegelSetzen(p.pegel); return; }
+    var z = String(p.zustand || "");
+    if (z === "hoert") talkZeigen("1", typeof p.text === "string" ? p.text : undefined, "Noki hört zu");
+    else if (z === "schreibt") talkZeigen("arbeitet", undefined, p.meldung || "Noki schreibt …");
+    else if (z === "fertig") { talkZeigen("fertig", p.text || "", p.meldung || "Eingefügt"); talkSchliessen(p.meldung ? 2600 : 1400); }
+    else if (z === "leer") { talkZeigen("leer", "", p.meldung || "Nichts verstanden"); talkSchliessen(1300); }
+    else if (z === "fehler") { talkZeigen("leer", "", p.meldung || "Noki Talk ist gerade nicht verfügbar."); talkSchliessen(4200); }
+    else if (z === "aus") talkSchliessen(150);
   });
 
   // FERNBEDIENUNG DER MINIATUR - ehrlich ueber ihre Grenze.
