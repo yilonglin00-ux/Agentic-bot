@@ -42,14 +42,21 @@ fn melden(app: &tauri::AppHandle, v: serde_json::Value) { let _ = app.emit(EREIG
 
 // ---- settings (einstellungen.json, key "noki_talk") --------------------------
 #[derive(Clone)]
-struct Einst { sprache: String, auto: bool, modell: String }
+struct Einst { sprache: String, sprachen: Vec<String>, auto: bool, modell: String }
 fn einst(app: &tauri::AppHandle) -> Einst {
     let v = crate::einstellungen_datei(app).and_then(|d| std::fs::read_to_string(d).ok())
         .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
         .and_then(|v| v.get("noki_talk").cloned()).unwrap_or_default();
-    let sprache = v.get("sprache").and_then(|s| s.as_str()).unwrap_or("auto");
+    // Quick selection (persisted; default DE/EN/FR/ZH). The active language
+    // must be one of them - otherwise Auto (also after removing it).
+    let sprachen = match v.get("sprachen").and_then(|s| s.as_array()) {
+        Some(a) => kern::sprachen_bereinigen(&a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect::<Vec<_>>()),
+        None => kern::STANDARD_SPRACHEN.iter().map(|s| s.to_string()).collect(),
+    };
+    let sprache = kern::aktive_sprache(v.get("sprache").and_then(|s| s.as_str()).unwrap_or("auto"), &sprachen);
     Einst {
-        sprache: if ["auto", "de", "en", "fr", "zh"].contains(&sprache) { sprache.to_string() } else { "auto".into() },
+        sprache,
+        sprachen,
         auto: v.get("auto_einfuegen").and_then(|b| b.as_bool()).unwrap_or(true),
         modell: v.get("modell").and_then(|s| s.as_str()).unwrap_or("").to_string(),
     }
@@ -247,6 +254,38 @@ fn helfer_lesen(app: tauri::AppHandle, f: std::fs::File) {
         if let Some(h) = g.take() { let _ = std::fs::remove_file(&h.aus_pfad); }
     }
 }
+
+// ---- start / stop sound ----------------------------------------------------------
+/// Short Noki chime (generated, see talk_kern::ton) - NSSound, async, quiet.
+/// Prepared once per kind; never the system alert sound.
+#[cfg(target_os = "macos")]
+pub fn ton(start: bool) {
+    use ax::*;
+    static TOENE: Mutex<[usize; 2]> = Mutex::new([0, 0]);
+    let i = if start { 0 } else { 1 };
+    let Ok(mut g) = TOENE.lock() else { return };
+    unsafe {
+        let pool = objc_autoreleasePoolPush();
+        let m0: unsafe extern "C" fn(Id, Id) -> Id = std::mem::transmute(msg());
+        let m1: unsafe extern "C" fn(Id, Id, Id) -> Id = std::mem::transmute(msg());
+        let md: unsafe extern "C" fn(Id, Id, *const u8, usize) -> Id = std::mem::transmute(msg());
+        let mv: unsafe extern "C" fn(Id, Id, f32) = std::mem::transmute(msg());
+        if g[i] == 0 {
+            let wav = kern::ton(start);
+            let daten = md(klasse(b"NSData\0"), sel(b"dataWithBytes:length:\0"), wav.as_ptr(), wav.len());
+            let s = m1(m0(klasse(b"NSSound\0"), sel(b"alloc\0")), sel(b"initWithData:\0"), daten);
+            if !s.is_null() { mv(s, sel(b"setVolume:\0"), 0.55); g[i] = s as usize; }
+        }
+        if g[i] != 0 {
+            let s = g[i] as Id;
+            m0(s, sel(b"stop\0"));
+            m0(s, sel(b"play\0"));
+        }
+        objc_autoreleasePoolPop(pool);
+    }
+}
+#[cfg(not(target_os = "macos"))]
+pub fn ton(_start: bool) {}
 
 // ---- one dictation -------------------------------------------------------------
 enum Msg { Pcm(Vec<i16>), Aufnahme, Stop, Abbruch, Gestoppt, Fehler(String) }
@@ -700,7 +739,8 @@ pub async fn noki_talk_status(app: tauri::AppHandle) -> serde_json::Value {
             "helfer": helfer_bundle().is_some(),
             "mikrofon": mikro.as_ref().map(|m| m.0),
             "geraet": mikro.map(|m| m.1).unwrap_or_default(),
-            "sprache": e.sprache, "auto_einfuegen": e.auto, "modell_wahl": e.modell,
+            "sprache": e.sprache, "sprachen": e.sprachen, "katalog": &kern::WHISPER_SPRACHEN[..],
+            "auto_einfuegen": e.auto, "modell_wahl": e.modell,
             "laeuft": SITZUNG.lock().ok().is_some_and(|g| g.is_some()),
         })
     }).await.unwrap_or_default()
@@ -711,7 +751,14 @@ pub fn noki_talk_einstellung(app: tauri::AppHandle, schluessel: String, wert: se
         .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
         .and_then(|v| v.get("noki_talk").cloned()).unwrap_or_else(|| serde_json::json!({}));
     let mut neu = if alt.is_object() { alt } else { serde_json::json!({}) };
-    if ["sprache", "auto_einfuegen", "modell"].contains(&schluessel.as_str()) { neu[schluessel.as_str()] = wert; }
+    if ["sprache", "auto_einfuegen", "modell", "sprachen"].contains(&schluessel.as_str()) { neu[schluessel.as_str()] = wert; }
+    // Removing the active language from the quick selection -> Auto.
+    if let Some(a) = neu.get("sprachen").and_then(|s| s.as_array()) {
+        let schnell = kern::sprachen_bereinigen(&a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect::<Vec<_>>());
+        let aktiv = kern::aktive_sprache(neu.get("sprache").and_then(|s| s.as_str()).unwrap_or("auto"), &schnell);
+        neu["sprachen"] = serde_json::json!(schnell);
+        neu["sprache"] = serde_json::json!(aktiv);
+    }
     crate::einstellungen_setzen(&app, "noki_talk", neu);
 }
 /// Explicit warm-up / repair from Settings (starts the server now).

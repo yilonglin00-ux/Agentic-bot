@@ -146,6 +146,49 @@ pub fn wav(pcm: &[i16]) -> Vec<u8> {
     v
 }
 
+/// Noki Talk feedback sound: two soft notes, ~150 ms, quiet. Start rises
+/// (G5 -> D6), stop falls. Warm timbre (sine + a little 2nd harmonic),
+/// smooth fades - nothing clicks, nothing masks a first word.
+pub fn ton(start: bool) -> Vec<u8> {
+    let (a, b) = if start { (784.0f32, 1175.0f32) } else { (1175.0f32, 784.0f32) };
+    let note = ms(70);
+    let mut pcm = Vec::with_capacity(note * 2);
+    for (i, f) in [a, b].iter().enumerate() {
+        for n in 0..note {
+            let t = n as f32 / RATE as f32;
+            let ein = (n as f32 / ms(6) as f32).min(1.0);
+            let aus = ((note - n) as f32 / ms(i * 30 + 25) as f32).min(1.0);
+            let w = 2.0 * std::f32::consts::PI * f * t;
+            let v = (w.sin() + 0.18 * (2.0 * w).sin()) * ein * aus * 0.16;
+            pcm.push((v * 32767.0) as i16);
+        }
+    }
+    wav(&pcm)
+}
+
+/// Every language the whisper.cpp engine knows (its g_lang table, same
+/// order). "auto" is not in here - it is always available.
+pub const WHISPER_SPRACHEN: [&str; 100] = [
+    "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi",
+    "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk",
+    "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw",
+    "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo",
+    "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su", "yue",
+];
+/// The visible quick selection before the user changes it.
+pub const STANDARD_SPRACHEN: [&str; 4] = ["de", "en", "fr", "zh"];
+/// Quick selection from settings: known codes only, no duplicates, no "auto".
+pub fn sprachen_bereinigen(v: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for c in v { if WHISPER_SPRACHEN.contains(&c.as_str()) && !out.contains(c) { out.push(c.clone()); } }
+    out
+}
+/// The active language: "auto", or a language that is in the quick
+/// selection - a removed language falls back to "auto".
+pub fn aktive_sprache(gewuenscht: &str, schnell: &[String]) -> String {
+    if gewuenscht != "auto" && schnell.iter().any(|c| c == gewuenscht) { gewuenscht.to_string() } else { "auto".into() }
+}
+
 /// PCM16 LE from the capture helper's base64 lines.
 pub fn base64_pcm(b64: &str) -> Vec<i16> {
     let b = base64_dekodieren(b64);
@@ -485,6 +528,29 @@ mod tests {
         }
         assert_eq!(base64_kodieren(b"Man"), "TWFu");
         assert_eq!(base64_pcm(&base64_kodieren(&[0x34, 0x12, 0xff, 0xff])), vec![0x1234, -1]);
+    }
+
+    #[test]
+    fn sprachauswahl() {
+        let v = |x: &[&str]| x.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(sprachen_bereinigen(&v(&["de", "es", "de", "auto", "xx", "yue"])), v(&["de", "es", "yue"]));
+        assert_eq!(aktive_sprache("es", &v(&["de", "es"])), "es");
+        assert_eq!(aktive_sprache("fr", &v(&["de", "es"])), "auto", "entfernte Sprache -> Auto");
+        assert_eq!(aktive_sprache("auto", &v(&[])), "auto");
+        assert_eq!(WHISPER_SPRACHEN.len(), 100);
+    }
+
+    #[test]
+    fn toene_kurz_und_leise() {
+        for start in [true, false] {
+            let w = super::ton(start);
+            let pcm: Vec<i16> = w[44..].chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]])).collect();
+            assert!(pcm.len() * 1000 / RATE <= 150, "kurz");
+            let spitze = pcm.iter().map(|x| x.unsigned_abs()).max().unwrap();
+            assert!(spitze > 1000 && spitze < 8000, "leise, aber hoerbar ({spitze})");
+            assert!(pcm[0].unsigned_abs() < 200 && pcm.last().unwrap().unsigned_abs() < 200, "ohne Knacken");
+        }
+        assert_ne!(super::ton(true), super::ton(false));
     }
 
     #[test]

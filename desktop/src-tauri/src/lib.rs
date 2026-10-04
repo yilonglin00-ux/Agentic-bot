@@ -1318,6 +1318,9 @@ fn stimme_starten(app: &tauri::AppHandle) {
     tasten::stopp_taste(true);
     let _ = app.emit("noki://stimme", serde_json::json!({ "was": "start" }));
     // Noki Talk: local dictation into the focused field (same trigger).
+    // The microphone starts in parallel to the short start sound, so no
+    // first word is lost.
+    noki_talk::ton(true);
     noki_talk::starten(app);
 }
 
@@ -1333,6 +1336,7 @@ fn stimme_stoppen(app: &tauri::AppHandle, abbruch: bool) {
         "noki://stimme",
         serde_json::json!({ "was": if abbruch { "abbruch" } else { "stop" } }),
     );
+    if !abbruch { noki_talk::ton(false); }
     noki_talk::stoppen(abbruch);
 }
 
@@ -2513,6 +2517,26 @@ mod tasten {
         pub fn schritt_option(s: Stand, e: Ereignis, jetzt: u64) -> (Stand, bool) {
             schritt_fuer(s, e, jetzt, (58, 61), 0x80000, 0x20000 | 0x40000 | 0x100000)
         }
+        /// Noki Talk: ONE pure Option tap (down -> up alone, short). Only fed
+        /// while a recording runs - outside a recording a single Option tap
+        /// does nothing at all.
+        pub fn schritt_option_einzel(mut s: Stand, e: Ereignis, jetzt: u64) -> (Stand, bool) {
+            match e {
+                Ereignis::Anderes => { s.sauber = false; (s, false) }
+                Ereignis::Flags { code, flags } => {
+                    if !(code == 58 || code == 61) || flags & (0x20000 | 0x40000 | 0x100000) != 0 {
+                        return (Stand::default(), false);
+                    }
+                    if flags & 0x80000 != 0 {
+                        s.unten_seit = Some(jetzt); s.sauber = true;
+                        (s, false)
+                    } else {
+                        let tap = s.sauber && s.unten_seit.is_some_and(|t| jetzt.saturating_sub(t) <= TAP_MAX_MS);
+                        (Stand::default(), tap)
+                    }
+                }
+            }
+        }
         fn schritt_fuer(mut s: Stand, e: Ereignis, jetzt: u64, codes: (i64, i64), taste: u64, andere: u64) -> (Stand, bool) {
             match e {
                 Ereignis::Anderes => {
@@ -2578,6 +2602,24 @@ mod tasten {
         std::sync::Mutex::new(doppel_control::Stand { unten_seit: None, sauber: false, erster_hoch: None });
     /// Double-Option detector (same event feed as Double-Control). The tap
     /// itself is never swallowed: Option keeps working everywhere.
+    static EINZEL_OPTION: std::sync::Mutex<doppel_control::Stand> =
+        std::sync::Mutex::new(doppel_control::Stand { unten_seit: None, sauber: false, erster_hoch: None });
+    /// One pure Option tap (Noki Talk stop) - see schritt_option_einzel.
+    fn einzel_option_ereignis(kind: u32, event: *mut c_void) -> bool {
+        use doppel_control::{schritt_option_einzel, Ereignis};
+        let e = if kind == 12 {
+            let (code, flags) = unsafe { (CGEventGetIntegerValueField(event, 9), CGEventGetFlags(event)) };
+            Ereignis::Flags { code, flags }
+        } else if matches!(kind, 10 | 1 | 3 | 25 | 22) {
+            Ereignis::Anderes
+        } else {
+            return false;
+        };
+        let Ok(mut g) = EINZEL_OPTION.lock() else { return false };
+        let (neu, feuer) = schritt_option_einzel(*g, e, jetzt_ms());
+        *g = neu;
+        feuer
+    }
     fn doppel_option_ereignis(kind: u32, event: *mut c_void) -> bool {
         use doppel_control::{schritt_option, Ereignis};
         let e = if kind == 12 {
@@ -2712,6 +2754,17 @@ mod tasten {
         assert_eq!(olauf(vec![odn(0), oup(90), odn(700), oup(780)]), 0, "slow option taps");
         assert_eq!(olauf(vec![odn(0), (Anderes, 40), oup(90), odn(200), oup(260)]), 0, "Option+key then tap");
         assert_eq!(lauf(vec![odn(0), oup(90), odn(220), oup(300)]), 0, "option never fires Double-Control");
+        // Noki Talk stop: ONE pure Option tap.
+        let elauf = |ev: Vec<(doppel_control::Ereignis, u64)>| {
+            let mut s = Stand::default(); let mut n = 0;
+            for (e, t) in ev { let (x, f) = doppel_control::schritt_option_einzel(s, e, t); s = x; if f { n += 1; } }
+            n
+        };
+        assert_eq!(elauf(vec![odn(0), oup(90)]), 1, "single option tap stops");
+        assert_eq!(elauf(vec![odn(0), oup(900)]), 0, "held Option is no tap");
+        assert_eq!(elauf(vec![odn(0), (Anderes, 40), oup(90)]), 0, "Option+key is no tap");
+        assert_eq!(elauf(vec![(Flags { code: 58, flags: 0x80000 | 0x100000 }, 0), oup(60)]), 0, "Option+Cmd is no tap");
+        assert_eq!(elauf(vec![dn(0), up(60)]), 0, "Control is no Option tap");
         assert_eq!(lauf(vec![dn(0), up(80), dn(700), up(760)]), 0, "too slow");
         assert_eq!(lauf(vec![(Flags { code: 59, flags: 0x40000 | 0x100000 }, 0), up(50), dn(100), up(150)]), 0, "Ctrl+Cmd");
         assert_eq!(lauf(vec![dn(0), up(80), dn(160), up(220), dn(300), up(360), dn(420), up(480)]), 2, "two double taps");
@@ -2808,17 +2861,30 @@ mod tasten {
         {
             return event;
         }
-        if doppel_option_ereignis(kind, event) {
-            if let Some(app) = APP.get() {
-                let h = app.clone();
-                // Zweites Option zweimal waehrend des Zuhoerens: beenden und
-                // auswerten (wie die Leertaste) - gleiche Zustandsmaschine.
-                let _ = app.run_on_main_thread(move || {
-                    if super::stimme_laeuft() { super::stimme_stoppen(&h, false) } else { super::stimme_starten(&h) }
-                });
+        // Noki Talk: Option twice starts; while recording ONE Option tap
+        // stops (Space stops too, Esc cancels - see the stop key below).
+        // Only one detector is fed at a time, so the stop tap can never be
+        // the first half of a new double tap.
+        if super::stimme_laeuft() {
+            if let Ok(mut g) = DOPPEL_OPTION.lock() { *g = doppel_control::Stand::default(); }
+            if einzel_option_ereignis(kind, event) {
+                if let Some(app) = APP.get() {
+                    let h = app.clone();
+                    let _ = app.run_on_main_thread(move || super::stimme_stoppen(&h, false));
+                }
             }
-            // the Option key-up itself passes on unchanged
+        } else {
+            if let Ok(mut g) = EINZEL_OPTION.lock() { *g = doppel_control::Stand::default(); }
+            if doppel_option_ereignis(kind, event) {
+                if let Some(app) = APP.get() {
+                    let h = app.clone();
+                    let _ = app.run_on_main_thread(move || {
+                        if !super::stimme_laeuft() { super::stimme_starten(&h) }
+                    });
+                }
+            }
         }
+        // the Option key-up itself passes on unchanged
         if doppel_control_ereignis(kind, event) {
             RUNDE.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             if let Some(app) = APP.get() {

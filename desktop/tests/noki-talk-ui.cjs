@@ -51,13 +51,16 @@ const server = http.createServer((req, res) => {
   await einst.exposeBinding('__nachMain', (_, name, payload) => main.evaluate(([n, p]) => window.__emit && window.__emit(n, p), [name, payload]).catch(() => {}));
   const mock = ([rolle, audio]) => {
     window.__calls = []; window.__nokiEvents = {};
+    const A = window.Audio; window.__audios = [];
+    window.Audio = function (src) { const a = new A(src); window.__audios.push(a); return a; };
     window.__emit = (name, payload) => (window.__nokiEvents[name] || []).forEach(fn => fn({ payload }));
     const listen = async (name, fn) => { (window.__nokiEvents[name] = window.__nokiEvents[name] || []).push(fn); return () => {}; };
     const jetzt = Date.now();
     window.__talk = {
       status: { server: 'aus', programm: '/Users/x/NOKI/.local/whisper-src/build/bin/whisper-server', modell: 'ggml-large-v3-turbo-q5_0.bin',
         modelle: ['ggml-large-v3-turbo-q5_0.bin', 'ggml-small.bin'], modell_dir: '/Users/x/NOKI/.local/whisper-models',
-        helfer: true, mikrofon: 3, geraet: 'MacBook Pro-Mikrofon', sprache: 'auto', auto_einfuegen: true, laeuft: false },
+        helfer: true, mikrofon: 3, geraet: 'MacBook Pro-Mikrofon', sprache: 'auto', auto_einfuegen: true, laeuft: false,
+        sprachen: ['de', 'en', 'fr', 'zh'], katalog: ['en', 'zh', 'de', 'es', 'ru', 'ko', 'fr', 'ja', 'pt', 'tr', 'pl', 'it', 'nl', 'sv', 'yue', 'haw'] },
       liste: Array.from({ length: 30 }, (_, i) => ({ id: 100 - i, created_at: jetzt - i * 3600e3, duration_ms: 18000 + i * 1000,
         transcript: (i === 0 ? 'Ich wollte morgen eigentlich noch zur Uni fahren und danach in die Bibliothek, um die Notizen für die Prüfung fertig zu schreiben.' : 'Diktat Nummer ' + i),
         audio_path: '/x/' + i + '.m4a', language: 'de', source_app: 'Notes' })),
@@ -70,7 +73,12 @@ const server = http.createServer((req, res) => {
       if (name === 'noki_talk_audio') return audio;
       if (name === 'noki_talk_kopieren') return true;
       if (name === 'noki_talk_loeschen') { T.liste = T.liste.filter(e => e.id !== args.id); return true; }
-      if (name === 'noki_talk_einstellung') { T.status[args.schluessel] = args.wert; return null; }
+      if (name === 'noki_talk_einstellung') {
+        T.status[args.schluessel] = args.wert;
+        // same contract as noki_talk_einstellung: active language removed -> auto
+        if (T.status.sprache !== 'auto' && !T.status.sprachen.includes(T.status.sprache)) T.status.sprache = 'auto';
+        return null;
+      }
       if (name === 'noki_talk_engine_starten') { T.status.server = 'bereit'; return null; }
       if (name === 'fokus_sitzung_status') return { aktiv: false };
       if (name === 'intelligence_settings') return { settings: { level: 'off', ask: true, web: false }, installed: true, loaded: false };
@@ -143,16 +151,52 @@ const server = http.createServer((req, res) => {
   const navTalk = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .e-nav-btn')].map(b => b.textContent));
   check(navTalk.includes('Noki Talk') && navTalk.indexOf('Noki Talk') === navTalk.indexOf('Intelligence') + 1, 'eigener Hauptpunkt "Noki Talk" neben Intelligence');
   const seite = await einst.evaluate(() => document.querySelector('#einstellungen .e-inhalt').textContent);
-  for (const s of ['Lokale Engine', 'Mikrofon', 'MacBook Pro-Mikrofon', 'Modell', 'ggml-large-v3-turbo-q5_0.bin', 'Kurzbefehl', 'Sprache', 'Automatisch einfügen', 'Verlauf'])
+  for (const s of ['Lokale Engine', 'Mikrofon', 'MacBook Pro-Mikrofon', 'Modell', 'ggml-large-v3-turbo-q5_0.bin', 'Kurzbefehle', 'Sprache', 'Automatisch einfügen', 'Verlauf'])
     check(seite.includes(s), `Einstellung zeigt "${s}"`);
+  const karten = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .n-sc-raster')].flatMap(r => [...r.children].map(k => k.textContent.replace(/\s+/g, ' ').trim())));
+  check(karten.some(k => /⌥⌥/.test(k) && /starten/.test(k)), `Keycap ⌥⌥ = Aufnahme starten (${karten[0]})`);
+  check(karten.some(k => /^⌥ ?Aufnahme beenden/.test(k)), 'Keycap ⌥ = Aufnahme beenden');
+  check(karten.some(k => /Leertaste/.test(k) && /beenden/.test(k)), 'Keycap Leertaste = Aufnahme beenden');
   const klick = async (sel, txt) => {
     const b = txt ? einst.locator(`#einstellungen ${sel}`, { hasText: txt }) : einst.locator(`#einstellungen ${sel}`).first();
     await b.click({ timeout: 10000 });
     await main.waitForTimeout(200);
   };
+  const bis = (fn, ms) => einst.waitForFunction(fn, null, { timeout: ms || 8000 }).catch(() => {});
+  const sprachKnoepfe = () => einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-sprachen .e-seg-btn')].map(b => b.textContent + (b.classList.contains('aktiv') ? '*' : '')));
+  let sk = await sprachKnoepfe();
+  check(sk.join('|') === 'Auto*|Deutsch|Englisch|Französisch|Chinesisch|Auswählen …', `Standard-Sprachen, Auswählen zuletzt (${sk.join('|')})`);
   await klick('.e-seg-btn[data-e="talk_sprache"]', 'Deutsch');
   let e = (await calls('noki_talk_einstellung')).pop();
   check(e && e.args.schluessel === 'sprache' && e.args.wert === 'de', 'Sprache Deutsch wird gespeichert');
+  await bis(() => document.querySelector('#einstellungen .t-sprachen .aktiv[data-v="de"]'));
+  check((await sprachKnoepfe())[1] === 'Deutsch*', 'aktive Sprache klar markiert');
+  // Picker: add Japanese, search, remove the active German -> Auto.
+  await klick('[data-e="talk_waehlen"]');
+  await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length > 0);
+  const zeilenSprachen = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].map(z => z.textContent));
+  check(zeilenSprachen.length === 16 && zeilenSprachen.includes('Japanisch') && zeilenSprachen.includes('Kantonesisch') && zeilenSprachen.includes('Deutsch✓'),
+    `Auswahl zeigt den Whisper-Katalog, vorhandene mit ✓ (${zeilenSprachen.length})`);
+  check(!(await einst.evaluate(() => document.querySelector('#einstellungen .t-sprachen').textContent)).includes('×'), 'keine dauerhaften X-Symbole');
+  await einst.fill('#einstellungen [data-talksuche]', 'jap');
+  await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length === 1);
+  const gefiltert = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].map(z => z.textContent));
+  check(gefiltert.length === 1 && gefiltert[0] === 'Japanisch', `Suche filtert (${gefiltert.join(',')})`);
+  await klick('.t-sprachzeile', 'Japanisch');
+  await bis(() => (document.querySelector('#einstellungen .t-sprachzeile') || {}).textContent === 'Japanisch✓');
+  e = (await calls('noki_talk_einstellung')).pop();
+  check(e && e.args.schluessel === 'sprachen' && JSON.stringify(e.args.wert) === '["de","en","fr","zh","ja"]', `Japanisch hinzugefuegt + gespeichert (${JSON.stringify(e && e.args.wert)})`);
+  await einst.fill('#einstellungen [data-talksuche]', '');
+  await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length === 16);
+  await klick('.t-sprachzeile', 'Deutsch');
+  await bis(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].some(z => z.textContent === 'Deutsch'));
+  e = (await calls('noki_talk_einstellung')).pop();
+  check(e && JSON.stringify(e.args.wert) === '["en","fr","zh","ja"]', 'aktive Sprache Deutsch entfernt');
+  await klick('[data-e="talk_waehlen"]');
+  await bis(() => !document.querySelector('#einstellungen .t-sprachwahl'));
+  sk = await sprachKnoepfe();
+  check(sk.join('|') === 'Auto*|Englisch|Französisch|Chinesisch|Japanisch|Auswählen …', `danach Auto aktiv, Japanisch als Schnellknopf (${sk.join('|')})`);
+  check(!(await einst.evaluate(() => !!document.querySelector('#einstellungen .t-sprachwahl'))), 'Auswahl schliesst mit "Fertig"');
   await klick('.e-seg-btn[data-e="talk_auto"]', 'Aus');
   e = (await calls('noki_talk_einstellung')).pop();
   check(e && e.args.schluessel === 'auto_einfuegen' && e.args.wert === false, 'Auto-Einfügen aus wird gespeichert');
@@ -165,25 +209,46 @@ const server = http.createServer((req, res) => {
   // ---- 3. History --------------------------------------------------------
   let zeilen = await einst.evaluate(() => document.querySelectorAll('#einstellungen button.t-e').length);
   check(zeilen === 30, `Verlauf: 30 Eintraege (${zeilen})`);
-  const kopf = await einst.evaluate(() => document.querySelector('#einstellungen .t-zeit').textContent);
-  check(/^Heute · \d\d:\d\d · 00:18$/.test(kopf), `Kopfzeile "Heute · hh:mm · 00:18" (${kopf})`);
+  const kopf = await einst.evaluate(() => { const k = document.querySelector('#einstellungen .t-karte'); return { zeit: k.querySelector('.t-zeit').textContent, dauer: k.querySelector('.t-dauer').textContent, vorschau: !!k.querySelector('.t-vorschau') }; });
+  check(/^Heute · \d\d:\d\d$/.test(kopf.zeit) && kopf.dauer === '0:18' && kopf.vorschau, `Kompakte Zeile: Datum/Uhrzeit, Dauer, Vorschau (${kopf.zeit} | ${kopf.dauer})`);
   await klick('button.t-e');
-  const voll = await einst.evaluate(() => (document.querySelector('#einstellungen .t-voll') || {}).textContent || '');
-  check(voll.startsWith('Ich wollte morgen') && voll.endsWith('fertig zu schreiben.'), 'Eintrag oeffnet den vollstaendigen Text');
+  const offen = await einst.evaluate(() => { const k = document.querySelector('#einstellungen .t-karte.auf'); return { voll: (k.querySelector('.t-voll') || {}).textContent || '', vorschau: k.querySelectorAll('.t-vorschau').length, n: (k.textContent.match(/Ich wollte morgen/g) || []).length }; });
+  check(offen.voll.startsWith('Ich wollte morgen') && offen.voll.endsWith('fertig zu schreiben.'), 'Eintrag oeffnet den vollstaendigen Text');
+  check(offen.vorschau === 0 && offen.n === 1, `Text erscheint genau einmal (Vorschau ersetzt, ${offen.n}x)`);
   await klick('[data-e="talk_kopie"]');
   const k = (await calls('noki_talk_kopieren')).pop();
   check(k && k.args.id === 100, 'Kopieren (nur Text) fuer genau diesen Eintrag');
+  const knopf = () => einst.evaluate(() => (document.querySelector('#einstellungen [data-e="talk_play"]') || {}).getAttribute('aria-label'));
+  const player = () => einst.evaluate(() => ({ ist: document.getElementById('talkIst').textContent, ges: document.querySelector('#einstellungen .t-ges').textContent, seek: +document.getElementById('talkSeek').value }));
+  check(await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-player .t-rund')].every(b => b.querySelector('svg'))), 'Play/Kopieren/Loeschen als Icons');
   if (audioUrl) {
     await klick('[data-e="talk_play"]');
-    await einst.waitForFunction(() => /Pause/.test((document.querySelector('#einstellungen [data-e="talk_play"]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
-    await einst.waitForFunction(() => /^00:0[1-3] \//.test((document.getElementById('talkUhr') || {}).textContent || ''), null, { timeout: 30000 }).catch(() => {});
-    const p = await einst.evaluate(() => ({ uhr: (document.getElementById('talkUhr') || {}).textContent, breite: (document.getElementById('talkBalken') || {}).style.width, knopf: document.querySelector('#einstellungen [data-e="talk_play"]').textContent }));
-    check(p.knopf === 'Pause' && /^00:0[1-3] \/ 00:0[23]$/.test(p.uhr) && parseInt(p.breite) > 0, `Abspielen der lokalen Aufnahme mit Fortschritt (${p.uhr}, ${p.breite})`);
+    await einst.waitForFunction(() => (document.querySelector('#einstellungen [data-e="talk_play"]') || {}).getAttribute('aria-label') === 'Pause', null, { timeout: 15000 }).catch(() => {});
+    await einst.waitForFunction(() => /^0:0[1-2]$/.test((document.getElementById('talkIst') || {}).textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    let p = await player();
+    check(await knopf() === 'Pause' && /^0:0[1-2]$/.test(p.ist) && p.ges === '0:03' && p.seek > 0, `Abspielen mit Live-Fortschritt (${p.ist} / ${p.ges}, ${p.seek}‰)`);
     await klick('[data-e="talk_play"]');
-    await einst.waitForFunction(() => (document.querySelector('#einstellungen [data-e="talk_play"]') || {}).textContent === 'Abspielen', null, { timeout: 5000 }).catch(() => {});
-    const st = await einst.evaluate(() => document.querySelector('#einstellungen [data-e="talk_play"]').textContent);
-    if (st !== 'Abspielen') console.log('  debug main:', await main.evaluate(() => (document.querySelector('#einstellungen [data-e="talk_play"]') || {}).textContent));
-    check(st === 'Abspielen', 'Pause/Stopp');
+    await einst.waitForFunction(() => (document.querySelector('#einstellungen [data-e="talk_play"]') || {}).getAttribute('aria-label') === 'Abspielen', null, { timeout: 5000 }).catch(() => {});
+    check(await knopf() === 'Abspielen', 'Pause zeigt wieder das Play-Icon');
+    // Seek by dragging the bar (input events) to ~2/3.
+    await einst.evaluate(() => { const s = document.getElementById('talkSeek'); s.value = '667'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await main.waitForTimeout(400);
+    p = await player();
+    check(p.ist === '0:02' && Math.abs(p.seek - 667) < 5, `Spulen setzt die Position (${p.ist}, ${p.seek}‰)`);
+    await klick('[data-e="talk_play"]');
+    await bis(() => (document.querySelector('#einstellungen [data-e="talk_play"]') || {}).getAttribute('aria-label') === 'Pause');
+    await bis(() => (document.querySelector('#einstellungen [data-e="talk_play"]') || {}).getAttribute('aria-label') === 'Abspielen', 15000);
+    p = await player();
+    check(await knopf() === 'Abspielen' && p.ist === '0:00' && p.seek === 0, `nach dem Ende zurueckgesetzt (${p.ist}, ${p.seek})`);
+    // Only one audio at a time: open another entry while playing.
+    await klick('[data-e="talk_play"]');
+    await bis(() => (document.querySelector('#einstellungen [data-e="talk_play"]') || {}).getAttribute('aria-label') === 'Pause');
+    await klick('button.t-e[data-v="99"]');
+    await bis(() => document.querySelector('#einstellungen .t-karte.auf button.t-e[data-v="99"]'));
+    const spielend = await main.evaluate(() => window.__audios.filter(a => !a.paused).length);
+    check(spielend === 0 && main.evaluate && await knopf() === 'Abspielen', `anderer Eintrag stoppt die laufende Wiedergabe (${spielend} laufen, ${await main.evaluate(() => window.__audios.length)} Audio-Element)`);
+    await klick('button.t-e[data-v="100"]');
+    await bis(() => document.querySelector('#einstellungen .t-karte.auf button.t-e[data-v="100"]'));
   }
   await klick('[data-e="talk_weg"]');
   await einst.waitForFunction(() => document.querySelectorAll('#einstellungen button.t-e').length === 29, null, { timeout: 10000 }).catch(() => {});

@@ -1473,19 +1473,33 @@
   #einstellungen .e-kv-warn { color: #e6c27a; }
   #einstellungen .e-kv-mono { font: 11.5px "SF Mono", ui-monospace, Menlo, monospace; color: var(--noki-text-secondary); }
   #einstellungen .e-kv-w .e-btn-klein { margin-left: auto; }
-  /* Noki Talk · Verlauf */
-  #einstellungen .t-liste { display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; background: rgba(255, 255, 255, 0.03); overflow: hidden; }
-  #einstellungen button.t-e { all: unset; display: flex; flex-direction: column; gap: 3px; padding: 9px 12px; cursor: pointer; box-sizing: border-box; width: 100%; }
-  #einstellungen button.t-e + button.t-e, #einstellungen .t-detail + button.t-e { border-top: 1px solid rgba(255, 255, 255, 0.06); }
-  #einstellungen button.t-e:hover, #einstellungen button.t-e.auf { background: rgba(var(--noki-accent-rgb), .08); }
-  #einstellungen .t-zeit { font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
+  /* Noki Talk · Sprache + Verlauf (dieselben Flaechen, Linien und Akzente wie die uebrigen Einstellungen) */
+  #einstellungen .t-sprachen { flex-wrap: wrap; }
+  #einstellungen .t-sprachen .t-waehlen { color: var(--noki-text-secondary); }
+  #einstellungen .t-sprachwahl { margin-top: 10px; }
+  #einstellungen .t-sprachzeile .t-haken { margin-left: auto; color: var(--noki-accent); font-size: 13px; width: 16px; text-align: center; }
+  #einstellungen .t-sprachzeile.drin .n-app-name { color: var(--noki-text); }
+  #einstellungen .t-liste { display: flex; flex-direction: column; gap: 6px; }
+  #einstellungen .t-karte { border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; background: rgba(255, 255, 255, 0.03); overflow: hidden; }
+  #einstellungen .t-karte:hover { border-color: rgba(255, 255, 255, 0.12); }
+  #einstellungen .t-karte.auf { border-color: rgba(var(--noki-accent-rgb), .32); background: rgba(var(--noki-accent-rgb), .06); }
+  #einstellungen button.t-e { all: unset; display: flex; flex-direction: column; gap: 4px; padding: 9px 12px; cursor: pointer; box-sizing: border-box; width: 100%; }
+  #einstellungen .t-meta { display: flex; align-items: baseline; gap: 10px; }
+  #einstellungen .t-zeit { font-size: 11px; color: var(--noki-text-secondary); }
+  #einstellungen .t-dauer { margin-left: auto; font-size: 11px; color: var(--noki-text-muted); font-variant-numeric: tabular-nums; }
   #einstellungen .t-vorschau { font-size: 12.5px; color: var(--noki-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #einstellungen .t-detail { display: flex; flex-direction: column; gap: 10px; padding: 4px 12px 12px; background: rgba(var(--noki-accent-rgb), .08); }
+  #einstellungen .t-detail { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 10px; }
   #einstellungen .t-voll { font-size: 12.5px; line-height: 1.55; color: var(--noki-text); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow-y: auto; user-select: text; -webkit-user-select: text; }
-  #einstellungen .t-player { display: flex; align-items: center; gap: 10px; }
-  #einstellungen .t-balken { flex: 1; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.10); overflow: hidden; }
-  #einstellungen .t-balken i { display: block; height: 100%; background: var(--noki-accent); }
-  #einstellungen .t-uhr { font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
+  #einstellungen .t-player { display: flex; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  #einstellungen button.t-rund { all: unset; flex: none; width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--noki-text); background: var(--noki-raised); border: 1px solid var(--noki-border); box-sizing: border-box; }
+  #einstellungen button.t-rund:hover { background: rgba(var(--noki-accent-rgb), .12); border-color: var(--noki-accent); }
+  #einstellungen button.t-rund svg { width: 14px; height: 14px; }
+  #einstellungen .t-ist, #einstellungen .t-ges { flex: none; min-width: 30px; font-size: 11px; color: var(--noki-text-secondary); font-variant-numeric: tabular-nums; }
+  #einstellungen .t-ges { text-align: right; }
+  #einstellungen .t-trenner { flex: none; width: 1px; height: 18px; background: rgba(255, 255, 255, 0.08); margin: 0 2px; }
+  #einstellungen input.t-seek { flex: 1; min-width: 60px; height: 14px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
+  #einstellungen input.t-seek::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); }
+  #einstellungen input.t-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; margin-top: -4px; border-radius: 50%; background: var(--noki-accent); border: 0; }
   #einstellungen .e-btn-klein { all: unset; padding: 4px 9px; border-radius: 6px; font-size: 12px; font-weight: 550; color: var(--noki-text-secondary); cursor: pointer; }
   #einstellungen .e-btn-klein:hover { background: rgba(255, 255, 255, 0.09); color: var(--noki-text); }
   #einstellungen .e-punkt { display: inline-block; width: 7px; height: 7px; margin-right: 9px; border-radius: 50%; background: #d9534f; vertical-align: 1px; }
@@ -15790,7 +15804,7 @@
         var text = n === 2 ? (aufnahmeLaeuft ? "Aufnahme stoppen" : "Aufnahme starten") : n === 3 && frz ? "Freeze beenden" : n === 0 ? WERK_SC_0[1] : WERK_SC[n-1][1];
         return '<button class="n-shortcut' + (an ? ' aktiv' : '') + '" data-' + ziel + '="sc" data-v="' + n + '" aria-label="' + text + '"><span class="n-key"><kbd>^/°</kbd><span>+</span><kbd>' + n + '</kbd></span><strong>' + text + '</strong><small>' + (an ? 'Aktiv · öffnen' : ['Lokal fragen','Bild festhalten','Bildschirm filmen','Moment einfrieren','Schreibtisch-Vorschau zeigen/verbergen','Dateien griffbereit','Kopiertes wiederfinden','Deine Zeit','Apps, Layout & Fokus','Zeigt offene Fenster'][n]) + '</small></button>';
       }).join('') + '</div></section>';
-    }).join('') + WERK_SC_SICHT() + WERK_SC_WEITERE() + '</div>';
+    }).join('') + WERK_SC_SICHT() + WERK_SC_TALK() + WERK_SC_WEITERE() + '</div>';
   }
   // One card = keycaps, title, one quiet line - the same for every shortcut
   // (digits, Double-Control and "Weitere"); info cards are not buttons.
@@ -15804,11 +15818,20 @@
       + scKarte('<kbd>⌃ control</kbd><kbd>⌃ control</kbd>', 'Noki aus-/einblenden', 'Control doppelt drücken')
       + '</div></section>';
   }
+  // Noki Talk (lokales Diktat): genau die Belegung des Event-Taps -
+  // Option zweimal startet, waehrend der Aufnahme beendet Option einmal
+  // oder die Leertaste.
+  function WERK_SC_TALK() {
+    return '<section class="n-sc-gruppe"><h3>Noki Talk</h3><div class="n-sc-raster">'
+      + scKarte('<kbd>⌥</kbd><kbd>⌥</kbd>', 'Aufnahme starten', 'Option zweimal')
+      + scKarte('<kbd>⌥</kbd>', 'Aufnahme beenden', 'Option einmal')
+      + scKarte('<kbd>Leertaste</kbd>', 'Aufnahme beenden', 'Alternativ zu Option')
+      + '</div></section>';
+  }
   // Global shortcuts without a digit - exactly the event tap's keymap
-  // (prefix + Space, prefix + arrows, prefix twice), as the same cards.
+  // (prefix + arrows, prefix twice), as the same cards.
   function WERK_SC_WEITERE() {
     return '<section class="n-sc-gruppe"><h3>Weitere</h3><div class="n-sc-raster">'
-      + scKarte('<kbd>⌥</kbd><span>zweimal</span>', 'Noki hört zu', 'Option zweimal drücken')
       + scKarte(SC_PRAEFIX + '<span>+</span><kbd>←</kbd><kbd>→</kbd>', 'Schreibtisch wechseln', 'In der Miniatur')
       + scKarte(SC_PRAEFIX + SC_PRAEFIX, 'Einstellungen', 'Öffnen / schließen')
       + '</div></section>';
@@ -17611,6 +17634,8 @@
     el.addEventListener("input", function (e) {
       var t = e.target;
       if (t && t.getAttribute && t.getAttribute("data-appsuche")) { einstellungen.appSuche = String(t.value || ""); einstBauen(); return; }
+      if (t && t.getAttribute && t.getAttribute("data-talksuche")) { talk.suche = String(t.value || ""); einstBauen(); return; }
+      if (t && t.getAttribute && t.getAttribute("data-talkseek")) { talkSeek(+t.getAttribute("data-talkseek"), t.value); return; }
       if (t && t.getAttribute && t.getAttribute("data-schriftsuche")) { einstellungen.schriftSuche = String(t.value || ""); einstBauen(); return; }
       if (!t || !t.getAttribute || !t.getAttribute("data-groesse")) return;
       var f = clamp(+t.value || 1, 0.45, 2.5);
@@ -17894,16 +17919,25 @@
   }
   function einstKv(l, w) { return '<div class="e-kv"><span class="e-kv-l">' + l + '</span><span class="e-kv-w">' + w + '</span></div>'; }
   // ---- NOKI TALK (lokales Diktat): Einstellungen + Verlauf der letzten 30 ----
-  // Status und Verlauf kommen von der nativen Seite (noki_talk_*); hier wird
-  // nur angezeigt und weitergereicht. Wiedergabe: EIN Audio-Element im
-  // Hauptfenster (die Einstellungsseite ist ein Spiegel ohne eigenes JS).
-  var talk = { status: null, verlauf: null, offen: 0, audio: null, spielt: 0, fortschritt: 0, zeit: "" };
+  // Status, Sprachkatalog und Verlauf kommen von der nativen Seite
+  // (noki_talk_*); hier wird nur angezeigt und weitergereicht. Wiedergabe:
+  // EIN Audio-Element im Hauptfenster (die Einstellungsseite ist ein Spiegel).
+  var talk = { status: null, verlauf: null, offen: 0, audio: null, geladen: 0, spielt: 0, pos: 0, dauer: 0, takt: 0,
+               waehlen: false, suche: "" };
+  var TALK_ICON = {
+    play: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z" fill="currentColor"/></svg>',
+    pause: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="3.2" width="2.6" height="9.6" rx=".6" fill="currentColor"/><rect x="9.4" y="3.2" width="2.6" height="9.6" rx=".6" fill="currentColor"/></svg>',
+    kopie: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="5.5" y="5.5" width="7.5" height="7.5" rx="1.5"/><path d="M10.5 3.5V3a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5"/></svg>',
+    weg: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-8.2"/></svg>'
+  };
   function talkLaden() {
     abRuf("noki_talk_status").then(function (d) { talk.status = d || null; if (einstellungen.offen && einstellungen.tab === "talk") einstBauen(); }).catch(function () {});
     abRuf("noki_talk_verlauf").then(function (l) { talk.verlauf = Array.isArray(l) ? l : []; if (einstellungen.offen && einstellungen.tab === "talk") einstBauen(); }).catch(function () {});
   }
   function talkZweistellig(n) { return ("0" + n).slice(-2); }
-  function talkDauer(ms) { var s = Math.max(0, Math.round((+ms || 0) / 1000)); return talkZweistellig(Math.floor(s / 60)) + ":" + talkZweistellig(s % 60); }
+  // 0:04 / 1:12 - wie ein Player, ohne fuehrende Null bei den Minuten.
+  function talkUhr(sek) { var s = Math.max(0, Math.round(+sek || 0)); return Math.floor(s / 60) + ":" + talkZweistellig(s % 60); }
+  function talkDauer(ms) { return talkUhr((+ms || 0) / 1000); }
   function talkDatum(ms) {
     var d = new Date(+ms || 0), h = new Date(), g = new Date(h.getTime() - 864e5);
     var gleich = function (a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); };
@@ -17911,6 +17945,16 @@
       : d.getDate() + ". " + ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"][d.getMonth()] + (d.getFullYear() !== h.getFullYear() ? " " + d.getFullYear() : "");
     return tag + " · " + talkZweistellig(d.getHours()) + ":" + talkZweistellig(d.getMinutes());
   }
+  // Sprachname auf Deutsch aus dem System (Intl), nicht von Hand gepflegt.
+  var talkNamen = null;
+  function talkSprachname(c) {
+    if (c === "auto") return "Auto";
+    var sonder = { jw: "Javanisch", haw: "Hawaiisch", yue: "Kantonesisch" };
+    if (sonder[c]) return sonder[c];
+    try { talkNamen = talkNamen || new Intl.DisplayNames(["de"], { type: "language" }); var n = talkNamen.of(c); if (n && n !== c) return n.charAt(0).toUpperCase() + n.slice(1); } catch (x) {}
+    return c.toUpperCase();
+  }
+  function talkSchnell() { var S = talk.status; return (S && Array.isArray(S.sprachen)) ? S.sprachen : ["de", "en", "fr", "zh"]; }
   function einstTalk() {
     var S = talk.status, lade = '<span class="e-kv-leise">…</span>';
     var engine = !S ? lade
@@ -17925,80 +17969,145 @@
       : '<span class="e-kv-leise">Wird beim ersten Diktat abgefragt</span>';
     var modelle = (S && S.modelle) || [];
     var fehlt = S && (!S.programm || !S.modell);
-    var oben = einstSek("Diktat", "Cursor in ein Textfeld setzen, Option zweimal drücken, sprechen, nochmal Option zweimal (oder Leertaste). Erkennung vollständig lokal mit whisper.cpp – Audio verlässt diesen Mac nie.",
+    // Kurzbefehle: dieselben Keycap-Karten wie jede andere Noki-Seite.
+    var kurz = einstSek("Kurzbefehle", "", '<div class="n-sc-raster">'
+      + scKarte('<kbd>⌥</kbd><kbd>⌥</kbd>', 'Aufnahme starten', 'Option zweimal')
+      + scKarte('<kbd>⌥</kbd>', 'Aufnahme beenden', 'Option einmal')
+      + scKarte('<kbd>Leertaste</kbd>', 'Aufnahme beenden', 'Alternativ zu Option')
+      + scKarte('<kbd>esc</kbd>', 'Abbrechen', 'Nichts wird eingefügt')
+      + '</div>');
+    var diktat = einstSek("Diktat", "Cursor in ein Textfeld setzen, aufnehmen, beenden – der Text erscheint dort. Erkennung vollständig lokal mit whisper.cpp; Audio verlässt diesen Mac nie.",
         '<div class="e-kv-liste">'
         + einstKv("Lokale Engine", engine + (S && !fehlt && S.server !== "bereit" ? '<button class="e-btn-sekundaer e-btn-klein" data-e="talk_engine">Jetzt laden</button>' : ''))
         + einstKv("Mikrofon", mikro)
         + einstKv("Modell", S && S.modell ? '<span class="e-kv-mono">' + abEsc(S.modell) + '</span>' : (S ? '<span class="e-kv-leise">—</span>' : lade))
-        + einstKv("Kurzbefehl", '<kbd>⌥</kbd>&nbsp;zweimal · beenden: <kbd>⌥</kbd>&nbsp;zweimal oder Leertaste')
         + '</div>'
-        + (fehlt ? '<div class="e-hinweis">Einmalig einrichten (lädt whisper.cpp und das Modell aus den offiziellen Quellen): <span class="e-kv-mono">~/NOKI/desktop/talk/whisper-einrichten.sh</span> · Modelle liegen in <span class="e-kv-mono">' + abEsc((S && S.modell_dir) || "") + '</span></div>' : ''))
-      + einstSek("Sprache", "", einstSeg("talk_sprache", (S && S.sprache) || "auto", [["auto", "Auto"], ["de", "Deutsch"], ["en", "Englisch"], ["fr", "Französisch"], ["zh", "Chinesisch"]]))
-      + einstSek("Automatisch einfügen", "Aus: der Text kommt nur in die Zwischenablage. Passwortfelder werden nie beschrieben.",
+        + (fehlt ? '<div class="e-hinweis">Einmalig einrichten (lädt whisper.cpp und das Modell aus den offiziellen Quellen): <span class="e-kv-mono">~/NOKI/desktop/talk/whisper-einrichten.sh</span> · Modelle liegen in <span class="e-kv-mono">' + abEsc((S && S.modell_dir) || "") + '</span></div>' : ''));
+    // Sprache: Auto + die eigene Schnellauswahl + "Auswählen" (letzter Knopf).
+    var aktiv = (S && S.sprache) || "auto", schnell = talkSchnell();
+    var leiste = '<div class="e-seg t-sprachen">' + ["auto"].concat(schnell).map(function (c) {
+        return '<button class="e-seg-btn' + (aktiv === c ? ' aktiv' : '') + '" data-e="talk_sprache" data-v="' + abEsc(c) + '">' + abEsc(talkSprachname(c)) + '</button>';
+      }).join("") + '<button class="e-seg-btn t-waehlen' + (talk.waehlen ? ' aktiv' : '') + '" data-e="talk_waehlen">' + (talk.waehlen ? 'Fertig' : 'Auswählen …') + '</button></div>';
+    var wahl = "";
+    if (talk.waehlen) {
+      var q = talk.suche.trim().toLowerCase();
+      var alle = ((S && S.katalog) || []).map(function (c) { return [c, talkSprachname(c)]; })
+        .sort(function (a, b) { return a[1].localeCompare(b[1], "de"); })
+        .filter(function (x) { return !q || x[1].toLowerCase().indexOf(q) >= 0 || x[0].indexOf(q) === 0; });
+      wahl = '<div class="n-app-wahl t-sprachwahl"><input class="n-app-suche" type="text" data-talksuche="1" placeholder="Sprache suchen …" autocomplete="off" spellcheck="false" value="' + abEsc(talk.suche) + '">'
+        + '<div class="n-app-liste">' + (alle.length ? alle.map(function (x) {
+            var drin = schnell.indexOf(x[0]) >= 0;
+            return '<button class="n-app-zeile t-sprachzeile' + (drin ? ' drin' : '') + '" data-e="talk_sprachwahl" data-v="' + abEsc(x[0]) + '">'
+              + '<span class="n-app-name">' + abEsc(x[1]) + '</span><span class="t-haken">' + (drin ? '✓' : '') + '</span></button>';
+          }).join("") : '<div class="e-hinweis">Keine passende Sprache</div>') + '</div></div>';
+    }
+    var sprache = einstSek("Sprache", talk.waehlen ? "Antippen fügt eine Sprache hinzu oder entfernt sie aus der Auswahl. Auto bleibt immer." : "", leiste + wahl);
+    var weitere = einstSek("Automatisch einfügen", "Aus: der Text kommt nur in die Zwischenablage. Passwortfelder werden nie beschrieben.",
           einstSeg("talk_auto", S && S.auto_einfuegen === false ? "aus" : "an", [["an", "An"], ["aus", "Aus"]]))
       + (modelle.length > 1 ? einstSek("Lokales Modell", "", einstSeg("talk_modell", (S && S.modell) || "", modelle.map(function (m) { return [m, abEsc(m.replace(/^ggml-/, "").replace(/\.bin$/, ""))]; }))) : "");
+    // Verlauf: je Eintrag EIN Text - geschlossen die Vorschau, geoeffnet
+    // ersetzt der vollstaendige Text die Vorschau (nie beides).
     var L = talk.verlauf;
     var liste = !L ? '<div class="e-hinweis">Wird geladen …</div>'
       : !L.length ? '<div class="n-app-leer">Noch keine Diktate</div>'
       : '<div class="t-liste">' + L.map(function (e) {
-          var auf = talk.offen === e.id, spielt = auf && talk.spielt === e.id;
-          var kopf = '<button class="t-e' + (auf ? ' auf' : '') + '" data-e="talk_auf" data-v="' + e.id + '"><span class="t-zeit">' + talkDatum(e.created_at) + ' · ' + talkDauer(e.duration_ms) + '</span>'
-            + '<span class="t-vorschau">' + abEsc(e.transcript) + '</span></button>';
-          if (!auf) return kopf;
-          return kopf + '<div class="t-detail"><div class="t-voll">' + abEsc(e.transcript) + '</div>'
-            + '<div class="t-player"><button class="e-btn-sekundaer e-btn-klein" data-e="talk_play" data-v="' + e.id + '">' + (spielt ? 'Pause' : 'Abspielen') + '</button>'
-            + '<div class="t-balken"><i id="talkBalken" style="width:' + (auf ? Math.round(talk.fortschritt * 100) : 0) + '%"></i></div>'
-            + '<span class="t-uhr" id="talkUhr">' + (talk.zeit || ("00:00 / " + talkDauer(e.duration_ms))) + '</span></div>'
-            + '<div class="n-controls"><button class="e-btn-sekundaer" data-e="talk_kopie" data-v="' + e.id + '">Kopieren</button>'
-            + '<button class="e-btn-sekundaer" data-e="talk_weg" data-v="' + e.id + '">Löschen</button></div></div>';
+          var auf = talk.offen === e.id;
+          var kopf = '<button class="t-e' + (auf ? ' auf' : '') + '" data-e="talk_auf" data-v="' + e.id + '" aria-expanded="' + auf + '">'
+            + '<span class="t-meta"><span class="t-zeit">' + talkDatum(e.created_at) + '</span><span class="t-dauer">' + talkDauer(e.duration_ms) + '</span></span>'
+            + (auf ? '' : '<span class="t-vorschau">' + abEsc(e.transcript) + '</span>') + '</button>';
+          if (!auf) return '<div class="t-karte">' + kopf + '</div>';
+          var geladen = talk.geladen === e.id, spielt = talk.spielt === e.id;
+          var ges = geladen && talk.dauer ? talk.dauer : e.duration_ms / 1000;
+          var pos = geladen ? talk.pos : 0;
+          return '<div class="t-karte auf">' + kopf + '<div class="t-detail"><div class="t-voll">' + abEsc(e.transcript) + '</div>'
+            + '<div class="t-player">'
+            + '<button class="t-rund" data-e="talk_play" data-v="' + e.id + '" title="' + (spielt ? 'Pause' : 'Abspielen') + '" aria-label="' + (spielt ? 'Pause' : 'Abspielen') + '">' + (spielt ? TALK_ICON.pause : TALK_ICON.play) + '</button>'
+            + '<span class="t-ist" id="talkIst">' + talkUhr(pos) + '</span>'
+            + '<input class="t-seek" id="talkSeek" type="range" min="0" max="1000" step="1" data-talkseek="' + e.id + '" value="' + Math.round(ges ? pos / ges * 1000 : 0) + '" aria-label="Position">'
+            + '<span class="t-ges">' + talkUhr(ges) + '</span>'
+            + '<span class="t-trenner"></span>'
+            + '<button class="t-rund" data-e="talk_kopie" data-v="' + e.id + '" title="Text kopieren" aria-label="Text kopieren">' + TALK_ICON.kopie + '</button>'
+            + '<button class="t-rund" data-e="talk_weg" data-v="' + e.id + '" title="Löschen" aria-label="Diktat löschen">' + TALK_ICON.weg + '</button>'
+            + '</div></div></div>';
         }).join("") + '</div>';
-    return oben + einstSek("Verlauf", "Die letzten 30 Diktate mit Aufnahme, nur auf diesem Mac.", liste);
+    return kurz + diktat + sprache + weitere + einstSek("Verlauf", "Die letzten 30 Diktate mit Aufnahme, nur auf diesem Mac.", liste);
+  }
+  // Nur Zeit und Balken aendern sich waehrend der Wiedergabe (gespiegelt).
+  function talkAnzeige() {
+    var el = einstellungen.el; if (!el) return;
+    var s = el.querySelector("#talkSeek"), i = el.querySelector("#talkIst");
+    if (s && document.activeElement !== s) { var v = String(Math.round(talk.dauer ? talk.pos / talk.dauer * 1000 : 0)); s.value = v; s.setAttribute("value", v); }
+    if (i) i.textContent = talkUhr(talk.pos);
+  }
+  function talkTakt(an) {
+    if (talk.takt) { clearInterval(talk.takt); talk.takt = 0; }
+    if (an) talk.takt = setInterval(function () { if (talk.audio) { talk.pos = talk.audio.currentTime || 0; talkAnzeige(); } }, 100);
   }
   function talkStop() {
     if (talk.audio) { try { talk.audio.pause(); } catch (x) {} }
-    talk.spielt = 0;
+    talk.spielt = 0; talkTakt(false);
+  }
+  // Laedt die Aufnahme eines Eintrags (genau EIN Audio zur Zeit).
+  function talkLadeAudio(id) {
+    if (talk.geladen === id && talk.audio) return Promise.resolve(talk.audio);
+    talkStop();
+    return abRuf("noki_talk_audio", { id: id }).then(function (url) {
+      if (!url) throw new Error("kein Audio");
+      var au = talk.audio || (talk.audio = new Audio());
+      au.onended = function () { talk.spielt = 0; talk.pos = 0; talkTakt(false); einstBauen(); };
+      au.onloadedmetadata = function () { if (isFinite(au.duration) && au.duration > 0) { talk.dauer = au.duration; talkAnzeige(); } };
+      au.src = url; talk.geladen = id; talk.pos = 0;
+      var e = (talk.verlauf || []).filter(function (x) { return x.id === id; })[0];
+      talk.dauer = e ? e.duration_ms / 1000 : 0;
+      return au;
+    });
+  }
+  function talkSpeichern(key, wert) {
+    if (talk.status) talk.status[key === "auto_einfuegen" ? "auto_einfuegen" : key] = wert;
+    abRuf("noki_talk_einstellung", { schluessel: key, wert: wert }).then(talkLaden).catch(function () {});
+  }
+  function talkSeek(id, promille) {
+    talkLadeAudio(id).then(function (au) {
+      var d = talk.dauer || (isFinite(au.duration) ? au.duration : 0);
+      var ziel = d * Math.max(0, Math.min(1000, +promille || 0)) / 1000;
+      try { au.currentTime = ziel; } catch (x) {}
+      talk.pos = ziel; talkAnzeige();
+    }).catch(function () {});
   }
   function talkAktion(a, v) {
     var id = +v;
-    if (a === "talk_sprache" || a === "talk_auto" || a === "talk_modell") {
-      var key = a === "talk_sprache" ? "sprache" : a === "talk_auto" ? "auto_einfuegen" : "modell";
-      var wert = a === "talk_auto" ? v === "an" : String(v);
-      if (talk.status) { if (key === "auto_einfuegen") talk.status.auto_einfuegen = wert; else if (key === "sprache") talk.status.sprache = wert; else talk.status.modell = wert; }
-      abRuf("noki_talk_einstellung", { schluessel: key, wert: wert }).then(talkLaden).catch(function () {});
+    if (a === "talk_sprache") talkSpeichern("sprache", String(v));
+    else if (a === "talk_auto") talkSpeichern("auto_einfuegen", v === "an");
+    else if (a === "talk_modell") talkSpeichern("modell", String(v));
+    else if (a === "talk_waehlen") { talk.waehlen = !talk.waehlen; talk.suche = ""; }
+    else if (a === "talk_sprachwahl") {
+      var schnell = talkSchnell().slice(), i = schnell.indexOf(String(v));
+      if (i >= 0) schnell.splice(i, 1); else schnell.push(String(v));
+      if (talk.status) {
+        talk.status.sprachen = schnell;
+        // Die aktive Sprache verschwindet aus der Auswahl -> Auto.
+        if (talk.status.sprache !== "auto" && schnell.indexOf(talk.status.sprache) < 0) talk.status.sprache = "auto";
+      }
+      talkSpeichern("sprachen", schnell);
     }
     else if (a === "talk_mikro") abRuf("noki_talk_mikrofon_freigabe").catch(function () {});
     else if (a === "talk_engine") {
       if (talk.status) talk.status.server = "startet";
       abRuf("noki_talk_engine_starten").catch(function () { if (talk.status) talk.status.server = "aus"; }).then(function () { setTimeout(talkLaden, 1500); });
     }
-    else if (a === "talk_auf") { if (talk.offen !== id) { talkStop(); talk.fortschritt = 0; talk.zeit = ""; } talk.offen = talk.offen === id ? 0 : id; }
+    else if (a === "talk_auf") { if (talk.offen !== id) { talkStop(); talk.geladen = 0; talk.pos = 0; } talk.offen = talk.offen === id ? 0 : id; }
     else if (a === "talk_kopie") abRuf("noki_talk_kopieren", { id: id }).catch(function () {});
     else if (a === "talk_weg") {
-      if (talk.spielt === id) talkStop();
+      if (talk.geladen === id) { talkStop(); talk.geladen = 0; }
       abRuf("noki_talk_loeschen", { id: id }).then(function () { if (talk.offen === id) talk.offen = 0; talkLaden(); }).catch(function () {});
     }
     else if (a === "talk_play") {
       if (talk.spielt === id) { talkStop(); einstBauen(); return; }
-      talkStop();
-      abRuf("noki_talk_audio", { id: id }).then(function (url) {
-        if (!url) return;
-        var au = talk.audio || (talk.audio = new Audio());
-        var e = (talk.verlauf || []).filter(function (x) { return x.id === id; })[0];
-        var ges = e ? e.duration_ms / 1000 : 0;
-        au.onended = function () { talk.spielt = 0; talk.fortschritt = 0; talk.zeit = ""; einstBauen(); };
-        // Nur der Balken und die Uhr aendern sich (gespiegelt), ~4/s.
-        au.ontimeupdate = function () {
-          var d = isFinite(au.duration) && au.duration > 0 ? au.duration : ges;
-          talk.fortschritt = d ? Math.min(1, au.currentTime / d) : 0;
-          talk.zeit = talkDauer(au.currentTime * 1000) + " / " + talkDauer(d * 1000);
-          var b = einstellungen.el && einstellungen.el.querySelector("#talkBalken"), u = einstellungen.el && einstellungen.el.querySelector("#talkUhr");
-          if (b) b.style.width = Math.round(talk.fortschritt * 100) + "%";
-          if (u) u.textContent = talk.zeit;
-        };
-        au.src = url; talk.spielt = id;
-        au.play().catch(function () { talk.spielt = 0; einstBauen(); });
-        einstBauen();
-      }).catch(function () { talk.spielt = 0; einstBauen(); });
+      talkLadeAudio(id).then(function (au) {
+        if (talk.pos >= (talk.dauer || 0) - 0.05) { au.currentTime = 0; talk.pos = 0; }
+        talk.spielt = id;
+        return au.play().then(function () { talkTakt(true); einstBauen(); });
+      }).catch(function () { talk.spielt = 0; talkTakt(false); einstBauen(); });
       return;
     }
     einstBauen();
@@ -18049,7 +18158,7 @@
     if (tab === "darstellung") return einstDarstellung();
     var E = einstWerte;
     if (tab === "freeze") {
-      var S = [["klassisch", "Klassisch", "Ruhiges Standbild"], ["anomalie", "Anomalie", "Verzerrungen"], ["tore", "Tore", "Leuchtende Portale"], ["zeitrisse", "Zeitrisse", "Aufbrechende Raumlinien"]];
+      var S = [["klassisch", "Klassisch", "Ruhiges Standbild"], ["anomalie", "Anomalie", "Verzerrungen"]];
       var frz = !!(window.NokiFreeze && window.NokiFreeze.aktiv());
       return einstSek("Freeze-Stil", "", '<div class="e-frz-raster">' + S.map(function (c) {
           return '<button class="e-frz-karte' + (E.freeze === c[0] ? ' aktiv' : '') + '" data-e="frz" data-v="' + c[0] + '" role="button">'
@@ -18406,6 +18515,9 @@
     abRuf("werk_daten_lesen", { schluessel: "einstellungen" }).then(function (d) {
       if (d && typeof d === "object") {
         if (typeof d.freeze === "string") einstWerte.freeze = d.freeze;
+        // Tore/Zeitrisse gibt es nicht mehr: gespeicherte Werte -> Klassisch (einmal sichern).
+        var frzAlt = einstWerte.freeze === "tore" || einstWerte.freeze === "zeitrisse";
+        if (frzAlt) einstWerte.freeze = "klassisch";
         if (d.profile && typeof d.profile === "object" && !Array.isArray(d.profile)) einstWerte.profile = d.profile;   // Arbeitsplatz-Fokus
         ["timer", "fokus"].forEach(function (g) {
           if (!d[g] || typeof d[g] !== "object") return;
@@ -18413,6 +18525,7 @@
         });
       }
       einstAnwenden();
+      if (frzAlt) einstSichern();
     }).catch(function () {});
   }, 1400);
 
@@ -28350,7 +28463,9 @@
   var FZ_LOOK = "saturate(0.55) brightness(1.03) contrast(1.10) hue-rotate(170deg)";   // unveränderter konträrer Freeze-Look
   // "anomalie" keeps its established look; the other styles add a quiet
   // vignette, portal gates, or deterministic time rifts.
-  var FZ_STILE = ["klassisch", "anomalie", "tore", "zeitrisse"];
+  // Waehlbar sind nur noch Klassisch und Anomalie; fruehere Stile (Tore,
+  // Zeitrisse) werden beim Setzen auf Klassisch abgebildet.
+  var FZ_STILE = ["klassisch", "anomalie"];
   var freezeStil = "anomalie";
   var FZ_LOOK_STIL = { klassisch: "grayscale(0.85) brightness(0.93) contrast(1.04)",
                        eis: "saturate(0.45) brightness(1.07) contrast(1.06)",
@@ -29114,7 +29229,7 @@
     },
     umschalten: function () { return window.NokiFreeze.aktiv() ? window.NokiFreeze.beenden() : window.NokiFreeze.start(); },
     aktiv: function () { return unleash.aktiv && unleash.modus === "freeze" && !unleash.tauT; },
-    stil: function (s) { if (s && FZ_STILE.indexOf(s) >= 0) freezeStil = s; return freezeStil; },
+    stil: function (s) { if (s === "tore" || s === "zeitrisse") s = "klassisch"; if (s && FZ_STILE.indexOf(s) >= 0) freezeStil = s; return freezeStil; },
     zustand: function () { return unleash.modus === "freeze" ? { t: unleash.t, tauT: unleash.tauT, aktiv: unleash.aktiv, aufnahme: unleash.aufnahme, meldung: unleash.meldung } : null; }
   };
   window.NokiKamera = {
