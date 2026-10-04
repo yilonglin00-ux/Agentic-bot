@@ -7,9 +7,11 @@
 //       Schreibt das bearbeitete Bild im FORMAT des Originals (PNG/JPEG/HEIC
 //       …) und uebernimmt dessen Metadaten, soweit sinnvoll (EXIF/TIFF/GPS,
 //       Farbprofil; Groesse und Ausrichtung kommen vom neuen Bild).
-//   noki-medien export <video> <ziel.mov> <start> <ende> <x> <y> <w> <h>
+//   noki-medien export <video> <ziel.mov> <start> <ende> <x> <y> <w> <h> [<ebene.png> <t0>]…
 //       Zeitlich schneiden (Sekunden) und raeumlich zuschneiden (0..1 der
-//       angezeigten Flaeche). Ohne Zuschnitt verlustfrei (Passthrough).
+//       angezeigten Flaeche). Ebenen (Zeichnungen/Texte des Editors, PNG in
+//       Groesse des Zuschnitts) werden ab t0 (Sekunden der Quelle) bis zum
+//       Ende eingebrannt. Ohne Zuschnitt und Ebenen verlustfrei (Passthrough).
 //       stdout: {"p":0.42} … {"ok":true} | {"fehler":"…"}
 //       SIGTERM bricht ab und entfernt die halbe Datei.
 // Alles lokal (ImageIO/AVFoundation/CoreImage), nichts verlaesst diesen Mac.
@@ -18,6 +20,7 @@ import AVFoundation
 import ImageIO
 import CoreGraphics
 import UniformTypeIdentifiers
+import QuartzCore
 
 setvbuf(stdout, nil, _IOLBF, 0)
 func emit(_ d: [String: Any]) {
@@ -98,35 +101,81 @@ case "bild":
     emit(["ok": true, "w": bild.width, "h": bild.height])
 
 case "export":
-    guard a.count == 10, let start = Double(a[4]), let ende = Double(a[5]),
+    guard a.count >= 10, (a.count - 10) % 2 == 0, let start = Double(a[4]), let ende = Double(a[5]),
           let cx = Double(a[6]), let cy = Double(a[7]), let cw = Double(a[8]), let ch = Double(a[9]) else { fehler("aufruf") }
     let quelle = URL(fileURLWithPath: a[2]), ziel = URL(fileURLWithPath: a[3])
+    // Ebenen: (Bild, t0)
+    var ebenen: [(CGImage, Double)] = []
+    var i = 10
+    while i + 1 < a.count {
+        if let t0 = Double(a[i + 1]), let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: a[i]) as CFURL, nil),
+           let bild = CGImageSourceCreateImageAtIndex(src, 0, nil) { ebenen.append((bild, t0)) }
+        i += 2
+    }
     let asset = AVURLAsset(url: quelle)
     let gesamt = CMTimeGetSeconds(asset.duration)
     let von = max(0, min(start, gesamt)), bis = max(von, min(ende, gesamt))
     guard bis - von > 0.05 else { fehler("zu kurz") }
+    let bereich = CMTimeRange(start: CMTime(seconds: von, preferredTimescale: 600), end: CMTime(seconds: bis, preferredTimescale: 600))
+    // Der Schnitt als eigene Komposition: deren Zeitachse beginnt bei 0 -
+    // genau die Zeit, in der auch die Ebenen eingeblendet werden.
+    let komp = AVMutableComposition()
+    let quellSpur = asset.tracks(withMediaType: .video).first
+    var kompSpur: AVMutableCompositionTrack?
+    if let sp = quellSpur, let k = komp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) {
+        do { try k.insertTimeRange(bereich, of: sp, at: .zero) } catch { fehler("schnitt") }
+        k.preferredTransform = sp.preferredTransform
+        kompSpur = k
+    }
+    for sp in asset.tracks(withMediaType: .audio) {
+        if let k = komp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) { try? k.insertTimeRange(bereich, of: sp, at: .zero) }
+    }
     let ganz = cx <= 0.0005 && cy <= 0.0005 && cw >= 0.9995 && ch >= 0.9995
-    var preset = ganz ? AVAssetExportPresetPassthrough : AVAssetExportPresetHighestQuality
-    if !ganz, asset.tracks(withMediaType: .video).first == nil { preset = AVAssetExportPresetPassthrough }
-    guard let s = AVAssetExportSession(asset: asset, presetName: preset) else { fehler("export") }
+    let einfach = ganz && ebenen.isEmpty
+    guard let s = AVAssetExportSession(asset: komp, presetName: einfach || kompSpur == nil ? AVAssetExportPresetPassthrough : AVAssetExportPresetHighestQuality) else { fehler("export") }
     s.outputURL = ziel
     s.outputFileType = .mov
-    s.timeRange = CMTimeRange(start: CMTime(seconds: von, preferredTimescale: 600), end: CMTime(seconds: bis, preferredTimescale: 600))
-    if !ganz, let spur = asset.tracks(withMediaType: .video).first {
-        let anzeige = anzeigeGroesse(spur)
+    if !einfach, let sp = quellSpur, let k = kompSpur {
+        let anzeige = anzeigeGroesse(sp)
         // Gerade Pixelzahlen (H.264/HEVC), mindestens 16 px.
         let rw = max(16, (Int(anzeige.width * cw) / 2) * 2), rh = max(16, (Int(anzeige.height * ch) / 2) * 2)
         let ox = anzeige.width * cx, oy = anzeige.height * cy
         let comp = AVMutableVideoComposition()
         comp.renderSize = CGSize(width: rw, height: rh)
-        let fps = spur.nominalFrameRate > 0 ? spur.nominalFrameRate : 30
+        let fps = sp.nominalFrameRate > 0 ? sp.nominalFrameRate : 30
         comp.frameDuration = CMTime(value: 1, timescale: CMTimeScale(fps.rounded()))
         let anw = AVMutableVideoCompositionInstruction()
-        anw.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
-        let lage = AVMutableVideoCompositionLayerInstruction(assetTrack: spur)
-        lage.setTransform(spur.preferredTransform.concatenating(CGAffineTransform(translationX: -ox, y: -oy)), at: .zero)
+        anw.timeRange = CMTimeRange(start: .zero, duration: komp.duration)
+        let lage = AVMutableVideoCompositionLayerInstruction(assetTrack: k)
+        lage.setTransform(sp.preferredTransform.concatenating(CGAffineTransform(translationX: -ox, y: -oy)), at: .zero)
         anw.layerInstructions = [lage]
         comp.instructions = [anw]
+        if !ebenen.isEmpty {
+            // Jede Ebene als Bild-Layer ueber dem Video, unsichtbar bis t0.
+            let rahmen = CGRect(x: 0, y: 0, width: rw, height: rh)
+            let eltern = CALayer(), videoEbene = CALayer()
+            eltern.frame = rahmen; videoEbene.frame = rahmen
+            eltern.addSublayer(videoEbene)
+            for (bild, t0) in ebenen {
+                let l = CALayer()
+                l.frame = rahmen
+                l.contents = bild
+                l.contentsGravity = .resize
+                let ab = max(0, t0 - von)
+                if ab > 0.001 {
+                    l.opacity = 0
+                    let an = CABasicAnimation(keyPath: "opacity")
+                    an.fromValue = 1; an.toValue = 1
+                    an.beginTime = AVCoreAnimationBeginTimeAtZero + ab
+                    an.duration = max(0.05, CMTimeGetSeconds(komp.duration) - ab + 1)
+                    an.fillMode = .forwards
+                    an.isRemovedOnCompletion = false
+                    l.add(an, forKey: "ab")
+                }
+                eltern.addSublayer(l)
+            }
+            comp.animationTool = AVVideoCompositionCoreAnimationTool(postProcessingAsVideoLayer: videoEbene, in: eltern)
+        }
         s.videoComposition = comp
     }
     try? FileManager.default.removeItem(at: ziel)

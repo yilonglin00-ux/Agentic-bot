@@ -60,7 +60,7 @@ const server = http.createServer((req, res) => {
       status: { server: 'aus', programm: '/Users/x/NOKI/.local/whisper-src/build/bin/whisper-server', modell: 'ggml-large-v3-turbo-q5_0.bin',
         modelle: ['ggml-large-v3-turbo-q5_0.bin', 'ggml-small.bin'], modell_dir: '/Users/x/NOKI/.local/whisper-models',
         helfer: true, mikrofon: 3, geraet: 'MacBook Pro-Mikrofon', sprache: 'auto', auto_einfuegen: true, laeuft: false,
-        sprachen: ['de', 'en', 'fr', 'zh'], katalog: ['en', 'zh', 'de', 'es', 'ru', 'ko', 'fr', 'ja', 'pt', 'tr', 'pl', 'it', 'nl', 'sv', 'yue', 'haw'] },
+        sprachen: ['de', 'en', 'fr', 'zh'], katalog: ['en', 'zh', 'de', 'es', 'ru', 'ko', 'fr', 'ja', 'pt', 'tr', 'pl', 'it', 'nl', 'sv', 'yue', 'haw', 'nn', 'ht'] },
       liste: Array.from({ length: 30 }, (_, i) => ({ id: 100 - i, created_at: jetzt - i * 3600e3, duration_ms: 18000 + i * 1000,
         transcript: (i === 0 ? 'Ich wollte morgen eigentlich noch zur Uni fahren und danach in die Bibliothek, um die Notizen für die Prüfung fertig zu schreiben.' : 'Diktat Nummer ' + i),
         audio_path: '/x/' + i + '.m4a', language: 'de', source_app: 'Notes' })),
@@ -128,7 +128,11 @@ const server = http.createServer((req, res) => {
   check(t.bars[t.bars.length - 1] > 0.6 && t.bars[t.bars.length - 2] > 0.8 && t.bars[0] < 0.2, `Equalizer folgt dem Pegel (${t.bars.slice(-4).join(', ')})`);
   await ev('noki-talk', { zustand: 'hoert', text: 'Ich wollte morgen eigentlich noch zur Uni …' });
   t = await tafel();
-  check(t.text === 'Ich wollte morgen eigentlich noch zur Uni …', 'Live-Vorschau erscheint');
+  check(t.text === '' && t.label === 'Noki hört zu' && t.eq !== 'none', `waehrend der Aufnahme KEIN Text, nur Zustand + Pegel ("${t.text}")`);
+  for (const satz of ['Ich wollte morgen eigentlich noch zur Uni fahren.', 'Danach in die Bibliothek.', 'Und dann die Notizen fertig schreiben.']) await ev('noki-talk', { zustand: 'hoert', text: satz });
+  t = await tafel();
+  const tafelGroesse = await main.evaluate(() => { const r = document.getElementById('nokiStimme').getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); });
+  check(t.text === '' && !(await main.evaluate(() => document.getElementById('nokiStimme').textContent)).includes('Bibliothek'), 'mehrere Saetze: weiterhin kein Text in der Tafel');
   const tStopp = Date.now();
   await ev('noki://stimme', { was: 'stop' });
   t = await tafel();
@@ -144,7 +148,10 @@ const server = http.createServer((req, res) => {
   check(await main.evaluate(() => getComputedStyle(document.getElementById('nokiStimmeLabel')).animationName) === 'nokiVerarbeitet', 'eigene ruhige Verarbeitungs-Animation (keine Waveform)');
   await ev('noki-talk', { zustand: 'fertig', text: 'Ich wollte morgen eigentlich noch zur Uni.', meldung: '', verlauf: true });
   t = await tafel();
-  check(t.label === 'Eingefügt' && t.text === 'Ich wollte morgen eigentlich noch zur Uni.', `Fertig: ${t.label}`);
+  check(t.label === 'Eingefügt' && t.text === '', `Fertig: "${t.label}", ohne Transkript in der Tafel`);
+  // (the equaliser row is only shown while recording: +-2 px, unchanged design)
+  check(await main.evaluate((v) => { const r = document.getElementById('nokiStimme').getBoundingClientRect(), a = v.split(',').map(Number);
+    return Math.round(r.left) === a[0] && Math.round(r.top) === a[1] && Math.round(r.width) === a[2] && Math.abs(Math.round(r.height) - a[3]) <= 2; }, tafelGroesse), `Tafel: gleiche Groesse und Lage (${tafelGroesse} / ${await main.evaluate(() => { const r = document.getElementById('nokiStimme').getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); })})`);
   await main.waitForFunction(() => document.documentElement.getAttribute('data-noki-stimme') === '0', null, { timeout: 15000 }).catch(() => {});
   check((await tafel()).zustand === '0', 'Tafel schliesst danach');
   // fast repeated dictations + "nothing understood" + cancel
@@ -173,11 +180,11 @@ const server = http.createServer((req, res) => {
     await main.waitForTimeout(200);
   };
   const bis = (fn, ms) => einst.waitForFunction(fn, null, { timeout: ms || 8000 }).catch(() => {});
-  const sprachKnoepfe = () => einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-sprachen .e-seg-btn')].map(b => b.textContent + (b.classList.contains('aktiv') ? '*' : '')));
+  const sprachKnoepfe = () => einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-schnell .e-font-chip')].map(b => b.textContent + (b.classList.contains('aktiv') ? '*' : '')));
   let sk = await sprachKnoepfe();
   check(sk.join('|') === 'Auto*|Deutsch|Englisch|Französisch|Chinesisch', `Standard-Sprachen im Raster (${sk.join('|')})`);
   const layout = () => einst.evaluate(() => {
-    const bs = [...document.querySelectorAll('#einstellungen .t-sprachen .e-seg-btn')], r = bs.map(b => b.getBoundingClientRect());
+    const bs = [...document.querySelectorAll('#einstellungen .t-schnell .e-font-chip')], r = bs.map(b => b.getBoundingClientRect());
     const w = document.querySelector('#einstellungen [data-e="talk_waehlen"]');
     return { hoehen: [...new Set(r.map(x => Math.round(x.height)))], breiten: [...new Set(r.map(x => Math.round(x.width)))],
       abgeschnitten: bs.filter(b => b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1).map(b => b.textContent),
@@ -187,32 +194,51 @@ const server = http.createServer((req, res) => {
   let ly = await layout();
   check(ly.hoehen.length === 1 && ly.breiten.length === 1 && ly.abgeschnitten.length === 0, `Sprachknoepfe gleich gross, nichts abgeschnitten (H ${ly.hoehen}, B ${ly.breiten})`);
   check(!ly.waehlenImRaster && ly.waehlenDarunter && ly.waehlenText === 'Sprachen auswählen …', `"${ly.waehlenText}" separat darunter`);
-  await klick('.e-seg-btn[data-e="talk_sprache"]', 'Deutsch');
+  await klick('.e-font-chip[data-e="talk_sprache"]', 'Deutsch');
   let e = (await calls('noki_talk_einstellung')).pop();
   check(e && e.args.schluessel === 'sprache' && e.args.wert === 'de', 'Sprache Deutsch wird gespeichert');
-  await bis(() => document.querySelector('#einstellungen .t-sprachen .aktiv[data-v="de"]'));
+  await bis(() => document.querySelector('#einstellungen .t-schnell .aktiv[data-v="de"]'));
   check((await sprachKnoepfe())[1] === 'Deutsch*', 'aktive Sprache klar markiert');
-  check(await einst.evaluate(() => { const b = document.querySelector('#einstellungen .t-sprachen .aktiv'); const c = getComputedStyle(b); return c.borderTopColor !== getComputedStyle(document.querySelector('#einstellungen .t-sprachen .e-seg-btn:not(.aktiv)')).borderTopColor; }), 'Auswahl sichtbar markiert (Rahmen)');
+  check(await einst.evaluate(() => { const b = document.querySelector('#einstellungen .t-schnell .aktiv'); const c = getComputedStyle(b); return c.borderTopColor !== getComputedStyle(document.querySelector('#einstellungen .t-schnell .e-font-chip:not(.aktiv)')).borderTopColor; }), 'Auswahl sichtbar markiert (Rahmen)');
   // Picker: add Japanese, search, remove the active German -> Auto.
   await klick('[data-e="talk_waehlen"]');
-  await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length > 0);
-  const zeilenSprachen = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].map(z => z.textContent));
-  check(zeilenSprachen.length === 16 && zeilenSprachen.includes('Japanisch') && zeilenSprachen.includes('Kantonesisch') && zeilenSprachen.includes('Deutsch✓'),
+  await bis(() => document.querySelectorAll('#einstellungen .t-katalog .e-font-chip').length > 0);
+  const zeilenSprachen = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-katalog .e-font-chip')].map(z => z.textContent));
+  check(zeilenSprachen.length === 18 && zeilenSprachen.includes('Japanisch') && zeilenSprachen.includes('Kantonesisch') && zeilenSprachen.includes('Deutsch✓'),
     `Auswahl zeigt den Whisper-Katalog, vorhandene mit ✓ (${zeilenSprachen.length})`);
-  check(!(await einst.evaluate(() => document.querySelector('#einstellungen .t-sprachen').textContent)).includes('×'), 'keine dauerhaften X-Symbole');
+  const kacheln = () => einst.evaluate(() => {
+    const k = [...document.querySelectorAll('#einstellungen .t-katalog .e-font-chip')], q = [...document.querySelectorAll('#einstellungen .t-schnell .e-font-chip')];
+    const g = (b) => { const r = b.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); };
+    const name = (b) => b.querySelector('.e-font-name');
+    return { groessen: [...new Set(k.map(g))], schnell: [...new Set(q.map(g))], zentriert: k.every(b => getComputedStyle(b).justifyContent === 'center'),
+      zeilen: Math.max(...k.map(b => Math.round(name(b).getBoundingClientRect().height / parseFloat(getComputedStyle(name(b)).lineHeight)))),
+      lang: k.filter(b => /Nynorsk|Kreol/.test(b.textContent)).map(b => b.textContent + ' ' + g(b)),
+      font: !!document.querySelector('#einstellungen .t-sprachwahl .e-schrift-suche') && k.every(b => b.classList.contains('e-font-chip')),
+      hoehe: Math.round(document.querySelector('#einstellungen .t-sprachwahl').getBoundingClientRect().height) };
+  });
+  let kk = await kacheln();
+  check(kk.font, 'Auswahl nutzt die Schriftarten-Kacheln (e-font-chip, Suchfeld wie bei Schrift)');
+  check(kk.groessen.length === 1 && kk.schnell.length === 1 && kk.groessen[0] === kk.schnell[0] && kk.zentriert && kk.zeilen <= 2,
+    `alle Sprachkacheln identisch gross (${kk.groessen} / Schnell ${kk.schnell}), zentriert, max. 2 Zeilen (${kk.zeilen})`);
+  check(kk.lang.length === 2, `lange Namen veraendern die Kachel nicht (${kk.lang.join(' | ')})`);
+  const hoeheVorher = kk.hoehe;
+  if (process.env.SHOTS) { await einst.locator('#einstellungen .t-sprachwahl').scrollIntoViewIfNeeded(); await einst.screenshot({ path: process.env.SHOTS + '/sprachwahl.png' }); }
+  check(!(await einst.evaluate(() => document.querySelector('#einstellungen .t-schnell').textContent)).includes('×'), 'keine dauerhaften X-Symbole');
   check(!(await layout()).hilfe, 'kein Hilfetext unter Sprache (auch bei offener Auswahl)');
   await einst.fill('#einstellungen [data-talksuche]', 'jap');
-  await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length === 1);
-  const gefiltert = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].map(z => z.textContent));
+  await bis(() => document.querySelectorAll('#einstellungen .t-katalog .e-font-chip').length === 1);
+  const gefiltert = await einst.evaluate(() => [...document.querySelectorAll('#einstellungen .t-katalog .e-font-chip')].map(z => z.textContent));
   check(gefiltert.length === 1 && gefiltert[0] === 'Japanisch', `Suche filtert (${gefiltert.join(',')})`);
-  await klick('.t-sprachzeile', 'Japanisch');
-  await bis(() => (document.querySelector('#einstellungen .t-sprachzeile') || {}).textContent === 'Japanisch✓');
+  await klick('.t-katalog .e-font-chip', 'Japanisch');
+  await bis(() => (document.querySelector('#einstellungen .t-katalog .e-font-chip') || {}).textContent === 'Japanisch✓');
   e = (await calls('noki_talk_einstellung')).pop();
   check(e && e.args.schluessel === 'sprachen' && JSON.stringify(e.args.wert) === '["de","en","fr","zh","ja"]', `Japanisch hinzugefuegt + gespeichert (${JSON.stringify(e && e.args.wert)})`);
   await einst.fill('#einstellungen [data-talksuche]', '');
-  await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length === 16);
-  await klick('.t-sprachzeile', 'Deutsch');
-  await bis(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].some(z => z.textContent === 'Deutsch'));
+  await bis(() => document.querySelectorAll('#einstellungen .t-katalog .e-font-chip').length === 18);
+  kk = await kacheln();
+  check(kk.hoehe === hoeheVorher && kk.groessen.length === 1 && kk.groessen[0] === kk.schnell[0], `nach Hinzufuegen kein Layoutsprung (Auswahl ${hoeheVorher} -> ${kk.hoehe}px, Kacheln ${kk.groessen})`);
+  await klick('.t-katalog .e-font-chip', 'Deutsch');
+  await bis(() => [...document.querySelectorAll('#einstellungen .t-katalog .e-font-chip')].some(z => z.textContent === 'Deutsch'));
   e = (await calls('noki_talk_einstellung')).pop();
   check(e && JSON.stringify(e.args.wert) === '["en","fr","zh","ja"]', 'aktive Sprache Deutsch entfernt');
   await klick('[data-e="talk_waehlen"]');
@@ -221,15 +247,15 @@ const server = http.createServer((req, res) => {
   check(sk.join('|') === 'Auto*|Englisch|Französisch|Chinesisch|Japanisch', `danach Auto aktiv, Japanisch als Schnellknopf (${sk.join('|')})`);
   // long names: add Hawaiian + Cantonese too - still uniform, nothing cut
   await klick('[data-e="talk_waehlen"]');
-  await bis(() => document.querySelectorAll('#einstellungen .t-sprachzeile').length > 0);
-  await klick('.t-sprachzeile', 'Kantonesisch');
-  await bis(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].some(z => z.textContent === 'Kantonesisch✓'));
-  await klick('.t-sprachzeile', 'Niederländisch');
-  await bis(() => [...document.querySelectorAll('#einstellungen .t-sprachzeile')].some(z => z.textContent === 'Niederländisch✓'));
+  await bis(() => document.querySelectorAll('#einstellungen .t-katalog .e-font-chip').length > 0);
+  await klick('.t-katalog .e-font-chip', 'Kantonesisch');
+  await bis(() => [...document.querySelectorAll('#einstellungen .t-katalog .e-font-chip')].some(z => z.textContent === 'Kantonesisch✓'));
+  await klick('.t-katalog .e-font-chip', 'Niederländisch');
+  await bis(() => [...document.querySelectorAll('#einstellungen .t-katalog .e-font-chip')].some(z => z.textContent === 'Niederländisch✓'));
   await klick('[data-e="talk_waehlen"]');
   await bis(() => !document.querySelector('#einstellungen .t-sprachwahl'));
   ly = await layout();
-  if (process.env.SHOTS) { await einst.locator('#einstellungen .t-sprachen').scrollIntoViewIfNeeded(); await einst.screenshot({ path: process.env.SHOTS + '/sprache.png' }); }
+  if (process.env.SHOTS) { await einst.locator('#einstellungen .t-schnell').scrollIntoViewIfNeeded(); await einst.screenshot({ path: process.env.SHOTS + '/sprache.png' }); }
   sk = await sprachKnoepfe();
   check(sk.length === 7 && ly.hoehen.length === 1 && ly.breiten.length === 1 && ly.abgeschnitten.length === 0 && ly.waehlenDarunter,
     `7 Sprachen inkl. langer Namen sauber (${sk.join('|')}; H ${ly.hoehen}, B ${ly.breiten})`);
@@ -270,7 +296,7 @@ const server = http.createServer((req, res) => {
     check(await knopf() === 'Abspielen', 'Pause zeigt wieder das Play-Icon');
     // Seek by dragging the bar (input events) to ~2/3.
     await einst.evaluate(() => { const s = document.getElementById('talkSeek'); s.value = '667'; s.dispatchEvent(new Event('input', { bubbles: true })); });
-    await main.waitForTimeout(400);
+    await bis(() => (document.getElementById('talkIst') || {}).textContent === '0:02', 6000);
     p = await player();
     check(p.ist === '0:02' && Math.abs(p.seek - 667) < 5, `Spulen setzt die Position (${p.ist}, ${p.seek}‰)`);
     await klick('[data-e="talk_play"]');
@@ -296,7 +322,7 @@ const server = http.createServer((req, res) => {
 
   // ---- 4. Dictation while Settings is open -------------------------------
   await ev('noki://stimme', { was: 'start' });
-  await klick('.e-seg-btn[data-e="talk_sprache"]', 'Englisch');
+  await klick('.e-font-chip[data-e="talk_sprache"]', 'Englisch');
   e = (await calls('noki_talk_einstellung')).pop();
   check(e && e.args.wert === 'en' && (await tafel()).zustand === '1', 'Einstellungen bleiben bedienbar waehrend der Aufnahme');
   const vorher = (await calls('noki_talk_verlauf')).length;

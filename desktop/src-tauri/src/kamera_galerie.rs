@@ -212,9 +212,16 @@ static EXPORT: Mutex<Option<(u32, PathBuf)>> = Mutex::new(None);
 /// Video schneiden (start/ende in s) und zuschneiden (x/y/w/h: 0..1) als
 /// NEUE Datei. Fortschritt als Ereignis "kamera-export"; das Original
 /// bleibt unberuehrt.
+/// Eine Zeichen-/Text-Ebene des Videoeditors: transparentes PNG in der
+/// Groesse des (zugeschnittenen) Videos, sichtbar ab `t0` (Sekunden in der
+/// Quelle) bis zum Ende.
+#[derive(serde::Deserialize)]
+pub struct VideoOverlay { t0: f64, daten: String }
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
-pub fn kamera_video_export(app: tauri::AppHandle, name: String, start: f64, ende: f64, x: f64, y: f64, w: f64, h: f64) -> Result<String, String> {
+pub fn kamera_video_export(app: tauri::AppHandle, name: String, start: f64, ende: f64, x: f64, y: f64, w: f64, h: f64,
+                           overlays: Option<Vec<VideoOverlay>>) -> Result<String, String> {
     let o = ordner();
     let quelle = kern::pfad_im_ordner(&o, &name).ok_or("Datei nicht im Ordner Noki Kamera")?;
     if kern::art(&name) != Some("video") { return Err("Kein Video".into()); }
@@ -226,10 +233,24 @@ pub fn kamera_video_export(app: tauri::AppHandle, name: String, start: f64, ende
     let ziel_name = kern::freier_name(&o, &name, "geschnitten", "mov");
     let ziel = o.join(&ziel_name);
     let c = |v: f64| format!("{:.4}", v.clamp(0.0, 1.0));
+    // Overlay-PNGs als Dateien fuer den Helfer (nach dem Export geloescht).
+    let mut ebenen: Vec<PathBuf> = Vec::new();
+    let mut zusatz: Vec<String> = Vec::new();
+    for (i, ov) in overlays.unwrap_or_default().into_iter().enumerate().take(64) {
+        let png = crate::talk_kern::base64_dekodieren(ov.daten.trim_start_matches("data:image/png;base64,"));
+        if png.len() < 8 || &png[..8] != b"\x89PNG\r\n\x1a\n" || !ov.t0.is_finite() { continue; }
+        let _ = std::fs::create_dir_all(cache_ordner());
+        let datei = cache_ordner().join(format!(".export-{}-{i}.png", std::process::id()));
+        if std::fs::write(&datei, &png).is_err() { continue; }
+        zusatz.push(datei.to_string_lossy().to_string());
+        zusatz.push(format!("{:.3}", ov.t0.max(0.0)));
+        ebenen.push(datei);
+    }
     let mut kind = std::process::Command::new(helfer).arg("export").arg(&quelle).arg(&ziel)
         .arg(format!("{start:.3}")).arg(format!("{ende:.3}")).arg(c(x)).arg(c(y)).arg(c(w)).arg(c(h))
+        .args(&zusatz)
         .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null())
-        .spawn().map_err(|e| e.to_string())?;
+        .spawn().map_err(|e| { for e2 in &ebenen { let _ = std::fs::remove_file(e2); } e.to_string() })?;
     *g = Some((kind.id(), ziel.clone()));
     drop(g);
     let aus = kind.stdout.take();
@@ -251,6 +272,7 @@ pub fn kamera_video_export(app: tauri::AppHandle, name: String, start: f64, ende
             }
         }
         let _ = kind.wait();
+        for e in &ebenen { let _ = std::fs::remove_file(e); }
         if ende.get("fertig").is_none() { let _ = std::fs::remove_file(&ziel); }
         if let Ok(mut g) = EXPORT.lock() { *g = None; }
         let _ = app.emit("kamera-export", ende);

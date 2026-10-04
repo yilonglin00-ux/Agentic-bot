@@ -4651,6 +4651,21 @@ DispatchQueue.global(qos: .userInitiated).async {
             guard z.count == 4 else { break }
             DispatchQueue.main.async {
                 let neu = CGRect(x: z[0], y: z[1], width: z[2], height: z[3])
+                // Leerer Rahmen = ausdrueckliches Verbergen (Shortcut 4). Es
+                // gewinnt IMMER gegen Hover/LARGE/Vollansicht: frueher wurde
+                // daraus bei `istGross` (Zeiger in der Miniatur) wieder der
+                // grosse Rahmen - die Miniatur blieb offen.
+                if neu.width < 2 || neu.height < 2 {
+                    ansicht.hoverWorkItem?.cancel()
+                    ansicht.hoverWorkItem = nil
+                    let warGross = ansicht.istGross
+                    ansicht.istGross = false
+                    if vollAn { vollAn = false; ansicht.navi.titel = naviText; ansicht.navi.pfeil = true; sendeText("VOLL aus") }
+                    sollRahmen = .zero
+                    anzeigen(animiert: false)
+                    if warGross { sendeText("HOVER kompakt") }
+                    return
+                }
                 // Echo der eigenen Lage (die Oberflaeche meldet ihre Zone nach
                 // jedem Hover zurueck): nichts Neues - KEINE zweite Animation.
                 // Gemessen unterbrach sie die laufende Hover-Kurve ~100 ms spaeter.

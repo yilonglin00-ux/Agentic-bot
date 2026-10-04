@@ -227,7 +227,10 @@ pub fn rahmen(x: i32, y: i32, w: i32, h: i32) {
         }
     }
     if let Ok(mut a) = ANZEIGE.lock() {
-        if a.rahmen == [x, y, w, h] {
+        // Verbergen wird immer zugestellt (idempotent im Helfer): ein
+        // Helfer, der wegen Hover gross stehen blieb, bekam den zweiten
+        // Shortcut-4-Druck sonst nie zu sehen.
+        if a.rahmen == [x, y, w, h] && w >= 2 && h >= 2 {
             return;
         }
         a.rahmen = [x, y, w, h];

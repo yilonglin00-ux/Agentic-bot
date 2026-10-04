@@ -123,7 +123,7 @@ if [ -f "$medien_src" ] && command -v swiftc >/dev/null 2>&1; then
   mkdir -p "$(dirname "$medien_bin")"
   if [ ! -x "$medien_bin" ] || [ "$medien_src" -nt "$medien_bin" ]; then
     echo "==> Kamera-Medien-Helfer (swiftc)"
-    swiftc -O -swift-version 5 -o "$medien_bin" "$medien_src" -framework AVFoundation -framework ImageIO
+    swiftc -O -swift-version 5 -o "$medien_bin" "$medien_src" -framework AVFoundation -framework ImageIO -framework QuartzCore
   fi
   codesign --force -s - "$medien_bin" >/dev/null 2>&1 || true
   mkdir -p "$app/Contents/Helpers"
